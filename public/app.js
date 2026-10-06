@@ -193,7 +193,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const activeView = document.querySelector('.view-panel.active');
     if (activeView && !isSuperAdmin) {
       const activeId = activeView.id;
-      if (activeId === 'view-segmentation' || activeId === 'view-simulator' || activeId === 'view-settings') {
+      if (activeId === 'view-segmentation' || activeId === 'view-simulator' || activeId === 'view-settings' || activeId === 'view-system-admin') {
         const overviewBtn = document.querySelector('.nav-item[data-view="view-overview"]');
         if (overviewBtn) overviewBtn.click();
       }
@@ -399,6 +399,10 @@ document.addEventListener('DOMContentLoaded', () => {
       title: 'Portafolio Académico de Extensión',
       subtitle: 'Oferta oficial con fechas de inicio, horarios y enlaces de matrícula directa'
     },
+    'view-system-admin': {
+      title: 'Panel de Control TIC · Métricas del Sistema',
+      subtitle: 'Administración de bases de datos, tokens de IA, WhatsApp Cloud y consola de auditoría'
+    },
     'view-settings': {
       title: 'Configuración & Conexión Meta',
       subtitle: 'Credenciales de Google Gemini e integración oficial con Meta Cloud API'
@@ -407,7 +411,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   window.switchTab = (viewId) => {
     const isSuperAdmin = currentAdvisorUser && (currentAdvisorUser.role_type === 'admin' || (currentAdvisorUser.email && currentAdvisorUser.email.toLowerCase() === 'proyectostic.med@udea.edu.co'));
-    if (!isSuperAdmin && (viewId === 'view-segmentation' || viewId === 'view-simulator' || viewId === 'view-settings')) {
+    if (!isSuperAdmin && (viewId === 'view-segmentation' || viewId === 'view-simulator' || viewId === 'view-settings' || viewId === 'view-system-admin')) {
       viewId = 'view-overview';
     }
 
@@ -435,6 +439,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (viewId === 'view-leads') renderLeads();
     if (viewId === 'view-segmentation') loadSegmentation();
     if (viewId === 'view-portfolio') renderPortfolio();
+    if (viewId === 'view-system-admin') loadSystemAdminMetrics();
   };
 
   navItems.forEach(item => {
@@ -1107,12 +1112,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
             <p class="card-desc">${safeDesc}</p>
           </div>
-          <div class="card-footer">
+          <div class="card-footer" style="display:flex; justify-content:space-between; align-items:center; gap:0.5rem; flex-wrap:wrap;">
             <span class="card-investment">${safeInvest}</span>
-            <a href="${safeLink}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm">
-              <span>Portal Oficial</span>
-              <svg class="mini-svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-            </a>
+            <div style="display:flex; gap:0.4rem; align-items:center;">
+              <a href="${safeLink}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm" title="Página web de información en Extensión UdeA">
+                <span>Información</span>
+              </a>
+              ${item.payment_link ? `
+                <a href="${encodeURI(item.payment_link)}" target="_blank" rel="noopener" class="btn btn-primary btn-sm" style="background:#047857; border-color:#047857; padding:0.35rem 0.65rem;" title="Enlace directo del botón de Inscripciones / Pago UdeA">
+                  <span>Inscripción</span>
+                  <svg class="mini-svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+                </a>
+              ` : ''}
+            </div>
           </div>
         </div>
       `;
@@ -1207,7 +1219,8 @@ document.addEventListener('DOMContentLoaded', () => {
         start_date: document.getElementById('courseStartDate').value.trim(),
         schedule: document.getElementById('courseSchedule').value.trim(),
         description: document.getElementById('courseDesc').value.trim(),
-        registration_link: 'https://extension.medicinaudea.co',
+        registration_link: (document.getElementById('courseRegLink') && document.getElementById('courseRegLink').value.trim()) || 'https://extension.medicinaudea.co',
+        payment_link: (document.getElementById('coursePaymentLink') && document.getElementById('coursePaymentLink').value.trim()) || 'https://asone.udea.edu.co/portafolio/',
         contact_email: 'aprendizajes.med@udea.edu.co'
       };
 
@@ -1308,6 +1321,153 @@ document.addEventListener('DOMContentLoaded', () => {
   if (crmSearchInput) crmSearchInput.addEventListener('input', renderLeads);
   if (btnRefreshLeads) btnRefreshLeads.addEventListener('click', () => { fetchLeads(); loadTelemetry(); });
   if (btnGlobalRefresh) btnGlobalRefresh.addEventListener('click', () => { fetchLeads(); fetchPortfolio(); loadTelemetry(); });
+
+  // ========================================================
+  // PANEL DE CONTROL Y ADMINISTRACIÓN TIC (EXCLUSIVO SUPER ADMIN)
+  // ========================================================
+  async function loadSystemAdminMetrics() {
+    try {
+      const token = localStorage.getItem('udea_auth_token');
+      const res = await fetch('/api/admin/system-stats', {
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        }
+      });
+      if (!res.ok) {
+        console.warn('Acceso no autorizado a métricas del sistema.');
+        return;
+      }
+      const data = await res.json();
+
+      // 1. Base de Datos
+      const dbData = data.database;
+      if (document.getElementById('sysDbSize')) document.getElementById('sysDbSize').textContent = dbData.sizeFormatted || '--';
+      if (document.getElementById('sysDbPath')) document.getElementById('sysDbPath').textContent = dbData.filePath || '--';
+      if (document.getElementById('sysDbLeads')) document.getElementById('sysDbLeads').textContent = dbData.tables.leads.total;
+      if (document.getElementById('sysDbMessages')) document.getElementById('sysDbMessages').textContent = dbData.tables.messages.total;
+      if (document.getElementById('sysDbCourses')) document.getElementById('sysDbCourses').textContent = dbData.tables.knowledge.total;
+      if (document.getElementById('sysDbPaymentLinks')) document.getElementById('sysDbPaymentLinks').textContent = dbData.tables.knowledge.withPaymentLink;
+      if (document.getElementById('sysDbAdvisors')) document.getElementById('sysDbAdvisors').textContent = dbData.tables.advisorsCount;
+      if (document.getElementById('sysDbAuditCount')) document.getElementById('sysDbAuditCount').textContent = dbData.tables.totalAuditLogs;
+
+      // 2. IA y Tokens
+      const aiData = data.ai;
+      if (document.getElementById('sysAiTotalTokens')) document.getElementById('sysAiTotalTokens').textContent = (aiData.totalEstimatedTokens || 0).toLocaleString();
+      if (document.getElementById('sysAiInTokens')) document.getElementById('sysAiInTokens').textContent = (aiData.estimatedInputTokens || 0).toLocaleString();
+      if (document.getElementById('sysAiOutTokens')) document.getElementById('sysAiOutTokens').textContent = (aiData.estimatedOutputTokens || 0).toLocaleString();
+      if (document.getElementById('sysAiSuccessCalls')) document.getElementById('sysAiSuccessCalls').textContent = aiData.geminiSuccess || 0;
+      if (document.getElementById('sysAiLocalCalls')) document.getElementById('sysAiLocalCalls').textContent = aiData.localFallback || 0;
+      if (document.getElementById('sysAiLastModel')) document.getElementById('sysAiLastModel').textContent = aiData.lastUsedModel || 'Ninguno aún';
+      if (document.getElementById('sysAiKeyStatus')) document.getElementById('sysAiKeyStatus').textContent = aiData.hasApiKey ? 'Activa y Configurada ✅' : 'Sin Configurar (Modo Contingencia)';
+
+      const poolContainer = document.getElementById('sysAiModelPoolContainer');
+      if (poolContainer && aiData.activeModelPool) {
+        poolContainer.innerHTML = aiData.activeModelPool.map(m => {
+          const isActive = m === aiData.lastUsedModel;
+          const count = (aiData.modelStats && aiData.modelStats[m]) ? ` (${aiData.modelStats[m]})` : '';
+          return `<span class="model-chip ${isActive ? 'active' : ''}">${escapeHtml(m)}${count}</span>`;
+        }).join('');
+      }
+
+      // 3. WhatsApp y Meta Facturación
+      const waData = data.whatsapp;
+      if (document.getElementById('sysWaConversations')) document.getElementById('sysWaConversations').textContent = `${waData.conversationsMonth} / ${waData.monthlyLimit}`;
+      if (document.getElementById('sysWaPercent')) document.getElementById('sysWaPercent').textContent = `${waData.usagePercent}%`;
+      const pBar = document.getElementById('sysWaProgressBar');
+      if (pBar) pBar.style.width = `${Math.min(100, waData.usagePercent)}%`;
+      if (document.getElementById('sysWaKillSwitch')) document.getElementById('sysWaKillSwitch').textContent = waData.killSwitchStatus;
+      if (document.getElementById('sysWaPhoneId')) document.getElementById('sysWaPhoneId').textContent = waData.metaPhoneId;
+      if (document.getElementById('sysWaWabaId')) document.getElementById('sysWaWabaId').textContent = waData.metaWabaId;
+
+      // 4. Recursos del Servidor
+      const srvData = data.server;
+      if (document.getElementById('sysServerEnv')) document.getElementById('sysServerEnv').textContent = srvData.environment;
+      if (document.getElementById('sysServerUptime')) document.getElementById('sysServerUptime').textContent = `Uptime: ${srvData.uptimeFormatted}`;
+      if (document.getElementById('sysHeapMemory')) document.getElementById('sysHeapMemory').textContent = `${srvData.heapUsedMb} MB`;
+      if (document.getElementById('sysHeapTotal')) document.getElementById('sysHeapTotal').textContent = `${srvData.heapTotalMb} MB`;
+      if (document.getElementById('sysRssMemory')) document.getElementById('sysRssMemory').textContent = `${srvData.rssMb} MB`;
+      if (document.getElementById('sysNodeVer')) document.getElementById('sysNodeVer').textContent = srvData.nodeVersion;
+      if (document.getElementById('sysUptimeDetail')) document.getElementById('sysUptimeDetail').textContent = srvData.uptimeFormatted;
+
+      // 5. Tabla de Auditoría
+      const auditTableBody = document.getElementById('sysAuditTableBody');
+      const auditBadge = document.getElementById('sysAuditBadgeCount');
+      if (auditBadge) auditBadge.textContent = `${data.auditLogs.length} Registros Recientes`;
+      if (auditTableBody) {
+        if (data.auditLogs.length === 0) {
+          auditTableBody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:1.5rem; color:var(--text-muted);">No hay eventos de auditoría registrados.</td></tr>';
+        } else {
+          auditTableBody.innerHTML = data.auditLogs.map(log => {
+            let detailsFormatted = log.details;
+            try {
+              const parsed = JSON.parse(log.details);
+              detailsFormatted = JSON.stringify(parsed);
+            } catch (e) {}
+            return `
+              <tr>
+                <td><strong>#${log.id}</strong></td>
+                <td style="font-size:0.8rem; color:var(--text-muted);">${new Date(log.timestamp).toLocaleString('es-CO')}</td>
+                <td><span class="badge" style="font-size:0.75rem; background:#f1f5f9; color:var(--udea-dark);">${escapeHtml(log.event)}</span></td>
+                <td style="font-family:'JetBrains Mono', monospace; font-size:0.75rem; color:#475569; max-width:350px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${escapeHtml(detailsFormatted)}">
+                  ${escapeHtml(detailsFormatted)}
+                </td>
+              </tr>
+            `;
+          }).join('');
+        }
+      }
+    } catch (err) {
+      console.error('Error al cargar métricas del sistema:', err);
+    }
+  }
+
+  const btnRefreshSystemStats = document.getElementById('btnRefreshSystemStats');
+  if (btnRefreshSystemStats) {
+    btnRefreshSystemStats.addEventListener('click', () => {
+      btnRefreshSystemStats.classList.add('loading');
+      loadSystemAdminMetrics().finally(() => {
+        btnRefreshSystemStats.classList.remove('loading');
+      });
+    });
+  }
+
+  const btnForceBackup = document.getElementById('btnForceBackup');
+  if (btnForceBackup) {
+    btnForceBackup.addEventListener('click', async () => {
+      try {
+        btnForceBackup.disabled = true;
+        const token = localStorage.getItem('udea_auth_token');
+        const res = await fetch('/api/admin/backup-now', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+          }
+        });
+        const data = await res.json();
+        if (data.success) {
+          alert(`Respaldo persistente generado con éxito: ${data.count} programas guardados en JSON para Vercel.`);
+          loadSystemAdminMetrics();
+        } else {
+          alert('Error al generar respaldo: ' + (data.error || 'Desconocido'));
+        }
+      } catch (e) {
+        alert('Error de conexión: ' + e.message);
+      } finally {
+        btnForceBackup.disabled = false;
+      }
+    });
+  }
+
+  const btnAdminSyncWebPortfolio = document.getElementById('btnAdminSyncWebPortfolio');
+  if (btnAdminSyncWebPortfolio) {
+    btnAdminSyncWebPortfolio.addEventListener('click', () => {
+      if (btnSyncWeb) {
+        btnSyncWeb.click();
+      }
+    });
+  }
 
   // Control de Acceso: Verificar si el asesor está autenticado para mostrar Landing o Dashboard
   function checkAuthAndInit() {

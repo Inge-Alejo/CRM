@@ -26,7 +26,8 @@ export class KnowledgeBaseService {
       prompt += `MODALIDAD: ${item.modality || 'Virtual'}\n`;
       prompt += `DURACIÓN: ${item.duration_hours} horas\n`;
       prompt += `INVERSIÓN: ${item.investment || 'Consultar'}\n`;
-      prompt += `ENLACE DE INSCRIPCIÓN: ${item.registration_link || 'https://reune.udea.edu.co'}\n`;
+      prompt += `ENLACE DE INFORMACIÓN (EXTENSIÓN): ${item.registration_link || 'https://extension.medicinaudea.co'}\n`;
+      prompt += `ENLACE DE PAGO / INSCRIPCIÓN DIRECTA: ${item.payment_link || item.registration_link || 'https://asone.udea.edu.co/portafolio/'}\n`;
       prompt += `CORREO DE CONTACTO: ${item.contact_email || 'extensionmedicina@udea.edu.co'}\n`;
       prompt += `DESCRIPCIÓN Y CONTENIDO: ${item.description}\n`;
       prompt += `====================================================\n\n`;
@@ -42,15 +43,16 @@ export class KnowledgeBaseService {
     const stmt = db.prepare(`
       INSERT INTO knowledge_items (
         code, title, category, target_audience, modality,
-        duration_hours, investment, start_date, schedule, registration_link, contact_email, description
+        duration_hours, investment, start_date, schedule, registration_link, payment_link, contact_email, description
       ) VALUES (
         @code, @title, @category, @target_audience, @modality,
-        @duration_hours, @investment, @start_date, @schedule, @registration_link, @contact_email, @description
+        @duration_hours, @investment, @start_date, @schedule, @registration_link, @payment_link, @contact_email, @description
       )
     `);
     return stmt.run({
       start_date: data.start_date || 'Inicia: Noviembre 2026',
       schedule: data.schedule || 'Encuentros sincrónicos virtuales',
+      payment_link: data.payment_link || 'https://asone.udea.edu.co/portafolio/',
       ...data
     });
   }
@@ -64,13 +66,14 @@ export class KnowledgeBaseService {
       SET title = @title, category = @category, target_audience = @target_audience,
           modality = @modality, duration_hours = @duration_hours, investment = @investment,
           start_date = @start_date, schedule = @schedule,
-          registration_link = @registration_link, contact_email = @contact_email, description = @description
+          registration_link = @registration_link, payment_link = @payment_link, contact_email = @contact_email, description = @description
       WHERE id = @id
     `);
     return stmt.run({
       id,
       start_date: data.start_date || 'Inicia: Noviembre 2026',
       schedule: data.schedule || 'Encuentros sincrónicos',
+      payment_link: data.payment_link || 'https://asone.udea.edu.co/portafolio/',
       ...data
     });
   }

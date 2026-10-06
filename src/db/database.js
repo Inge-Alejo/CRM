@@ -1,5 +1,6 @@
 import { DatabaseSync } from 'node:sqlite';
 import path from 'node:path';
+import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -64,6 +65,7 @@ export function initDatabase() {
       duration_hours INTEGER,
       investment TEXT,
       registration_link TEXT,
+      payment_link TEXT,
       contact_email TEXT,
       description TEXT NOT NULL,
       start_date TEXT,
@@ -115,13 +117,16 @@ export function initDatabase() {
  * Migraciones idempotentes para bases de datos SQLite preexistentes
  */
 function applySchemaMigrations() {
-  // 1. Migración para knowledge_items (start_date, schedule)
+  // 1. Migración para knowledge_items (start_date, schedule, payment_link)
   const kiCols = db.prepare('PRAGMA table_info(knowledge_items)').all().map(c => c.name);
   if (!kiCols.includes('start_date')) {
     db.exec(`ALTER TABLE knowledge_items ADD COLUMN start_date TEXT;`);
   }
   if (!kiCols.includes('schedule')) {
     db.exec(`ALTER TABLE knowledge_items ADD COLUMN schedule TEXT;`);
+  }
+  if (!kiCols.includes('payment_link')) {
+    db.exec(`ALTER TABLE knowledge_items ADD COLUMN payment_link TEXT;`);
   }
 
   // 2. Migración para leads (asesores, segmentación y notas)
@@ -216,11 +221,11 @@ function seedAdvisors() {
  * Asigna fechas, horarios e inversiones oficiales verificadas desde el portal de Medicina UdeA
  */
 function updateDefaultCourseDates() {
-  const items = db.prepare('SELECT id, code, title, modality, start_date, schedule, investment FROM knowledge_items').all();
+  const items = db.prepare('SELECT id, code, title, modality, start_date, schedule, investment, payment_link FROM knowledge_items').all();
   
   const updateStmt = db.prepare(`
     UPDATE knowledge_items
-    SET start_date = ?, schedule = ?, investment = ?
+    SET start_date = ?, schedule = ?, investment = ?, payment_link = ?
     WHERE id = ?
   `);
 
@@ -231,70 +236,151 @@ function updateDefaultCourseDates() {
     let startDate = item.start_date;
     let schedule = item.schedule;
     let investment = item.investment;
+    let paymentLink = item.payment_link;
 
-    if (codeLower.includes('pediatria') || titleLower.includes('pediatría')) {
+    if (codeLower.includes('sueno') || titleLower.includes('sueño')) {
+      startDate = 'Inicia: 1 de febrero al 30 de junio de 2027';
+      schedule = 'Virtual sincrónico los Jueves 6:00 p.m. - 9:00 p.m. + Plataforma 24/7';
+      investment = '$3.350.000 COP';
+      paymentLink = 'https://asone.udea.edu.co/portafolio/#/catalog/inscription-form/60035?events-true=';
+    } else if (codeLower.includes('pediatria') || titleLower.includes('pediatría')) {
       startDate = 'Inicia: 11 al 13 de febrero de 2027';
       schedule = 'Jornadas académicas en Auditorio Centro Comercial San Diego, Medellín';
       investment = '$300.000 COP';
+      paymentLink = paymentLink || 'https://asone.udea.edu.co/portafolio/';
     } else if (codeLower.includes('anestesi') || titleLower.includes('anestesiología')) {
       startDate = 'Inicia: 12 al 14 de noviembre de 2026';
       schedule = 'Campus Medellín UdeA (Carrera 51D # 62-29)';
       investment = '$300.000 COP';
+      paymentLink = paymentLink || 'https://asone.udea.edu.co/portafolio/';
     } else if (codeLower.includes('neuro') || titleLower.includes('neurocirugía')) {
       startDate = 'Fecha: 23 de octubre de 2026';
       schedule = 'Jornada académica intensiva (Campus UdeA)';
       investment = '$170.000 COP';
-    } else if (codeLower.includes('sueno') || titleLower.includes('sueño')) {
-      startDate = 'Inicia: 1 de febrero al 30 de junio de 2027';
-      schedule = 'Virtual sincrónico los Jueves 6:00 p.m. - 9:00 p.m. + Plataforma 24/7';
-      investment = '$3.350.000 COP';
+      paymentLink = paymentLink || 'https://asone.udea.edu.co/portafolio/';
     } else if (codeLower.includes('acls') || titleLower.includes('avanzado') || titleLower.includes('soporte vital básico y avanzado')) {
       startDate = 'Inicia: 22 al 30 de octubre de 2026';
       schedule = 'Centro de Simulación Médica UdeA Sede Robledo';
       investment = '$850.000 COP';
+      paymentLink = paymentLink || 'https://asone.udea.edu.co/portafolio/';
     } else if (codeLower.includes('soporte vital básico') || (titleLower.includes('soporte vital') && !titleLower.includes('avanzado'))) {
       startDate = 'Inicia: 9 al 16 de octubre de 2026';
       schedule = 'Práctica intensiva en Centro de Simulación Médica Robledo';
       investment = '$250.000 COP';
+      paymentLink = paymentLink || 'https://asone.udea.edu.co/portafolio/';
     } else if (codeLower.includes('fucsia') || titleLower.includes('fucsia')) {
       startDate = 'Inicia: 2 al 28 de noviembre de 2026';
       schedule = 'Virtual con acompañamiento docente en AprendeEnLínea UdeA';
       investment = '$150.000 COP';
+      paymentLink = paymentLink || 'https://asone.udea.edu.co/portafolio/';
     } else if (codeLower.includes('buenas practicas') || titleLower.includes('buenas prácticas')) {
       startDate = 'Inicia: 2 al 28 de noviembre de 2026';
       schedule = 'Virtual a través de la plataforma de la Facultad de Medicina';
       investment = '$150.000 COP';
+      paymentLink = paymentLink || 'https://asone.udea.edu.co/portafolio/';
     } else if (codeLower.includes('organos') || titleLower.includes('donante')) {
       startDate = 'Inicia: 2 al 28 de noviembre de 2026';
       schedule = 'Virtual con encuentros sincrónicos';
       investment = '$300.000 COP';
+      paymentLink = paymentLink || 'https://asone.udea.edu.co/portafolio/';
     } else if (codeLower.includes('papsivi') || titleLower.includes('conflicto armado')) {
       startDate = 'Inicia: 2 al 27 de noviembre de 2026';
       schedule = 'Virtual con enfoque psicosocial y tutoría especializada';
       investment = '$150.000 COP';
+      paymentLink = paymentLink || 'https://asone.udea.edu.co/portafolio/';
     } else if (codeLower.includes('omicas') || titleLower.includes('ómicas')) {
       startDate = 'Inicia: 25 de julio al 12 de diciembre de 2026';
       schedule = 'Miércoles y Viernes 6:00 p.m. - 8:30 p.m. (AprendeEnLínea UdeA)';
       investment = '$3.100.000 COP';
+      paymentLink = paymentLink || 'https://asone.udea.edu.co/portafolio/';
     } else if (codeLower.includes('parto') || titleLower.includes('parto')) {
       startDate = 'Inicia: 13 de julio al 31 de octubre de 2026';
       schedule = 'Martes 5:00 p.m. - 9:00 p.m. + Talleres en Centro de Simulación';
       investment = '$1.800.000 COP';
+      paymentLink = paymentLink || 'https://asone.udea.edu.co/portafolio/';
     } else if (codeLower.includes('endocrino') || titleLower.includes('endocrinología')) {
       startDate = 'Inicia: 1 de junio al 20 de noviembre de 2026';
       schedule = 'Viernes 5:00 p.m. - 9:00 p.m.';
       investment = '$2.800.000 COP';
+      paymentLink = paymentLink || 'https://asone.udea.edu.co/portafolio/';
     } else if (!startDate || startDate.includes('Noviembre 2026')) {
       startDate = 'Inscripciones abiertas (Ver cohorte y calendario en enlace oficial)';
       schedule = 'Consultar programación detallada en el portal de extensión';
+      paymentLink = paymentLink || 'https://asone.udea.edu.co/portafolio/';
     }
 
-    updateStmt.run(startDate, schedule, investment, item.id);
+    if (!paymentLink) {
+      paymentLink = 'https://asone.udea.edu.co/portafolio/';
+    }
+
+    updateStmt.run(startDate, schedule, investment, paymentLink, item.id);
   }
 }
 
 function seedKnowledgeBase() {
   const existingCount = db.prepare('SELECT COUNT(*) as c FROM knowledge_items').get()?.c || 0;
+  
+  // 1. Verificar si existe respaldo JSON sincronizado previamente (para persistencia en Vercel)
+  const backupPaths = [
+    path.join(__dirname, 'knowledge_backup.json'),
+    path.join('/tmp', 'knowledge_backup.json')
+  ];
+
+  for (const bPath of backupPaths) {
+    if (fs.existsSync(bPath)) {
+      try {
+        const raw = fs.readFileSync(bPath, 'utf8');
+        const backupData = JSON.parse(raw);
+        if (Array.isArray(backupData) && backupData.length > 0) {
+          console.log(`📦 [RESTORE VERCEL/DB]: Restaurando catálogo oficial (${backupData.length} programas) desde ${bPath}`);
+          const upsertBackup = db.prepare(`
+            INSERT INTO knowledge_items (
+              code, title, category, target_audience, modality,
+              duration_hours, investment, start_date, schedule, registration_link, payment_link, contact_email, description, is_active
+            ) VALUES (
+              @code, @title, @category, @target_audience, @modality,
+              @duration_hours, @investment, @start_date, @schedule, @registration_link, @payment_link, @contact_email, @description, 1
+            )
+            ON CONFLICT(code) DO UPDATE SET
+              title = excluded.title,
+              category = excluded.category,
+              target_audience = excluded.target_audience,
+              modality = excluded.modality,
+              duration_hours = excluded.duration_hours,
+              investment = excluded.investment,
+              start_date = excluded.start_date,
+              schedule = excluded.schedule,
+              registration_link = excluded.registration_link,
+              payment_link = excluded.payment_link,
+              description = excluded.description,
+              is_active = 1
+          `);
+
+          for (const item of backupData) {
+            upsertBackup.run({
+              code: item.code,
+              title: item.title,
+              category: item.category || 'Curso',
+              target_audience: item.target_audience || 'Profesionales de la salud y áreas afines.',
+              modality: item.modality || 'Virtual',
+              duration_hours: parseInt(item.duration_hours || 40, 10),
+              investment: item.investment || 'Consultar en portal oficial',
+              start_date: item.start_date || 'Inscripciones abiertas',
+              schedule: item.schedule || 'Consultar programación oficial',
+              registration_link: item.registration_link || 'https://extension.medicinaudea.co',
+              payment_link: item.payment_link || 'https://asone.udea.edu.co/portafolio/',
+              contact_email: item.contact_email || 'aprendizajes.med@udea.edu.co',
+              description: item.description || ''
+            });
+          }
+          return;
+        }
+      } catch (err) {
+        console.warn('Aviso: No se pudo restaurar knowledge_backup.json:', err.message);
+      }
+    }
+  }
+
   if (existingCount > 0) return;
 
   const seedData = [
@@ -305,10 +391,11 @@ function seedKnowledgeBase() {
       target_audience: 'Médicos generales, neurólogos, neumólogos, psiquiatras y profesionales afines.',
       modality: 'Virtual con encuentros sincrónicos',
       duration_hours: 120,
-      investment: '$2.900.000 COP',
-      start_date: 'Inicia: 14 de Noviembre 2026 (Cohorte Virtual)',
-      schedule: 'Jueves 6:00 p.m. - 9:00 p.m. + Plataforma 24/7',
+      investment: '$3.350.000 COP',
+      start_date: 'Inicia: 1 de febrero al 30 de junio de 2027',
+      schedule: 'Virtual sincrónico los Jueves 6:00 p.m. - 9:00 p.m. + Plataforma 24/7',
       registration_link: 'https://extension.medicinaudea.co/eventos/medicina-del-sueno/',
+      payment_link: 'https://asone.udea.edu.co/portafolio/#/catalog/inscription-form/60035?events-true=',
       contact_email: 'aprendizajes.med@udea.edu.co',
       description: 'Aborda la fisiología del sueño, polisomnografía, diagnóstico y tratamiento de trastornos respiratorios del sueño, insomnio y parasomnias.'
     },
@@ -319,10 +406,11 @@ function seedKnowledgeBase() {
       target_audience: 'Médicos, biólogos, bacteriólogos, bioinformáticos y profesionales biomédicos.',
       modality: 'Virtual (Plataforma AprendeEnLínea UdeA)',
       duration_hours: 100,
-      investment: '$2.600.000 COP',
-      start_date: 'Inicia: 28 de Noviembre 2026',
+      investment: '$3.100.000 COP',
+      start_date: 'Inicia: 25 de julio al 12 de diciembre de 2026',
       schedule: 'Miércoles y Viernes 6:00 p.m. - 8:30 p.m.',
       registration_link: 'https://extension.medicinaudea.co/eventos/ciencias-omicas-aplicadas/',
+      payment_link: 'https://asone.udea.edu.co/portafolio/',
       contact_email: 'aprendizajes.med@udea.edu.co',
       description: 'Genómica, transcriptómica, proteómica y bioinformática para el análisis de secuenciación de nueva generación (NGS) en salud humana.'
     },
@@ -334,9 +422,10 @@ function seedKnowledgeBase() {
       modality: 'Híbrida (Virtual + Talleres de simulación en Medellín)',
       duration_hours: 80,
       investment: '$1.800.000 COP',
-      start_date: 'Inicia: 18 de Noviembre 2026',
+      start_date: 'Inicia: 13 de julio al 31 de octubre de 2026',
       schedule: 'Martes 5:00 p.m. - 9:00 p.m. + Talleres en Centro de Simulación',
       registration_link: 'https://extension.medicinaudea.co/eventos/parto-seguro/',
+      payment_link: 'https://asone.udea.edu.co/portafolio/',
       contact_email: 'aprendizajes.med@udea.edu.co',
       description: 'Reducción de morbimortalidad materna y perinatal, humanización del parto, código rojo (hemorragia), preeclampsia y reanimación neonatal.'
     },
@@ -347,10 +436,11 @@ function seedKnowledgeBase() {
       target_audience: 'Médicos, enfermeros profesionales y personal asistencial de áreas críticas.',
       modality: 'Presencial (Centro de Simulación Médica UdeA Sede Robledo)',
       duration_hours: 16,
-      investment: '$980.000 COP (Incluye certificación oficial AHA por 2 años y libro)',
-      start_date: 'Próxima cohorte: 21 y 22 de Noviembre 2026 (Presencial Robledo)',
+      investment: '$850.000 COP (Incluye certificación oficial AHA por 2 años y libro)',
+      start_date: 'Inicia: 22 al 30 de octubre de 2026',
       schedule: 'Sábado y Domingo intensivo 8:00 a.m. - 5:00 p.m. (16 horas prácticas)',
       registration_link: 'https://extension.medicinaudea.co/eventos/soporte-vital-basico-y-avanzado-4/',
+      payment_link: 'https://asone.udea.edu.co/portafolio/',
       contact_email: 'simulacionmedicina@udea.edu.co',
       description: 'Certificación oficial de la American Heart Association en RCP de alta calidad, arritmias peri-paro, síndromes coronarios agudos y ACV.'
     },
@@ -361,10 +451,11 @@ function seedKnowledgeBase() {
       target_audience: 'Personal médico, enfermería, trabajo social y psicología.',
       modality: 'Virtual (Plataforma AprendeEnLínea)',
       duration_hours: 40,
-      investment: '$380.000 COP',
-      start_date: 'Inscripciones permanentes 2026 (Inicio inmediato autogestionado)',
+      investment: '$150.000 COP',
+      start_date: 'Inicia: 2 al 28 de noviembre de 2026',
       schedule: 'Virtual 100% asincrónico a tu propio ritmo (40 horas certificadas)',
       registration_link: 'https://extension.medicinaudea.co/eventos/codigo-fucsia/',
+      payment_link: 'https://asone.udea.edu.co/portafolio/',
       contact_email: 'aprendizajes.med@udea.edu.co',
       description: 'Capacitación obligatoria según Resolución 459: profilaxis postexposición, cadena de custodia y primeros auxilios psicológicos.'
     }
@@ -373,10 +464,10 @@ function seedKnowledgeBase() {
   const insertStmt = db.prepare(`
     INSERT INTO knowledge_items (
       code, title, category, target_audience, modality,
-      duration_hours, investment, start_date, schedule, registration_link, contact_email, description
+      duration_hours, investment, start_date, schedule, registration_link, payment_link, contact_email, description
     ) VALUES (
       @code, @title, @category, @target_audience, @modality,
-      @duration_hours, @investment, @start_date, @schedule, @registration_link, @contact_email, @description
+      @duration_hours, @investment, @start_date, @schedule, @registration_link, @payment_link, @contact_email, @description
     )
   `);
 

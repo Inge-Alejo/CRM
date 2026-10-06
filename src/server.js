@@ -95,6 +95,7 @@ app.get('/webhook', (req, res) => MetaCloudAdapter.handleVerification(req, res))
 app.post('/webhook', (req, res) => MetaCloudAdapter.handleIncomingMessage(req, res));
 
 import { ScraperService } from './domain/scraperService.js';
+import { SystemStatsService } from './domain/systemStatsService.js';
 
 // ==========================================
 // RUTAS API PARA EL DASHBOARD CRM
@@ -405,7 +406,7 @@ app.get('/api/knowledge', (req, res) => {
 
 app.post('/api/knowledge', requireAdmin, (req, res) => {
   try {
-    const { code, title, category, target_audience, modality, duration_hours, investment, start_date, schedule, registration_link, contact_email, description } = req.body;
+    const { code, title, category, target_audience, modality, duration_hours, investment, start_date, schedule, registration_link, payment_link, contact_email, description } = req.body;
     KnowledgeBaseService.addItem({
       code: SecurityGuardrails.sanitizeInput(code),
       title: SecurityGuardrails.sanitizeInput(title),
@@ -417,12 +418,43 @@ app.post('/api/knowledge', requireAdmin, (req, res) => {
       start_date: SecurityGuardrails.sanitizeInput(start_date || 'Inicia: Noviembre 2026'),
       schedule: SecurityGuardrails.sanitizeInput(schedule || 'Encuentros sincrónicos virtuales'),
       registration_link: SecurityGuardrails.sanitizeInput(registration_link),
+      payment_link: SecurityGuardrails.sanitizeInput(payment_link || 'https://asone.udea.edu.co/portafolio/'),
       contact_email: SecurityGuardrails.sanitizeInput(contact_email),
       description: SecurityGuardrails.sanitizeInput(description)
     });
     res.json({ success: true });
   } catch (err) {
     res.status(400).json({ error: err.message });
+  }
+});
+
+// Panel de Control TIC: Métricas consolidadas (Base de datos, IA, Tokens, WhatsApp, Logs)
+app.get('/api/admin/system-stats', requireAdmin, (req, res) => {
+  try {
+    const metrics = SystemStatsService.getSystemMetrics();
+    res.json(metrics);
+  } catch (err) {
+    console.error('Error al generar métricas de administración TIC:', err);
+    res.status(500).json({ error: 'Error al consultar métricas del sistema.' });
+  }
+});
+
+// Forzar guardado de respaldo JSON persistente para Vercel
+app.post('/api/admin/backup-now', requireAdmin, (req, res) => {
+  try {
+    const allActive = KnowledgeBaseService.getActiveItems();
+    const backupPath = path.resolve(__dirname, 'db/knowledge_backup.json');
+    import('node:fs').then(fsModule => {
+      fsModule.writeFileSync(backupPath, JSON.stringify(allActive, null, 2), 'utf8');
+      if (process.env.VERCEL) {
+        fsModule.writeFileSync('/tmp/knowledge_backup.json', JSON.stringify(allActive, null, 2), 'utf8');
+      }
+      res.json({ success: true, count: allActive.length, timestamp: new Date().toISOString() });
+    }).catch(err => {
+      res.status(500).json({ error: err.message });
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 

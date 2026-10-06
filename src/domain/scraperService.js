@@ -1,5 +1,10 @@
 import https from 'node:https';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { db } from '../db/database.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export class ScraperService {
   /**
@@ -20,7 +25,13 @@ export class ScraperService {
       'https://extension.medicinaudea.co/categoria/curso-de-actualizacion-2026/'
     ];
 
-    const eventUrls = new Set();
+    const eventUrls = new Set([
+      'https://extension.medicinaudea.co/eventos/medicina-del-sueno/',
+      'https://extension.medicinaudea.co/eventos/ciencias-omicas-aplicadas/',
+      'https://extension.medicinaudea.co/eventos/parto-seguro/',
+      'https://extension.medicinaudea.co/eventos/soporte-vital-basico-y-avanzado-4/',
+      'https://extension.medicinaudea.co/eventos/codigo-fucsia/'
+    ]);
 
     for (const url of discoveryUrls) {
       try {
@@ -70,10 +81,10 @@ export class ScraperService {
     const upsertStmt = db.prepare(`
       INSERT INTO knowledge_items (
         code, title, category, target_audience, modality,
-        duration_hours, investment, start_date, schedule, registration_link, contact_email, description, is_active
+        duration_hours, investment, start_date, schedule, registration_link, payment_link, contact_email, description, is_active
       ) VALUES (
         @code, @title, @category, @target_audience, @modality,
-        @duration_hours, @investment, @start_date, @schedule, @registration_link, @contact_email, @description, 1
+        @duration_hours, @investment, @start_date, @schedule, @registration_link, @payment_link, @contact_email, @description, 1
       )
       ON CONFLICT(code) DO UPDATE SET
         title = excluded.title,
@@ -85,12 +96,26 @@ export class ScraperService {
         start_date = excluded.start_date,
         schedule = excluded.schedule,
         registration_link = excluded.registration_link,
+        payment_link = excluded.payment_link,
         description = excluded.description,
         is_active = 1
     `);
 
     for (const prog of scrapedPrograms) {
       upsertStmt.run(prog);
+    }
+
+    // Persistir todos los programas sincronizados en knowledge_backup.json para que en Vercel no se pierdan
+    try {
+      const allActive = db.prepare('SELECT * FROM knowledge_items WHERE is_active = 1').all();
+      const backupPath = path.resolve(__dirname, '../db/knowledge_backup.json');
+      fs.writeFileSync(backupPath, JSON.stringify(allActive, null, 2), 'utf8');
+      if (process.env.VERCEL) {
+        fs.writeFileSync('/tmp/knowledge_backup.json', JSON.stringify(allActive, null, 2), 'utf8');
+      }
+      console.log(`💾 [RESPALDO PERSISTENTE VERCEL]: Guardados ${allActive.length} programas en ${backupPath}`);
+    } catch (bErr) {
+      console.warn('Aviso: No se pudo escribir knowledge_backup.json:', bErr.message);
     }
 
     // 4. Registro de auditoría
@@ -112,7 +137,8 @@ export class ScraperService {
         title: p.title,
         category: p.category,
         modality: p.modality,
-        specificUrl: p.registration_link
+        specificUrl: p.registration_link,
+        paymentLink: p.payment_link
       }))
     };
   }
@@ -251,6 +277,27 @@ export class ScraperService {
       schedule = 'Sábados intensivos en Centro de Simulación Médica Robledo';
     }
 
+    // 4. Extraer enlace exacto de inscripción / pago desde el botón de inscripción oficial (ej: asone.udea.edu.co)
+    let paymentLink = null;
+    const asoneMatch = html.match(/href=["'](https?:\/\/asone\.udea\.edu\.co\/portafolio\/[^"']+)["']/i);
+    if (asoneMatch) {
+      paymentLink = asoneMatch[1].replace(/&amp;/g, '&').trim();
+    } else {
+      // Buscar etiquetas <a> con texto de Inscripciones, Matrícula o Pagar
+      const inscriptionBtnMatch = html.match(/<a[^>]*href=["']([^"']+)["'][^>]*>[\s\S]*?(?:Inscripciones|Inscribirme|Inscribirse|Pagar|Matr[ií]cula)[\s\S]*?<\/a>/i);
+      if (inscriptionBtnMatch && inscriptionBtnMatch[1]) {
+        const candidateUrl = inscriptionBtnMatch[1].replace(/&amp;/g, '&').trim();
+        if (candidateUrl.includes('asone.udea.edu.co') || candidateUrl.includes('udea.edu.co') || candidateUrl.startsWith('http')) {
+          paymentLink = candidateUrl;
+        }
+      }
+    }
+
+    if (!paymentLink) {
+      // Fallback institucional oficial del portal de extension y portafolio de la Universidad de Antioquia
+      paymentLink = 'https://asone.udea.edu.co/portafolio/';
+    }
+
     return {
       code,
       title,
@@ -261,7 +308,8 @@ export class ScraperService {
       investment,
       start_date: startDate,
       schedule,
-      registration_link: eventUrl, // <-- ¡ENLACE EXACTO RASTREADO EN VIVO!
+      registration_link: eventUrl, // <-- Enlace de Extensión con información general detallada
+      payment_link: paymentLink,   // <-- Enlace directo del botón de Inscripciones / Pago
       contact_email: 'aprendizajes.med@udea.edu.co',
       description
     };
