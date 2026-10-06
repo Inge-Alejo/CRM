@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: crm-whatsapp-udea
+    env: node
+    plan: free
+    region: oregon
+    buildCommand: npm install
+    startCommand: node src/server.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: FREE_TIER_LIMIT
+        value: 950
