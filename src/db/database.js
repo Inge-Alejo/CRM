@@ -3,7 +3,9 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const dbPath = path.resolve(__dirname, '../../crm_database.sqlite');
+const dbPath = process.env.VERCEL 
+  ? path.join('/tmp', 'crm_database.sqlite') 
+  : path.resolve(__dirname, '../../crm_database.sqlite');
 
 export const db = new DatabaseSync(dbPath);
 

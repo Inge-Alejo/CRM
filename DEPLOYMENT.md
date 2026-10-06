@@ -4,25 +4,34 @@ Este proyecto está 100% preparado para estar disponible en tiempo real desde cu
 
 ---
 
-## Opción 1: Render.com (Recomendada - 100% Gratuita con 1 Clic)
+## Opción 1: Vercel (Recomendada con 1 Clic desde GitHub)
 
-Render ofrece hosting web gratuito con soporte completo para Node.js, SQLite, HTTPS automático y dominio público.
+Vercel despliega tu aplicación en segundos a través de Serverless Functions y CDN global.
+
+### Pasos para activar en Vercel:
+1. Ve a **[vercel.com](https://vercel.com/)** e inicia sesión con tu cuenta de GitHub (`Inge-Alejo`).
+2. Haz clic en **"Add New..."** ➡️ **"Project"**.
+3. Busca tu repositorio **`Inge-Alejo/CRM`** y haz clic en **"Import"**.
+4. Vercel detectará automáticamente la configuración a través del archivo `vercel.json` y el entrypoint `api/index.js`.
+5. *(Opcional)* En **Environment Variables**, puedes agregar:
+   - `GEMINI_API_KEY`: Tu clave de Gemini AI (o la configuras luego en el panel).
+6. Haz clic en **"Deploy"**.
+7. En menos de 60 segundos tendrás tu URL pública (por ejemplo: `https://crm-udea.vercel.app`), accesible desde cualquier celular, tablet o PC.
+
+> **Actualización en Tiempo Real:** Cada vez que hagas `git push` a GitHub, Vercel compila y publica la nueva versión automáticamente en tiempo real.
+
+---
+
+## Opción 2: Render.com (Alternativa Gratuita)
+
+Render ofrece hosting web gratuito con soporte completo para procesos en segundo plano y SQLite persistente.
 
 ### Pasos:
 1. Ve a **[render.com](https://render.com/)** e inicia sesión con tu cuenta de GitHub (`Inge-Alejo`).
-2. Haz clic en **"New +"** y selecciona **"Web Service"** (o **"Blueprint"**).
+2. Haz clic en **"New +"** y selecciona **"Web Service"**.
 3. Conecta tu repositorio: **`Inge-Alejo/CRM`**.
-4. Render detectará automáticamente el archivo `render.yaml` o configúralo con:
-   - **Environment:** `Node`
-   - **Build Command:** `npm install`
-   - **Start Command:** `node src/server.js`
-   - **Plan:** `Free`
-5. *(Opcional)* En **Environment Variables**, añade:
-   - `GEMINI_API_KEY`: Tu clave de Google Gemini (si la tienes, o déjala para configurarla desde el panel web).
-6. Haz clic en **"Create Web Service"**.
-7. En menos de 2 minutos tendrás tu URL pública (ejemplo: `https://crm-whatsapp-udea.onrender.com`), lista para usar desde cualquier lugar.
-
-> **Actualización en Tiempo Real:** Cada vez que hagas `git push` a la rama `main`, Render compilará y actualizará la aplicación automáticamente sin que tengas que hacer nada.
+4. Render detectará automáticamente el archivo `render.yaml`.
+5. Haz clic en **"Create Web Service"**.
 
 ---
 

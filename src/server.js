@@ -286,32 +286,40 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Ha ocurrido un error interno en el servidor.' });
 });
 
-// Iniciar servidor
+// Iniciar servidor standalone si no es entorno serverless (Vercel)
 const PORT = config.port;
-const server = app.listen(PORT, () => {
-  console.log(`\n=============================================================`);
-  console.log(`🩺 CRM & CHATBOT WHATSAPP - FACULTAD DE MEDICINA UDEA`);
-  console.log(`🌐 Servidor activo en: http://localhost:${PORT}`);
-  console.log(`🛡️  Modo de seguridad: Kill-Switch activado a ${config.conversationLimit} conv/mes`);
-  console.log(`📱 Simulador en vivo disponible en el panel web`);
-  console.log(`=============================================================\n`);
-});
+let server = null;
 
-// Cierre elegante (Graceful Shutdown)
-function shutdown(signal) {
-  console.log(`\n🛑 Recibida señal ${signal}. Cerrando servidor y base de datos...`);
-  rateLimiter.destroy();
-  server.close(() => {
-    closeDatabase();
-    console.log('✅ Base de datos cerrada y conexiones finalizadas con éxito.');
-    process.exit(0);
+if (!process.env.VERCEL) {
+  server = app.listen(PORT, () => {
+    console.log(`\n=============================================================`);
+    console.log(`🩺 CRM & CHATBOT WHATSAPP - FACULTAD DE MEDICINA UDEA`);
+    console.log(`🌐 Servidor activo en: http://localhost:${PORT}`);
+    console.log(`🛡️  Modo de seguridad: Kill-Switch activado a ${config.conversationLimit} conv/mes`);
+    console.log(`📱 Simulador en vivo disponible en el panel web`);
+    console.log(`=============================================================\n`);
   });
 
-  setTimeout(() => {
-    console.error('⚠️ Forzando cierre del proceso tras 5 segundos.');
-    process.exit(1);
-  }, 5000).unref();
+  // Cierre elegante (Graceful Shutdown)
+  function shutdown(signal) {
+    console.log(`\n🛑 Recibida señal ${signal}. Cerrando servidor y base de datos...`);
+    rateLimiter.destroy();
+    if (server) {
+      server.close(() => {
+        closeDatabase();
+        console.log('✅ Base de datos cerrada y conexiones finalizadas con éxito.');
+        process.exit(0);
+      });
+    }
+
+    setTimeout(() => {
+      console.error('⚠️ Forzando cierre del proceso tras 5 segundos.');
+      process.exit(1);
+    }, 5000).unref();
+  }
+
+  process.on('SIGINT', () => shutdown('SIGINT'));
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
 }
 
-process.on('SIGINT', () => shutdown('SIGINT'));
-process.on('SIGTERM', () => shutdown('SIGTERM'));
+export default app;
