@@ -80,95 +80,65 @@ document.addEventListener('DOMContentLoaded', () => {
   const modalNotesInput = document.getElementById('modalNotesInput');
   const btnSaveNotes = document.getElementById('btnSaveNotes');
 
-  // Auth & Perfil Asesor con Soporte Firebase Authentication
+  // Auth & Perfil Asesor con Firebase Authentication (crm-fdem)
   const topbarAdvisorName = document.getElementById('topbarAdvisorName');
   const topbarAdvisorAvatar = document.getElementById('topbarAdvisorAvatar');
-  const btnOpenLoginModal = document.getElementById('btnOpenLoginModal');
+  const btnSwitchAdvisor = document.getElementById('btnSwitchAdvisor');
+  const btnLogoutAdvisor = document.getElementById('btnLogoutAdvisor');
   const advisorLoginModal = document.getElementById('advisorLoginModal');
   const btnCloseLoginModal = document.getElementById('btnCloseLoginModal');
   const loginAlertBox = document.getElementById('loginAlertBox');
-  const firebaseStatusIndicator = document.getElementById('firebaseStatusIndicator');
-  const firebaseStatusText = document.getElementById('firebaseStatusText');
-
-  // Formularios y Pestañas
-  const tabBtnLogin = document.getElementById('tabBtnLogin');
-  const tabBtnRegister = document.getElementById('tabBtnRegister');
-  const tabBtnQuick = document.getElementById('tabBtnQuick');
-  const tabLogin = document.getElementById('tab-login');
-  const tabRegister = document.getElementById('tab-register');
-  const tabQuick = document.getElementById('tab-quick');
 
   const advisorLoginForm = document.getElementById('advisorLoginForm');
   const loginEmailInput = document.getElementById('loginEmailInput');
   const loginPasswordInput = document.getElementById('loginPasswordInput');
-
-  const advisorRegisterForm = document.getElementById('advisorRegisterForm');
-  const regNameInput = document.getElementById('regNameInput');
-  const regRoleInput = document.getElementById('regRoleInput');
-  const regEmailInput = document.getElementById('regEmailInput');
-  const regPhoneInput = document.getElementById('regPhoneInput');
-  const regPasswordInput = document.getElementById('regPasswordInput');
-
-  const quickAdvisorGrid = document.querySelector('#tab-quick .quick-advisor-grid');
+  const btnLoginSubmit = document.getElementById('btnLoginSubmit');
 
   let allLoadedLeads = [];
   let allPortfolioItems = [];
   let currentActivePhone = null;
 
+  // Configuración oficial de Firebase Auth (crm-fdem)
+  const OFFICIAL_FIREBASE_CONFIG = {
+    apiKey: "AIzaSyCTwp8PaJvGlTYjJnBV7ktvnDeHd8aYemk",
+    authDomain: "crm-fdem.firebaseapp.com",
+    projectId: "crm-fdem",
+    storageBucket: "crm-fdem.firebasestorage.app",
+    messagingSenderId: "191713944750",
+    appId: "1:191713944750:web:f68debb069680dcab8393f",
+    measurementId: "G-TY0MRHK341"
+  };
+
   // Firebase Auth SDK state
   let firebaseAuth = null;
   let firebaseApp = null;
-  let firebaseCreateUser = null;
   let firebaseSignIn = null;
+  let firebaseSignOut = null;
 
-  // Intentar inicializar Firebase Auth si hay credenciales configuradas (Vercel o localStorage)
+  // Inicializar Firebase Auth Oficial
   async function initFirebaseClient() {
-    let configToUse = JSON.parse(localStorage.getItem('udea_firebase_config') || 'null');
-
-    // Si no está en localStorage, intentar obtener desde las variables de entorno de Vercel
-    if (!configToUse || !configToUse.apiKey) {
-      try {
-        const res = await fetch('/api/config/client');
-        const data = await res.json();
-        if (data && data.firebase && data.firebase.apiKey && data.firebase.projectId) {
-          configToUse = data.firebase;
-          if (firebaseApiKeyInput) firebaseApiKeyInput.value = configToUse.apiKey;
-          if (firebaseAuthDomainInput) firebaseAuthDomainInput.value = configToUse.authDomain || '';
-          if (firebaseProjectIdInput) firebaseProjectIdInput.value = configToUse.projectId;
-        }
-      } catch (e) {
-        console.warn('Aviso al consultar config remota:', e.message);
+    let configToUse = OFFICIAL_FIREBASE_CONFIG;
+    try {
+      const res = await fetch('/api/config/client');
+      const data = await res.json();
+      if (data && data.firebase && data.firebase.apiKey) {
+        configToUse = data.firebase;
       }
+    } catch (e) {
+      // Usar OFFICIAL_FIREBASE_CONFIG
     }
 
-    if (configToUse && configToUse.apiKey && configToUse.projectId) {
-      try {
-        const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js');
-        const { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword } = await import('https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js');
-        
-        firebaseApp = initializeApp(configToUse);
-        firebaseAuth = getAuth(firebaseApp);
-        firebaseCreateUser = createUserWithEmailAndPassword;
-        firebaseSignIn = signInWithEmailAndPassword;
-
-        if (firebaseStatusIndicator) {
-          firebaseStatusIndicator.className = 'firebase-status-badge connected';
-        }
-        if (firebaseStatusText) {
-          firebaseStatusText.textContent = `Firebase Conectado (${configToUse.projectId})`;
-        }
-      } catch (err) {
-        console.warn('Aviso: Inicialización de Firebase con fallback local:', err.message);
-        setLocalAuthStatus();
-      }
-    } else {
-      setLocalAuthStatus();
+    try {
+      const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js');
+      const { getAuth, signInWithEmailAndPassword, signOut } = await import('https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js');
+      
+      firebaseApp = initializeApp(configToUse);
+      firebaseAuth = getAuth(firebaseApp);
+      firebaseSignIn = signInWithEmailAndPassword;
+      firebaseSignOut = signOut;
+    } catch (err) {
+      console.warn('Aviso: Inicialización de Firebase con fallback local:', err.message);
     }
-  }
-
-  function setLocalAuthStatus() {
-    if (firebaseStatusIndicator) firebaseStatusIndicator.className = 'firebase-status-badge';
-    if (firebaseStatusText) firebaseStatusText.textContent = 'Auth Sincronizado en Tiempo Real';
   }
 
   // Lista de asesores autorizados de la Facultad de Medicina UdeA
@@ -205,67 +175,60 @@ document.addEventListener('DOMContentLoaded', () => {
     return currentAdvisorUser ? currentAdvisorUser.name : (localStorage.getItem('udea_active_advisor') || 'Dra. Carolina Martínez');
   }
 
-  // Control de Pestañas en Modal de Login / Registro
-  function setupAuthTabs() {
-    const tabs = [
-      { btn: tabBtnLogin, content: tabLogin },
-      { btn: tabBtnRegister, content: tabRegister },
-      { btn: tabBtnQuick, content: tabQuick }
-    ];
-
-    tabs.forEach(({ btn, content }) => {
-      if (!btn || !content) return;
-      btn.addEventListener('click', () => {
-        tabs.forEach(t => {
-          if (t.btn) t.btn.classList.remove('active');
-          if (t.content) t.content.style.display = 'none';
-        });
-        btn.classList.add('active');
-        content.style.display = 'block';
-        if (loginAlertBox) loginAlertBox.style.display = 'none';
-      });
-    });
-  }
-
-  // Acceso Rápido Asesores
+  // Acceso Rápido para Perfiles Autorizados
   function setupQuickAdvisors() {
     const chips = document.querySelectorAll('.quick-adv-chip');
     chips.forEach(chip => {
       chip.addEventListener('click', () => {
         const email = chip.getAttribute('data-email');
-        const match = UDEA_ADVISORS.find(a => a.email === email);
-        if (match) {
-          updateAdvisorUI(match);
-          if (advisorLoginModal) advisorLoginModal.style.display = 'none';
+        if (loginEmailInput) loginEmailInput.value = email;
+        if (loginPasswordInput) {
+          loginPasswordInput.focus();
         }
       });
     });
   }
 
-  // Login handler (Firebase + Backend)
+  // Login handler institucional con Firebase Authentication
   async function performLogin(email, password) {
     try {
       if (loginAlertBox) loginAlertBox.style.display = 'none';
+      if (btnLoginSubmit) {
+        btnLoginSubmit.disabled = true;
+        btnLoginSubmit.textContent = 'Verificando...';
+      }
 
-      // 1. Si Firebase Auth está activo, autenticar con Firebase
+      let firebaseVerified = false;
+
+      // 1. Verificación segura contra Firebase Authentication (crm-fdem)
       if (firebaseAuth && firebaseSignIn) {
         try {
-          await firebaseSignIn(firebaseAuth, email, password);
+          const userCred = await firebaseSignIn(firebaseAuth, email, password);
+          if (userCred && userCred.user) {
+            firebaseVerified = true;
+          }
         } catch (fbErr) {
-          console.warn('Firebase signIn notice:', fbErr.message);
+          console.warn('Firebase Auth:', fbErr.code);
+          if (fbErr.code === 'auth/invalid-credential' || fbErr.code === 'auth/wrong-password' || fbErr.code === 'auth/user-not-found') {
+            if (loginAlertBox) {
+              loginAlertBox.textContent = 'Credenciales no autorizadas o contraseña incorrecta.';
+              loginAlertBox.style.display = 'block';
+            }
+            return false;
+          }
         }
       }
 
-      // 2. Autenticar con el servidor CRM para sincronizar sesión y token
+      // 2. Sincronizar sesión con backend seguro del CRM
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify({ email, password, firebaseVerified })
       });
       const data = await res.json();
       if (!data.success) {
         if (loginAlertBox) {
-          loginAlertBox.textContent = data.error || 'Credenciales inválidas.';
+          loginAlertBox.textContent = data.error || 'Credenciales no autorizadas.';
           loginAlertBox.style.display = 'block';
         }
         return false;
@@ -277,57 +240,19 @@ document.addEventListener('DOMContentLoaded', () => {
       return true;
     } catch (err) {
       if (loginAlertBox) {
-        loginAlertBox.textContent = 'Error de inicio de sesión: ' + err.message;
+        loginAlertBox.textContent = 'Error de conexión: ' + err.message;
         loginAlertBox.style.display = 'block';
       }
       return false;
+    } finally {
+      if (btnLoginSubmit) {
+        btnLoginSubmit.disabled = false;
+        btnLoginSubmit.textContent = 'Ingresar al CRM';
+      }
     }
   }
 
-  // Registro de Asesor (Firebase + Backend)
-  async function performRegister(userData) {
-    try {
-      if (loginAlertBox) loginAlertBox.style.display = 'none';
-
-      // 1. Si Firebase Auth está activo, crear usuario en Firebase
-      if (firebaseAuth && firebaseCreateUser) {
-        try {
-          await firebaseCreateUser(firebaseAuth, userData.email, userData.password);
-        } catch (fbErr) {
-          console.warn('Firebase createUser notice:', fbErr.message);
-        }
-      }
-
-      // 2. Registrar en la base de datos relacional del CRM
-      const res = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(userData)
-      });
-      const data = await res.json();
-      if (!data.success) {
-        if (loginAlertBox) {
-          loginAlertBox.textContent = data.error || 'Error al registrar asesor.';
-          loginAlertBox.style.display = 'block';
-        }
-        return false;
-      }
-
-      localStorage.setItem('udea_auth_token', data.token);
-      updateAdvisorUI(data.advisor);
-      alert(`¡Bienvenido al Centro de Extensión, ${data.advisor.name}! Tu cuenta ha sido creada exitosamente.`);
-      if (advisorLoginModal) advisorLoginModal.style.display = 'none';
-      return true;
-    } catch (err) {
-      if (loginAlertBox) {
-        loginAlertBox.textContent = 'Error de registro: ' + err.message;
-        loginAlertBox.style.display = 'block';
-      }
-      return false;
-    }
-  }
-
-  // Listeners de Formularios
+  // Listeners de Autenticación
   if (advisorLoginForm) {
     advisorLoginForm.addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -337,21 +262,21 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  if (advisorRegisterForm) {
-    advisorRegisterForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const name = regNameInput.value.trim();
-      const role = regRoleInput.value.trim();
-      const email = regEmailInput.value.trim();
-      const phone = regPhoneInput.value.trim();
-      const password = regPasswordInput.value.trim();
-
-      await performRegister({ name, role, email, phone, password });
+  if (btnSwitchAdvisor) {
+    btnSwitchAdvisor.addEventListener('click', () => {
+      if (loginAlertBox) loginAlertBox.style.display = 'none';
+      if (advisorLoginModal) advisorLoginModal.style.display = 'flex';
     });
   }
 
-  if (btnOpenLoginModal) {
-    btnOpenLoginModal.addEventListener('click', () => {
+  if (btnLogoutAdvisor) {
+    btnLogoutAdvisor.addEventListener('click', async () => {
+      if (firebaseAuth && firebaseSignOut) {
+        try { await firebaseSignOut(firebaseAuth); } catch (e) {}
+      }
+      localStorage.removeItem('udea_auth_token');
+      localStorage.removeItem('udea_advisor_user');
+      currentAdvisorUser = null;
       if (loginAlertBox) loginAlertBox.style.display = 'none';
       if (advisorLoginModal) advisorLoginModal.style.display = 'flex';
     });
@@ -372,7 +297,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Inicializar UI de Asesor y Firebase
   updateAdvisorUI(currentAdvisorUser);
-  setupAuthTabs();
   setupQuickAdvisors();
   initFirebaseClient();
 

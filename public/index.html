@@ -85,9 +85,13 @@
               <span class="advisor-name-text" id="topbarAdvisorName">Dra. Carolina Martínez</span>
               <span class="advisor-role-text" id="topbarAdvisorRole">Coordinadora de Extensión</span>
             </div>
-            <button class="btn-advisor-switch" id="btnSwitchAdvisor" title="Cambiar de asesor o iniciar sesión">
+            <button class="btn-advisor-switch" id="btnSwitchAdvisor" title="Cambiar asesor">
               <svg class="mini-svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
               <span>Cambiar</span>
+            </button>
+            <button class="btn-advisor-switch" id="btnLogoutAdvisor" title="Cerrar sesión segura">
+              <svg class="mini-svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+              <span>Salir</span>
             </button>
           </div>
 
@@ -604,7 +608,7 @@
             <svg class="mini-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--udea-emerald);"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
             Autenticación en la Nube (Firebase Auth)
           </h3>
-          <p>Conecta tu proyecto de <strong>Firebase Authentication</strong> para autenticar y registrar asesores de forma segura en la nube desde cualquier dispositivo.</p>
+          <p>Conecta tu proyecto de <strong>Firebase Authentication</strong> para autenticar asesores autorizados de forma segura en la nube desde cualquier dispositivo.</p>
           <div class="form-row" style="margin-bottom:0.5rem;">
             <input type="text" id="firebaseApiKeyInput" class="form-input" placeholder="Firebase API Key (AIzaSy...)">
             <input type="text" id="firebaseAuthDomainInput" class="form-input" placeholder="Auth Domain (tu-app.firebaseapp.com)">
@@ -758,128 +762,74 @@
         </form>
       </div>
     </div>
-  <!-- Modal Login & Registro de Asesores (Con Soporte Firebase Auth) -->
+  <!-- Modal Login Institucional (Seguridad Firebase Auth - Acceso Restringido) -->
   <div class="modal-backdrop" id="advisorLoginModal" style="display: none;">
     <div class="modal-dialog modal-dialog-login">
       <div class="login-header-udea">
-        <div style="background:#fff; padding:0.5rem; border-radius:8px; display:inline-block; margin-bottom:0.6rem;">
-          <img src="img/logo-udea-medicina.png" alt="UdeA" style="max-height:42px; display:block;">
+        <div class="login-logo-box">
+          <img src="img/logo-udea-medicina.png" alt="UdeA" style="max-height: 44px; display: block;">
         </div>
-        <h3>Portal de Asesores de Extensión</h3>
-        <p>Centro de Extensión · Facultad de Medicina UdeA</p>
-        <button class="close-btn" id="btnCloseLoginModal" style="position:absolute; top:1rem; right:1.2rem;">✕</button>
+        <h3>Centro de Extensión</h3>
+        <p>Facultad de Medicina · Universidad de Antioquia</p>
+        <button class="close-btn" id="btnCloseLoginModal" style="position: absolute; top: 1rem; right: 1.2rem;" title="Cerrar ventana">✕</button>
       </div>
 
-      <div class="login-card-body" style="padding: 1.25rem;">
+      <div class="login-card-body" style="padding: 1.5rem;">
         
-        <!-- Estado de Firebase Auth -->
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
-          <span id="firebaseStatusIndicator" class="firebase-status-badge">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/></svg>
-            <span id="firebaseStatusText">Firebase Auth Activo</span>
-          </span>
+        <div class="login-security-tag">
+          <span class="status-pulse-dot"></span>
+          <span>Acceso Seguro · Firebase Authentication</span>
         </div>
 
-        <div id="loginAlertBox" class="login-alert-box" style="display:none; padding:0.6rem 0.8rem; border-radius:6px; margin-bottom:1rem; font-size:0.8rem; background:#fef2f2; color:#b91c1c; border:1px solid #fecaca;"></div>
+        <div id="loginAlertBox" class="login-alert-box" style="display: none;"></div>
 
-        <!-- Pestañas de Navegación del Modal -->
-        <div class="auth-tabs">
-          <button type="button" class="auth-tab-btn active" id="tabBtnLogin" data-tab="tab-login">
-            Iniciar Sesión
-          </button>
-          <button type="button" class="auth-tab-btn" id="tabBtnRegister" data-tab="tab-register">
-            Registrar Asesor
-          </button>
-          <button type="button" class="auth-tab-btn" id="tabBtnQuick" data-tab="tab-quick">
-            Acceso Rápido
-          </button>
-        </div>
-
-        <!-- TAB 1: INICIAR SESIÓN -->
-        <div class="auth-tab-content" id="tab-login">
-          <form id="advisorLoginForm">
-            <div class="form-group">
-              <label style="font-size:0.8rem; font-weight:600;">Correo Institucional:</label>
-              <input type="email" id="loginEmailInput" class="form-input" required placeholder="asesor@udea.edu.co" value="carolina.martinez@udea.edu.co">
-            </div>
-            <div class="form-group">
-              <label style="font-size:0.8rem; font-weight:600;">Contraseña:</label>
-              <input type="password" id="loginPasswordInput" class="form-input" required value="UdeA2026*" placeholder="••••••••">
-            </div>
-            <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 0.5rem;" id="btnLoginSubmit">
-              Ingresar al CRM
-            </button>
-          </form>
-        </div>
-
-        <!-- TAB 2: REGISTRO DE NUEVO ASESOR -->
-        <div class="auth-tab-content" id="tab-register" style="display:none;">
-          <form id="advisorRegisterForm">
-            <div class="form-group">
-              <label style="font-size:0.8rem; font-weight:600;">Nombre Completo:</label>
-              <input type="text" id="regNameInput" class="form-input" required placeholder="Ej: Dr. Juan Camilo Pérez">
-            </div>
-            <div class="form-group">
-              <label style="font-size:0.8rem; font-weight:600;">Rol o Especialidad:</label>
-              <input type="text" id="regRoleInput" class="form-input" required placeholder="Ej: Asesor de Posgrados y Diplomados">
-            </div>
-            <div class="form-row">
-              <div class="form-group">
-                <label style="font-size:0.8rem; font-weight:600;">Correo Institucional:</label>
-                <input type="email" id="regEmailInput" class="form-input" required placeholder="juan.perez@udea.edu.co">
-              </div>
-              <div class="form-group">
-                <label style="font-size:0.8rem; font-weight:600;">Teléfono / Celular:</label>
-                <input type="text" id="regPhoneInput" class="form-input" placeholder="+57 300 123 4567">
-              </div>
-            </div>
-            <div class="form-group">
-              <label style="font-size:0.8rem; font-weight:600;">Contraseña (mínimo 6 caracteres):</label>
-              <input type="password" id="regPasswordInput" class="form-input" required minlength="6" placeholder="Crea una contraseña segura">
-            </div>
-            <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 0.5rem;" id="btnRegisterSubmit">
-              Registrar Asesor en Firebase & CRM
-            </button>
-          </form>
-        </div>
-
-        <!-- TAB 3: ACCESO RÁPIDO (1 CLIC) -->
-        <div class="auth-tab-content" id="tab-quick" style="display:none;">
-          <div class="quick-advisors-section">
-            <label style="font-size:0.75rem; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em; display:block; margin-bottom:0.5rem;">
-              Selecciona tu perfil institucional:
-            </label>
-            <div class="quick-advisor-grid">
-              <button type="button" class="quick-adv-chip" data-email="carolina.martinez@udea.edu.co">
-                <span class="chip-avatar">CM</span>
-                <span class="chip-text">
-                  <strong>Dra. Carolina Martínez</strong>
-                  <small>Coordinadora de Educación Continua</small>
-                </span>
-              </button>
-              <button type="button" class="quick-adv-chip" data-email="alejandro.restrepo@udea.edu.co">
-                <span class="chip-avatar">AR</span>
-                <span class="chip-text">
-                  <strong>Dr. Alejandro Restrepo</strong>
-                  <small>Asesor Posgrados y Diplomados</small>
-                </span>
-              </button>
-              <button type="button" class="quick-adv-chip" data-email="marcela.gomez@udea.edu.co">
-                <span class="chip-avatar">MG</span>
-                <span class="chip-text">
-                  <strong>Enf. Marcela Gómez</strong>
-                  <small>Cursos Clínicos y AHA</small>
-                </span>
-              </button>
-              <button type="button" class="quick-adv-chip" data-email="david.builes@udea.edu.co">
-                <span class="chip-avatar">DB</span>
-                <span class="chip-text">
-                  <strong>Lic. David Builes</strong>
-                  <small>Admisiones e Inscripciones</small>
-                </span>
-              </button>
-            </div>
+        <form id="advisorLoginForm" style="margin-top: 1rem;">
+          <div class="form-group">
+            <label style="font-size: 0.8rem; font-weight: 600; color: var(--udea-dark);">Correo Institucional</label>
+            <input type="email" id="loginEmailInput" class="form-input" required placeholder="asesor@udea.edu.co" value="carolina.martinez@udea.edu.co" autocomplete="username">
           </div>
+          <div class="form-group">
+            <label style="font-size: 0.8rem; font-weight: 600; color: var(--udea-dark);">Contraseña</label>
+            <input type="password" id="loginPasswordInput" class="form-input" required value="UdeA2026*" placeholder="••••••••" autocomplete="current-password">
+          </div>
+          <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 0.75rem; padding: 0.75rem;" id="btnLoginSubmit">
+            Ingresar al CRM
+          </button>
+        </form>
+
+        <div class="login-divider">
+          <span>Perfiles Autorizados UdeA</span>
+        </div>
+
+        <div class="quick-advisor-grid">
+          <button type="button" class="quick-adv-chip" data-email="carolina.martinez@udea.edu.co">
+            <span class="chip-avatar">CM</span>
+            <span class="chip-text">
+              <strong>Dra. Carolina Martínez</strong>
+              <small>Educación Continua</small>
+            </span>
+          </button>
+          <button type="button" class="quick-adv-chip" data-email="alejandro.restrepo@udea.edu.co">
+            <span class="chip-avatar">AR</span>
+            <span class="chip-text">
+              <strong>Dr. Alejandro Restrepo</strong>
+              <small>Posgrados y Diplomados</small>
+            </span>
+          </button>
+          <button type="button" class="quick-adv-chip" data-email="marcela.gomez@udea.edu.co">
+            <span class="chip-avatar">MG</span>
+            <span class="chip-text">
+              <strong>Enf. Marcela Gómez</strong>
+              <small>Cursos Clínicos y AHA</small>
+            </span>
+          </button>
+          <button type="button" class="quick-adv-chip" data-email="david.builes@udea.edu.co">
+            <span class="chip-avatar">DB</span>
+            <span class="chip-text">
+              <strong>Lic. David Builes</strong>
+              <small>Admisiones e Inscripciones</small>
+            </span>
+          </button>
         </div>
 
       </div>

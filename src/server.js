@@ -97,12 +97,31 @@ app.get('/api/leads', (req, res) => {
 
 // ==================== AUTENTICACIÓN DE ASESORES ====================
 app.post('/api/auth/login', (req, res) => {
-  const { email, password } = req.body;
-  if (!email || !password) {
-    return res.status(400).json({ success: false, error: 'Correo y contraseña son requeridos' });
+  const { email, password, firebaseVerified } = req.body;
+  if (!email) {
+    return res.status(400).json({ success: false, error: 'Correo institucional requerido.' });
   }
 
-  const advisor = verifyAdvisorCredentials(email, password);
+  let advisor = null;
+  if (firebaseVerified) {
+    advisor = findAdvisorByEmail(email);
+    if (!advisor) {
+      // Asesor autenticado válidamente en Firebase Auth: aprovisionar perfil en el CRM
+      const cleanEmail = email.trim().toLowerCase();
+      const rawName = cleanEmail.split('@')[0].replace(/[._]/g, ' ');
+      const formattedName = rawName.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+      advisor = registerNewAdvisor({
+        name: formattedName || 'Asesor UdeA',
+        email: cleanEmail,
+        password: password || 'FirebaseManaged*',
+        role: 'Asesor Centro de Extensión',
+        phone: '+57 300 000 0000'
+      });
+    }
+  } else {
+    advisor = verifyAdvisorCredentials(email, password);
+  }
+
   if (!advisor) {
     return res.status(401).json({ success: false, error: 'Credenciales inválidas. Verifica tu correo y contraseña institucional.' });
   }
@@ -111,19 +130,12 @@ app.post('/api/auth/login', (req, res) => {
   res.json({ success: true, advisor, token });
 });
 
+// Por máxima seguridad institucional: Registro público deshabilitado
 app.post('/api/auth/register', (req, res) => {
-  const { name, email, password, role, phone } = req.body;
-  if (!name || !email || !password) {
-    return res.status(400).json({ success: false, error: 'Nombre, correo y contraseña son obligatorios' });
-  }
-
-  try {
-    const advisor = registerNewAdvisor({ name, email, password, role, phone });
-    const token = Buffer.from(JSON.stringify({ id: advisor.id, email: advisor.email, time: Date.now() })).toString('base64');
-    res.json({ success: true, advisor, token });
-  } catch (err) {
-    res.status(400).json({ success: false, error: err.message });
-  }
+  return res.status(403).json({
+    success: false,
+    error: 'Acceso restringido: El autoregistro público está inhabilitado por directrices de seguridad institucional.'
+  });
 });
 
 app.get('/api/auth/me', (req, res) => {

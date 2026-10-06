@@ -16,8 +16,10 @@ export const config = {
     smtpPass: process.env.SMTP_PASS || ''
   },
   firebase: {
-    apiKey: process.env.FIREBASE_API_KEY || '',
-    authDomain: process.env.FIREBASE_AUTH_DOMAIN || '',
-    projectId: process.env.FIREBASE_PROJECT_ID || ''
+    apiKey: process.env.FIREBASE_API_KEY || 'AIzaSyCTwp8PaJvGlTYjJnBV7ktvnDeHd8aYemk',
+    authDomain: process.env.FIREBASE_AUTH_DOMAIN || 'crm-fdem.firebaseapp.com',
+    projectId: process.env.FIREBASE_PROJECT_ID || 'crm-fdem',
+    storageBucket: process.env.FIREBASE_STORAGE_BUCKET || 'crm-fdem.firebasestorage.app',
+    appId: process.env.FIREBASE_APP_ID || '1:191713944750:web:f68debb069680dcab8393f'
   }
 };
