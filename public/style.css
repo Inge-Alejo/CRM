@@ -1358,54 +1358,95 @@ body.dashboard-body {
   align-items: center;
   gap: 0.65rem;
   background: #ffffff;
-  border: 1px solid var(--udea-accent-border);
-  padding: 0.35rem 0.75rem;
+  border: 1.5px solid var(--udea-accent-border);
+  padding: 0.3rem 0.65rem 0.3rem 0.45rem;
   border-radius: 9999px;
-  box-shadow: var(--shadow-sm);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
   transition: all 0.2s ease;
 }
 
 .topbar-advisor-profile:hover {
   border-color: var(--udea-emerald);
-  box-shadow: var(--shadow-md);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 .advisor-avatar-circle {
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
-  background: var(--udea-light-green);
-  color: var(--udea-deep-dark);
+  background: linear-gradient(135deg, #059669 0%, #00573d 100%);
+  color: #ffffff;
+  font-weight: 800;
+  font-size: 0.76rem;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.75rem;
-  font-weight: 700;
-  border: 1px solid var(--udea-mint);
+  flex-shrink: 0;
+  letter-spacing: -0.02em;
+  box-shadow: 0 2px 5px rgba(5, 150, 105, 0.25);
 }
 
-.advisor-details {
+.advisor-info-stack {
   display: flex;
   flex-direction: column;
-  line-height: 1.1;
-}
-
-.advisor-status-badge {
-  font-size: 0.65rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  color: var(--udea-emerald);
-  letter-spacing: 0.5px;
+  justify-content: center;
+  line-height: 1.15;
+  text-align: left;
 }
 
 .advisor-name-text {
-  font-size: 0.82rem;
-  font-weight: 600;
+  font-size: 0.8rem;
+  font-weight: 700;
   color: var(--text-main);
-  max-width: 140px;
+  max-width: 175px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.advisor-role-text {
+  font-size: 0.66rem;
+  font-weight: 600;
+  color: #059669;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  max-width: 175px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.advisor-role-text.admin-badge {
+  color: #b45309;
+  background: #fef3c7;
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+  display: inline-block;
+  font-size: 0.62rem;
+  font-weight: 700;
+}
+
+.btn-advisor-logout {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: #64748b;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.3rem 0.6rem;
+  border-radius: 9999px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-left: 0.2rem;
+}
+
+.btn-advisor-logout:hover {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #dc2626;
+  transform: translateY(-1px);
 }
 
 .btn-outline-sm {
@@ -1859,13 +1900,14 @@ body.dashboard-body {
 .landing-form {
   display: flex;
   flex-direction: column;
-  gap: 0.85rem;
+  gap: 0.9rem;
 }
 
 .input-icon-wrap {
   position: relative;
   display: flex;
   align-items: center;
+  width: 100%;
 }
 
 .field-icon {
@@ -1873,16 +1915,33 @@ body.dashboard-body {
   left: 0.85rem;
   color: #94a3b8;
   pointer-events: none;
+  z-index: 2;
 }
 
 .input-icon-wrap .form-input {
-  padding-left: 2.35rem;
+  width: 100%;
+  min-width: 0;
+  flex: 1;
+  padding: 0.75rem 0.85rem 0.75rem 2.5rem;
+  font-size: 0.92rem;
+  border-radius: 10px;
+  border: 1.5px solid #cbd5e1;
+  background: #ffffff;
+  color: #0f172a;
+  outline: none;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+}
+
+.input-icon-wrap .form-input:focus {
+  border-color: #059669;
+  box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.15);
 }
 
 .btn-landing-submit {
   width: 100%;
-  padding: 0.8rem;
-  font-size: 0.9rem;
+  padding: 0.85rem;
+  font-size: 0.92rem;
   font-weight: 700;
   border-radius: 10px;
   background: linear-gradient(135deg, #059669 0%, #00573d 100%);
@@ -1891,11 +1950,11 @@ body.dashboard-body {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.4rem;
+  gap: 0.45rem;
   box-shadow: 0 4px 12px rgba(5, 150, 105, 0.25);
   cursor: pointer;
   transition: all 0.2s ease;
-  margin-top: 0.25rem;
+  margin-top: 0.35rem;
 }
 
 .btn-landing-submit:hover {
@@ -1910,100 +1969,131 @@ body.dashboard-body {
   transform: none;
 }
 
-.landing-divider {
-  display: flex;
-  align-items: center;
+.landing-footer {
   text-align: center;
-  margin: 1.25rem 0 0.85rem 0;
-  color: var(--text-muted);
-  font-size: 0.72rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.landing-divider::before, .landing-divider::after {
-  content: '';
-  flex: 1;
-  border-bottom: 1px solid #e2e8f0;
-}
-
-.landing-divider span {
-  padding: 0 0.65rem;
-}
-
-.landing-quick-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 0.45rem;
-}
-
-.landing-quick-grid .quick-adv-chip {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  padding: 0.45rem 0.55rem;
-  cursor: pointer;
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid #f1f5f9;
+  font-size: 0.74rem;
+  color: #94a3b8;
   display: flex;
-  align-items: center;
+  flex-direction: column;
   gap: 0.45rem;
-  transition: all 0.15s ease;
-  text-align: left;
 }
 
-.landing-quick-grid .quick-adv-chip:hover {
-  border-color: #059669;
-  background: #ecfdf5;
-  transform: translateY(-1px);
-}
-
-.landing-quick-grid .chip-avatar {
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  background: #e2e8f0;
-  color: #334155;
-  font-weight: 700;
-  font-size: 0.7rem;
+.landing-security-notice {
   display: flex;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
-}
-
-.landing-quick-grid .quick-adv-chip:hover .chip-avatar {
-  background: #059669;
-  color: #ffffff;
-}
-
-.landing-quick-grid .chip-text {
-  display: flex;
-  flex-direction: column;
-  line-height: 1.15;
-  overflow: hidden;
-}
-
-.landing-quick-grid .chip-text strong {
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--text-main);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.landing-quick-grid .chip-text small {
-  font-size: 0.65rem;
-  color: var(--text-muted);
-}
-
-.landing-footer {
-  text-align: center;
-  margin-top: 1.25rem;
-  padding-top: 0.85rem;
-  border-top: 1px solid #f1f5f9;
+  gap: 0.35rem;
+  color: #059669;
   font-size: 0.72rem;
-  color: #94a3b8;
+  font-weight: 600;
+}
+
+/* ==============================================================
+   DISEÑO RESPONSIVE MULTI-DISPOSITIVO (TABLETS, MÓVILES, DESKTOP)
+   ============================================================== */
+@media (max-width: 1024px) {
+  .topbar {
+    padding: 0.75rem 1.25rem;
+  }
+  .topbar-advisor-profile {
+    padding: 0.25rem 0.5rem;
+  }
+  .advisor-name-text {
+    max-width: 130px;
+  }
+}
+
+@media (max-width: 768px) {
+  .dashboard-layout {
+    flex-direction: column;
+    height: auto;
+    min-height: 100vh;
+    overflow-y: auto;
+  }
+  .sidebar {
+    width: 100%;
+    height: auto;
+    border-right: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  }
+  .sidebar-header {
+    padding: 0.75rem 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .udea-brand-container {
+    margin-bottom: 0;
+    padding: 0.35rem 0.65rem;
+  }
+  .udea-brand-logo {
+    max-height: 32px;
+  }
+  .department-tag {
+    margin-top: 0;
+  }
+  .sidebar-nav {
+    display: flex;
+    overflow-x: auto;
+    padding: 0.5rem;
+    gap: 0.35rem;
+    -webkit-overflow-scrolling: touch;
+  }
+  .nav-item {
+    padding: 0.45rem 0.75rem;
+    white-space: nowrap;
+    border-radius: 8px;
+  }
+  .topbar {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 0.75rem 1rem;
+    gap: 0.65rem;
+  }
+  .topbar-left {
+    text-align: center;
+  }
+  .topbar-right {
+    justify-content: space-between;
+    width: 100%;
+  }
+  .topbar-quota-pill {
+    display: none;
+  }
+  .advisor-name-text, .advisor-role-text {
+    max-width: 140px;
+  }
+  .landing-card {
+    padding: 1.75rem 1.25rem;
+    margin: 0.5rem;
+    border-radius: 16px;
+  }
+  .landing-title {
+    font-size: 1.2rem;
+  }
+  .landing-logo-badge img {
+    max-height: 40px;
+  }
+}
+
+@media (max-width: 480px) {
+  .topbar-right {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .topbar-advisor-profile {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .advisor-name-text {
+    max-width: 160px;
+  }
+  .portfolio-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 

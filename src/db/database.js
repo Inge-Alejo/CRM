@@ -159,64 +159,54 @@ function applySchemaMigrations() {
     db.exec(`ALTER TABLE leads ADD COLUMN email TEXT DEFAULT '';`);
   }
 
-  // 3. Migración para advisors (password)
+  // 3. Migración para advisors (password y role_type)
   const advCols = db.prepare('PRAGMA table_info(advisors)').all().map(c => c.name);
   if (!advCols.includes('password')) {
     db.exec(`ALTER TABLE advisors ADD COLUMN password TEXT DEFAULT 'UdeA2026*';`);
   }
+  if (!advCols.includes('role_type')) {
+    db.exec(`ALTER TABLE advisors ADD COLUMN role_type TEXT DEFAULT 'advisor';`);
+  }
+
+  // Asegurar la existencia y privilegios máximos del Administrador General TIC
+  const adminCheck = db.prepare("SELECT id FROM advisors WHERE LOWER(email) = 'proyectostic.med@udea.edu.co'").get();
+  if (!adminCheck) {
+    db.prepare(`
+      INSERT INTO advisors (name, role, email, password, phone, avatar, role_type, is_active)
+      VALUES ('Administrador General TIC', 'Super Administrador TIC', 'proyectostic.med@udea.edu.co', 'UdeA2026*', '+57 300 000 0000', 'TIC', 'admin', 1)
+    `).run();
+  } else {
+    db.prepare(`
+      UPDATE advisors 
+      SET role_type = 'admin', role = 'Super Administrador TIC', name = 'Administrador General TIC', avatar = 'TIC'
+      WHERE id = ?
+    `).run(adminCheck.id);
+  }
 }
 
 /**
- * Siembra los 4 asesores oficiales del equipo de extensión
+ * Siembra los asesores iniciales o asegura admin
  */
 function seedAdvisors() {
   const count = db.prepare('SELECT COUNT(*) as c FROM advisors').get()?.c || 0;
   if (count > 0) return;
 
-  const advisors = [
-    {
-      name: 'Dra. Carolina Martínez',
-      role: 'Coordinadora de Educación Médica Continua',
-      email: 'carolina.martinez@udea.edu.co',
-      password: 'UdeA2026*',
-      phone: '+57 300 456 7890',
-      avatar: 'CM'
-    },
-    {
-      name: 'Dr. Alejandro Gómez',
-      role: 'Líder Simulación Clínica y Urgencias',
-      email: 'alejandro.gomez@udea.edu.co',
-      password: 'UdeA2026*',
-      phone: '+57 311 234 5678',
-      avatar: 'AG'
-    },
-    {
-      name: 'Lic. Valeria Restrepo',
-      role: 'Especialista en Admisiones y Matrículas',
-      email: 'valeria.restrepo@udea.edu.co',
-      password: 'UdeA2026*',
-      phone: '+57 315 678 9012',
-      avatar: 'VR'
-    },
-    {
-      name: 'Dr. Felipe Morales',
-      role: 'Asesor de Posgrados y Diplomados Clínicos',
-      email: 'felipe.morales@udea.edu.co',
-      password: 'UdeA2026*',
-      phone: '+57 320 890 1234',
-      avatar: 'FM'
-    }
-  ];
+  const adminAdv = {
+    name: 'Administrador General TIC',
+    role: 'Super Administrador TIC',
+    email: 'proyectostic.med@udea.edu.co',
+    password: 'UdeA2026*',
+    phone: '+57 300 000 0000',
+    avatar: 'TIC',
+    role_type: 'admin'
+  };
 
-  const stmt = db.prepare(`
-    INSERT INTO advisors (name, role, email, password, phone, avatar)
-    VALUES (@name, @role, @email, @password, @phone, @avatar)
-  `);
-
-  for (const adv of advisors) {
-    stmt.run(adv);
-  }
+  db.prepare(`
+    INSERT INTO advisors (name, role, email, password, phone, avatar, role_type, is_active)
+    VALUES (@name, @role, @email, @password, @phone, @avatar, @role_type, 1)
+  `).run(adminAdv);
 }
+
 
 /**
  * Asigna fechas y horarios específicos a todos los programas que no los tengan
@@ -553,6 +543,39 @@ export function registerNewAdvisor({ name, email, password, role, phone }) {
   );
 
   return findAdvisorByEmail(cleanEmail);
+}
+
+/**
+ * Sincroniza un asesor validado en tiempo real desde Firebase Authentication
+ * Garantiza privilegios y perfil de Super Administrador para proyectostic.med@udea.edu.co
+ */
+export function syncFirebaseAdvisor({ email, displayName, firebaseUid }) {
+  if (!email) throw new Error('Correo institucional obligatorio');
+  const cleanEmail = email.trim().toLowerCase();
+  const isAdmin = (cleanEmail === 'proyectostic.med@udea.edu.co');
+
+  const defaultName = isAdmin ? 'Administrador General TIC' : (displayName || cleanEmail.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, l => l.toUpperCase()));
+  const defaultRole = isAdmin ? 'Super Administrador TIC' : 'Asesor de Extensión UdeA';
+  const roleType = isAdmin ? 'admin' : 'advisor';
+  const avatar = isAdmin ? 'TIC' : defaultName.split(' ').map(p => p[0]).slice(0, 2).join('').toUpperCase();
+
+  const existing = db.prepare('SELECT id, name, role, email, phone, avatar, role_type, is_active FROM advisors WHERE LOWER(email) = ?').get(cleanEmail);
+
+  if (existing) {
+    db.prepare(`
+      UPDATE advisors 
+      SET role_type = ?, role = ?, name = CASE WHEN LOWER(email) = 'proyectostic.med@udea.edu.co' THEN 'Administrador General TIC' ELSE ? END, avatar = ?
+      WHERE id = ?
+    `).run(roleType, defaultRole, defaultName, avatar, existing.id);
+    return db.prepare('SELECT id, name, role, email, phone, avatar, role_type, is_active FROM advisors WHERE id = ?').get(existing.id);
+  } else {
+    const stmt = db.prepare(`
+      INSERT INTO advisors (name, role, email, password, phone, avatar, role_type, is_active)
+      VALUES (?, ?, ?, ?, ?, ?, ?, 1)
+    `);
+    stmt.run(defaultName, defaultRole, cleanEmail, 'FirebaseManaged*', '+57 300 000 0000', avatar, roleType);
+    return db.prepare('SELECT id, name, role, email, phone, avatar, role_type, is_active FROM advisors WHERE LOWER(email) = ?').get(cleanEmail);
+  }
 }
 
 /**

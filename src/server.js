@@ -2,7 +2,7 @@ import express from 'express';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { config } from './config.js';
-import { initDatabase, closeDatabase, getAdvisors, getSegmentationStats, verifyAdvisorCredentials, findAdvisorByEmail, registerNewAdvisor } from './db/database.js';
+import { initDatabase, closeDatabase, getAdvisors, getSegmentationStats, verifyAdvisorCredentials, findAdvisorByEmail, registerNewAdvisor, syncFirebaseAdvisor } from './db/database.js';
 import { MetaCloudAdapter } from './adapters/metaCloudAdapter.js';
 import { SimulatorAdapter } from './adapters/simulatorAdapter.js';
 import { ConversationTracker } from './domain/conversationTracker.js';
@@ -64,8 +64,41 @@ import { ScraperService } from './domain/scraperService.js';
 // RUTAS API PARA EL DASHBOARD CRM
 // ==========================================
 
-// Sincronización automática vía Web Scraping
-app.post('/api/knowledge/sync', async (req, res) => {
+// ==========================================
+// MIDDLEWARES DE AUTORIZACIÓN Y ROLES (RBAC)
+// ==========================================
+function getAuthUser(req) {
+  const authHeader = req.headers.authorization;
+  let token = null;
+  if (authHeader) {
+    token = authHeader.replace('Bearer ', '').trim();
+  } else if (req.query && req.query.token) {
+    token = req.query.token;
+  }
+  if (!token) return null;
+  try {
+    const decoded = JSON.parse(Buffer.from(token, 'base64').toString('utf8'));
+    return findAdvisorByEmail(decoded.email);
+  } catch (e) {
+    return null;
+  }
+}
+
+function requireAdmin(req, res, next) {
+  const user = getAuthUser(req);
+  if (!user) {
+    return res.status(401).json({ error: 'Sesión no válida o expirada. Inicie sesión nuevamente.' });
+  }
+  const isSuperAdmin = (user.role_type === 'admin' || user.email.toLowerCase() === 'proyectostic.med@udea.edu.co');
+  if (!isSuperAdmin) {
+    return res.status(403).json({ error: 'Acceso restringido: Esta acción requiere privilegios de Administrador General TIC.' });
+  }
+  req.user = user;
+  next();
+}
+
+// Sincronización automática vía Web Scraping (Exclusivo Administrador General)
+app.post('/api/knowledge/sync', requireAdmin, async (req, res) => {
   try {
     const result = await ScraperService.syncFromWeb();
     res.json(result);
@@ -108,39 +141,46 @@ app.get('/api/leads', (req, res) => {
   res.json({ leads });
 });
 
-// ==================== AUTENTICACIÓN DE ASESORES ====================
+// ==================== AUTENTICACIÓN Y ROLES EN TIEMPO REAL ====================
 app.post('/api/auth/login', (req, res) => {
-  const { email, password, firebaseVerified } = req.body;
+  const { email, password, firebaseVerified, displayName, firebaseUid } = req.body;
   if (!email) {
     return res.status(400).json({ success: false, error: 'Correo institucional requerido.' });
   }
 
   let advisor = null;
   if (firebaseVerified) {
-    advisor = findAdvisorByEmail(email);
-    if (!advisor) {
-      // Asesor autenticado válidamente en Firebase Auth: aprovisionar perfil en el CRM
-      const cleanEmail = email.trim().toLowerCase();
-      const rawName = cleanEmail.split('@')[0].replace(/[._]/g, ' ');
-      const formattedName = rawName.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-      advisor = registerNewAdvisor({
-        name: formattedName || 'Asesor UdeA',
-        email: cleanEmail,
-        password: password || 'FirebaseManaged*',
-        role: 'Asesor Centro de Extensión',
-        phone: '+57 300 000 0000'
-      });
-    }
+    // Sincronizar en tiempo real el usuario autenticado por Firebase
+    advisor = syncFirebaseAdvisor({ email, displayName, firebaseUid });
   } else {
     advisor = verifyAdvisorCredentials(email, password);
   }
 
   if (!advisor) {
-    return res.status(401).json({ success: false, error: 'Credenciales inválidas. Verifica tu correo y contraseña institucional.' });
+    return res.status(401).json({ success: false, error: 'Credenciales inválidas. Verifica tu correo y contraseña institucional en Firebase.' });
   }
 
-  const token = Buffer.from(JSON.stringify({ id: advisor.id, email: advisor.email, time: Date.now() })).toString('base64');
-  res.json({ success: true, advisor, token });
+  const isAdmin = (advisor.role_type === 'admin' || advisor.email.toLowerCase() === 'proyectostic.med@udea.edu.co');
+  advisor.role_type = isAdmin ? 'admin' : 'advisor';
+  advisor.role = isAdmin ? 'Super Administrador TIC' : (advisor.role || 'Asesor de Extensión UdeA');
+  advisor.name = isAdmin ? 'Administrador General TIC' : advisor.name;
+  advisor.avatar = isAdmin ? 'TIC' : advisor.avatar;
+
+  const permissions = {
+    isAdmin,
+    canViewOverview: true,
+    canViewLeads: true,
+    canViewPortfolio: true,
+    canViewSegmentation: isAdmin,
+    canViewSimulator: isAdmin,
+    canViewSettings: isAdmin,
+    canSyncPortfolio: isAdmin,
+    canEditPortfolio: isAdmin,
+    canExportData: isAdmin
+  };
+
+  const token = Buffer.from(JSON.stringify({ id: advisor.id, email: advisor.email, role_type: advisor.role_type, time: Date.now() })).toString('base64');
+  res.json({ success: true, advisor, permissions, token });
 });
 
 // Por máxima seguridad institucional: Registro público deshabilitado
@@ -152,17 +192,26 @@ app.post('/api/auth/register', (req, res) => {
 });
 
 app.get('/api/auth/me', (req, res) => {
-  const authHeader = req.headers.authorization;
-  if (!authHeader) return res.status(401).json({ authenticated: false });
-  try {
-    const token = authHeader.replace('Bearer ', '').trim();
-    const decoded = JSON.parse(Buffer.from(token, 'base64').toString('utf8'));
-    const advisor = findAdvisorByEmail(decoded.email);
-    if (!advisor) return res.status(401).json({ authenticated: false });
-    res.json({ authenticated: true, advisor });
-  } catch (e) {
-    res.status(401).json({ authenticated: false });
-  }
+  const advisor = getAuthUser(req);
+  if (!advisor) return res.status(401).json({ authenticated: false });
+  const isAdmin = (advisor.role_type === 'admin' || advisor.email.toLowerCase() === 'proyectostic.med@udea.edu.co');
+  advisor.role_type = isAdmin ? 'admin' : 'advisor';
+  advisor.role = isAdmin ? 'Super Administrador TIC' : (advisor.role || 'Asesor de Extensión UdeA');
+  advisor.name = isAdmin ? 'Administrador General TIC' : advisor.name;
+  advisor.avatar = isAdmin ? 'TIC' : advisor.avatar;
+  const permissions = {
+    isAdmin,
+    canViewOverview: true,
+    canViewLeads: true,
+    canViewPortfolio: true,
+    canViewSegmentation: isAdmin,
+    canViewSimulator: isAdmin,
+    canViewSettings: isAdmin,
+    canSyncPortfolio: isAdmin,
+    canEditPortfolio: isAdmin,
+    canExportData: isAdmin
+  };
+  res.json({ authenticated: true, advisor, permissions });
 });
 
 app.post('/api/auth/logout', (req, res) => {
@@ -210,8 +259,8 @@ app.get('/api/segmentation', (req, res) => {
   res.json({ stats, leads });
 });
 
-// Exportar base de datos segmentada a CSV (compatible con Excel)
-app.get('/api/segmentation/export', (req, res) => {
+// Exportar base de datos segmentada a CSV (Exclusivo Administrador General)
+app.get('/api/segmentation/export', requireAdmin, (req, res) => {
   const filterProfession = req.query.profession || null;
   const filterTemperature = req.query.temperature || null;
   const filterAdvisor = req.query.advisor || null;
@@ -270,7 +319,7 @@ app.get('/api/knowledge', (req, res) => {
   res.json({ items });
 });
 
-app.post('/api/knowledge', (req, res) => {
+app.post('/api/knowledge', requireAdmin, (req, res) => {
   try {
     const { code, title, category, target_audience, modality, duration_hours, investment, start_date, schedule, registration_link, contact_email, description } = req.body;
     KnowledgeBaseService.addItem({

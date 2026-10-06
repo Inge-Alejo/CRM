@@ -87,7 +87,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const topbarAdvisorName = document.getElementById('topbarAdvisorName');
   const topbarAdvisorAvatar = document.getElementById('topbarAdvisorAvatar');
-  const btnSwitchAdvisor = document.getElementById('btnSwitchAdvisor');
+  const topbarAdvisorRole = document.getElementById('topbarAdvisorRole');
   const btnLogoutAdvisor = document.getElementById('btnLogoutAdvisor');
 
   const advisorLoginForm = document.getElementById('advisorLoginForm');
@@ -142,47 +142,76 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // Lista de asesores autorizados de la Facultad de Medicina UdeA
-  const UDEA_ADVISORS = [
-    { name: 'Dra. Carolina Martínez', role: 'Coordinadora de Educación Continua', email: 'carolina.martinez@udea.edu.co', initials: 'CM' },
-    { name: 'Dr. Alejandro Restrepo', role: 'Asesor Posgrados y Diplomados', email: 'alejandro.restrepo@udea.edu.co', initials: 'AR' },
-    { name: 'Enf. Marcela Gómez', role: 'Asesora Cursos Clínicos y AHA', email: 'marcela.gomez@udea.edu.co', initials: 'MG' },
-    { name: 'Lic. David Builes', role: 'Asesor Admisiones e Inscripciones', email: 'david.builes@udea.edu.co', initials: 'DB' }
-  ];
-
-  // Estado de sesión del Asesor
+  // Estado de sesión del Asesor/Admin
   let currentAdvisorUser = JSON.parse(localStorage.getItem('udea_advisor_user') || 'null');
+
+  // Control de Roles y Permisos (RBAC)
+  function applyRolePermissions(user) {
+    if (!user) return;
+    const isSuperAdmin = (user.role_type === 'admin' || (user.email && user.email.toLowerCase() === 'proyectostic.med@udea.edu.co'));
+
+    // 1. Visibilidad en el Sidebar de Navegación
+    const adminNavItems = document.querySelectorAll('.nav-item[data-role="admin"]');
+    adminNavItems.forEach(el => {
+      el.style.display = isSuperAdmin ? 'flex' : 'none';
+    });
+
+    // 2. Acciones del Portafolio (Sincronización Web y Nuevo Programa)
+    const btnSyncWebEl = document.getElementById('btnSyncWeb');
+    const btnOpenNewCourseEl = document.getElementById('btnOpenNewCourseModal');
+    if (btnSyncWebEl) {
+      btnSyncWebEl.style.display = isSuperAdmin ? 'inline-flex' : 'none';
+    }
+    if (btnOpenNewCourseEl) {
+      btnOpenNewCourseEl.style.display = isSuperAdmin ? 'inline-flex' : 'none';
+    }
+
+    // 3. Si un asesor intenta abrir una pestaña prohibida, redirigir al Panel General
+    const activeView = document.querySelector('.view-panel.active');
+    if (activeView && !isSuperAdmin) {
+      const activeId = activeView.id;
+      if (activeId === 'view-segmentation' || activeId === 'view-simulator' || activeId === 'view-settings') {
+        const overviewBtn = document.querySelector('.nav-item[data-view="view-overview"]');
+        if (overviewBtn) overviewBtn.click();
+      }
+    }
+  }
 
   function updateAdvisorUI(adv) {
     if (!adv) return;
     currentAdvisorUser = adv;
     localStorage.setItem('udea_advisor_user', JSON.stringify(adv));
-    localStorage.setItem('udea_active_advisor', adv.name);
 
-    if (topbarAdvisorName) topbarAdvisorName.textContent = adv.name;
-    if (topbarAdvisorAvatar) {
-      const ini = adv.initials || adv.name.split(' ').map(n => n[0]).slice(0, 2).join('');
-      topbarAdvisorAvatar.textContent = ini;
+    const isSuperAdmin = (adv.role_type === 'admin' || (adv.email && adv.email.toLowerCase() === 'proyectostic.med@udea.edu.co'));
+
+    if (topbarAdvisorName) {
+      topbarAdvisorName.textContent = isSuperAdmin ? 'Administrador General TIC' : (adv.name || 'Asesor UdeA');
     }
-    if (activeAdvisorSelect) activeAdvisorSelect.value = adv.name;
+
+    if (topbarAdvisorRole) {
+      if (isSuperAdmin) {
+        topbarAdvisorRole.textContent = 'Admin General TIC';
+        topbarAdvisorRole.className = 'advisor-role-text admin-badge';
+      } else {
+        topbarAdvisorRole.textContent = adv.role || 'Asesor de Extensión';
+        topbarAdvisorRole.className = 'advisor-role-text';
+      }
+    }
+
+    if (topbarAdvisorAvatar) {
+      if (isSuperAdmin) {
+        topbarAdvisorAvatar.textContent = 'TIC';
+      } else {
+        const ini = adv.avatar || (adv.name ? adv.name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase() : 'AS');
+        topbarAdvisorAvatar.textContent = ini;
+      }
+    }
+
+    applyRolePermissions(adv);
   }
 
   function getActiveAdvisor() {
-    return currentAdvisorUser ? currentAdvisorUser.name : (localStorage.getItem('udea_active_advisor') || 'Dra. Carolina Martínez');
-  }
-
-  // Acceso Rápido para Perfiles Autorizados
-  function setupQuickAdvisors() {
-    const chips = document.querySelectorAll('.quick-adv-chip');
-    chips.forEach(chip => {
-      chip.addEventListener('click', () => {
-        const email = chip.getAttribute('data-email');
-        if (loginEmailInput) loginEmailInput.value = email;
-        if (loginPasswordInput) {
-          loginPasswordInput.focus();
-        }
-      });
-    });
+    return currentAdvisorUser ? currentAdvisorUser.name : (localStorage.getItem('udea_active_advisor') || 'Administrador General TIC');
   }
 
   // Login handler institucional con Firebase Authentication
@@ -191,35 +220,45 @@ document.addEventListener('DOMContentLoaded', () => {
       if (landingAlertBox) landingAlertBox.style.display = 'none';
       if (btnLoginSubmit) {
         btnLoginSubmit.disabled = true;
-        btnLoginSubmit.textContent = 'Verificando...';
+        btnLoginSubmit.textContent = 'Verificando con Firebase...';
       }
 
       let firebaseVerified = false;
+      let firebaseUid = null;
+      let displayName = null;
 
-      // 1. Verificación segura contra Firebase Authentication (crm-fdem)
+      // 1. Verificación obligatoria contra Firebase Authentication en tiempo real (crm-fdem)
       if (firebaseAuth && firebaseSignIn) {
         try {
           const userCred = await firebaseSignIn(firebaseAuth, email, password);
           if (userCred && userCred.user) {
             firebaseVerified = true;
+            firebaseUid = userCred.user.uid;
+            displayName = userCred.user.displayName;
           }
         } catch (fbErr) {
-          console.warn('Firebase Auth:', fbErr.code);
-          if (fbErr.code === 'auth/invalid-credential' || fbErr.code === 'auth/wrong-password' || fbErr.code === 'auth/user-not-found') {
-            if (landingAlertBox) {
-              landingAlertBox.textContent = 'Credenciales no autorizadas o contraseña incorrecta.';
-              landingAlertBox.style.display = 'block';
-            }
-            return false;
+          console.warn('Firebase Auth error:', fbErr.code, fbErr.message);
+          let userMsg = 'Credenciales no autorizadas o usuario no registrado en Firebase.';
+          if (fbErr.code === 'auth/user-not-found') {
+            userMsg = 'Usuario no encontrado en la base de datos de Firebase. Regístralo en Firebase Console.';
+          } else if (fbErr.code === 'auth/wrong-password' || fbErr.code === 'auth/invalid-credential') {
+            userMsg = 'Contraseña institucional incorrecta o credenciales no válidas.';
+          } else if (fbErr.code === 'auth/invalid-email') {
+            userMsg = 'El formato del correo institucional es inválido.';
           }
+          if (landingAlertBox) {
+            landingAlertBox.textContent = userMsg;
+            landingAlertBox.style.display = 'block';
+          }
+          return false;
         }
       }
 
-      // 2. Sincronizar sesión con backend seguro del CRM
+      // 2. Sincronizar y validar sesión en base de datos del servidor con RBAC
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, firebaseVerified })
+        body: JSON.stringify({ email, password, firebaseVerified, displayName, firebaseUid })
       });
       const data = await res.json();
       if (!data.success) {
@@ -262,14 +301,6 @@ document.addEventListener('DOMContentLoaded', () => {
       const email = loginEmailInput ? loginEmailInput.value.trim() : '';
       const password = loginPasswordInput ? loginPasswordInput.value.trim() : '';
       await performLogin(email, password);
-    });
-  }
-
-  if (btnSwitchAdvisor) {
-    btnSwitchAdvisor.addEventListener('click', () => {
-      if (landingAlertBox) landingAlertBox.style.display = 'none';
-      if (dashboardAppView) dashboardAppView.style.display = 'none';
-      if (loginLandingView) loginLandingView.style.display = 'flex';
     });
   }
 
@@ -356,6 +387,11 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   window.switchTab = (viewId) => {
+    const isSuperAdmin = currentAdvisorUser && (currentAdvisorUser.role_type === 'admin' || (currentAdvisorUser.email && currentAdvisorUser.email.toLowerCase() === 'proyectostic.med@udea.edu.co'));
+    if (!isSuperAdmin && (viewId === 'view-segmentation' || viewId === 'view-simulator' || viewId === 'view-settings')) {
+      viewId = 'view-overview';
+    }
+
     navItems.forEach(item => {
       if (item.getAttribute('data-view') === viewId) {
         item.classList.add('active');
@@ -1047,7 +1083,14 @@ document.addEventListener('DOMContentLoaded', () => {
       `;
 
       try {
-        const res = await fetch('/api/knowledge/sync', { method: 'POST' });
+        const token = localStorage.getItem('udea_auth_token');
+        const res = await fetch('/api/knowledge/sync', { 
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+          }
+        });
         const data = await res.json();
 
         if (data.success) {
@@ -1083,6 +1126,17 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // Descarga autorizada de base de datos segmentada
+  const btnExportCsv = document.getElementById('btnExportCsv');
+  if (btnExportCsv) {
+    btnExportCsv.addEventListener('click', (e) => {
+      const token = localStorage.getItem('udea_auth_token');
+      if (token) {
+        btnExportCsv.href = `/api/segmentation/export?token=${encodeURIComponent(token)}`;
+      }
+    });
+  }
+
   if (portfolioFilterCategory) portfolioFilterCategory.addEventListener('change', renderPortfolio);
 
   // Modal Nuevo Curso
@@ -1107,9 +1161,13 @@ document.addEventListener('DOMContentLoaded', () => {
       };
 
       try {
+        const token = localStorage.getItem('udea_auth_token');
         const res = await fetch('/api/knowledge', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+          },
           body: JSON.stringify(payload)
         });
         if (res.ok) {
