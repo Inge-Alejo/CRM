@@ -154,9 +154,10 @@ ${knowledgeContext}
       parts: [{ text: sanitizedMsg }]
     });
 
-    const modelCandidates = ['gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-3.8-flash'];
+    const modelCandidates = ['gemini-3.8-flash', 'gemini-2.5-flash', 'gemini-1.5-flash'];
     let response = null;
     let lastError = null;
+    let usedModel = null;
 
     for (const modelName of modelCandidates) {
       try {
@@ -169,7 +170,11 @@ ${knowledgeContext}
             maxOutputTokens: 600
           }
         });
-        if (response && response.text) break;
+        if (response && response.text) {
+          usedModel = modelName;
+          console.log(`🤖 [IA GOOGLE ACTIVADA]: Respuesta generada exitosamente con modelo ${usedModel}`);
+          break;
+        }
       } catch (err) {
         lastError = err;
         console.warn(`Aviso: Modelo ${modelName} no disponible o límite alcanzado (${err.message}). Reintentando con siguiente modelo...`);
