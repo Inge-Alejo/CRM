@@ -1197,7 +1197,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         const data = await res.json();
         if (data.success) {
-          geminiKeyStatus.textContent = 'Clave activada con éxito para Gemini 2.5 Flash.';
+          geminiKeyStatus.textContent = 'Clave activada. Cascada multi-modelo activa (Gemini 3.5 Flash-Lite, 3.1 Flash-Lite, 3.5 Flash y 3.8 Flash).';
           geminiKeyInput.value = '';
           loadTelemetry();
         }

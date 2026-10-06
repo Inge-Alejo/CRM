@@ -15,7 +15,7 @@ Sistema completo de **Chatbot Inteligente con IA para WhatsApp y Panel CRM** des
 2. **Cerebro de IA con Portafolio Real de Medicina UdeA:**
    * Alimentado con la oferta de educación continua: **Diplomado en Urgencias Médicas y Trauma**, **Curso ACLS (AHA)**, **Diplomado en Salud Mental Comunitaria**, **Curso en Auditoría Médica**, **Diplomado en Telemedicina**, etc.
    * **Grounding Estricto (Anti-Alucinaciones):** La IA solo responde con base en la información oficial cargada. Si algo no existe, remite a la oficina de extensión.
-   * Compatible con **Google Gemini 2.5 Flash** (`@google/genai`) y con motor inteligente de contingencia local sin requerir API keys de inmediato.
+   * **Cascada Multimodelo Inteligente y Balanceo:** Alterna automáticamente entre **Gemini 3.5 Flash-Lite**, **Gemini 3.1 Flash-Lite**, **Gemini 3.5 Flash** y **Gemini 3.8 Flash** (`@google/genai`) para multiplicar la cuota gratuita diaria, con respaldo determinista local.
 
 3. **Escalamiento a Asesor Humano (Human Handoff):**
    * Detecta automáticamente solicitudes como *"quiero un asesor"*, *"comunícame con una persona"* o problemas de pago.

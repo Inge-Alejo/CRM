@@ -6,6 +6,8 @@ import { SegmentationEngine } from './segmentationEngine.js';
 import { LeadService } from '../domain/leadService.js';
 
 export class GeminiService {
+  static modelRotationIndex = 0;
+
   /**
    * Genera la respuesta del bot evaluando el mensaje del estudiante
    * @param {string} userMessage Mensaje recibido por WhatsApp
@@ -154,7 +156,23 @@ ${knowledgeContext}
       parts: [{ text: sanitizedMsg }]
     });
 
-    const modelCandidates = ['gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-3.8-flash'];
+    // Pool multimodelo de Google DeepMind: Flash-Lite y Flash para maximizar cuotas y alternar sin agotarse
+    const MODEL_POOL = [
+      'gemini-3.5-flash-lite',
+      'gemini-3.1-flash-lite',
+      'gemini-3.5-flash',
+      'gemini-3.8-flash',
+      'gemini-2.5-flash'
+    ];
+
+    // Rotación activa (Round-Robin): reparte el consumo entre los modelos disponibles
+    const startIndex = GeminiService.modelRotationIndex % MODEL_POOL.length;
+    GeminiService.modelRotationIndex = (GeminiService.modelRotationIndex + 1) % MODEL_POOL.length;
+    const modelCandidates = [
+      ...MODEL_POOL.slice(startIndex),
+      ...MODEL_POOL.slice(0, startIndex)
+    ];
+
     let response = null;
     let lastError = null;
     let usedModel = null;
@@ -177,7 +195,7 @@ ${knowledgeContext}
         }
       } catch (err) {
         lastError = err;
-        console.warn(`Aviso: Modelo ${modelName} no disponible o límite alcanzado (${err.message}). Reintentando con siguiente modelo...`);
+        console.warn(`Aviso: Modelo ${modelName} no disponible o límite alcanzado (${err.message}). Conmutando al siguiente modelo en rotación...`);
       }
     }
 
