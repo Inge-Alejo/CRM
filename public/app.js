@@ -13,6 +13,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Badges y Alertas
   const leadsAlertBadge = document.getElementById('leadsAlertBadge');
+  const inboxPendingBadge = document.getElementById('inboxPendingBadge');
   const coursesNavBadge = document.getElementById('coursesNavBadge');
   const dashAlertBanner = document.getElementById('dashAlertBanner');
   const dashAlertMessage = document.getElementById('dashAlertMessage');
@@ -383,6 +384,10 @@ document.addEventListener('DOMContentLoaded', () => {
       title: 'Panel General de Extensión',
       subtitle: 'Métricas ejecutivas de prospectos, resolución de IA y consumo de WhatsApp'
     },
+    'view-inbox': {
+      title: 'Bandeja del Asesor (Agent Workspace)',
+      subtitle: 'Consola unificada de atención omnicanal WhatsApp · Cola de triage, chat en vivo y Customer 360'
+    },
     'view-leads': {
       title: 'Bandeja de Prospectos & CRM',
       subtitle: 'Gestión y seguimiento de médicos e interesados atendidos por el equipo'
@@ -436,6 +441,7 @@ document.addEventListener('DOMContentLoaded', () => {
       currentViewSubtitle.textContent = viewMeta[viewId].subtitle;
     }
 
+    if (viewId === 'view-inbox') renderInbox();
     if (viewId === 'view-leads') renderLeads();
     if (viewId === 'view-segmentation') loadSegmentation();
     if (viewId === 'view-portfolio') renderPortfolio();
@@ -489,6 +495,10 @@ document.addEventListener('DOMContentLoaded', () => {
         leadsAlertBadge.style.display = 'inline-block';
         leadsAlertBadge.textContent = advisorNeeded.length;
       }
+      if (inboxPendingBadge) {
+        inboxPendingBadge.style.display = 'inline-block';
+        inboxPendingBadge.textContent = advisorNeeded.length;
+      }
       if (dashAlertBanner) {
         dashAlertBanner.style.display = 'flex';
         dashAlertMessage.textContent = `Hay ${advisorNeeded.length} persona(s) esperando atención de un asesor en este momento.`;
@@ -499,6 +509,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     } else {
       if (leadsAlertBadge) leadsAlertBadge.style.display = 'none';
+      if (inboxPendingBadge) inboxPendingBadge.style.display = 'none';
       if (dashAlertBanner) dashAlertBanner.style.display = 'none';
       if (kpiAdvisorFooter) {
         kpiAdvisorFooter.textContent = 'Sin pendientes urgentes';
@@ -658,6 +669,10 @@ document.addEventListener('DOMContentLoaded', () => {
           </td>
           <td>
             <div class="action-buttons">
+              <button class="btn btn-primary btn-sm" onclick="window.openLeadInWorkspace('${safePhone}')" title="Atender en Bandeja del Asesor (Consola 3 Columnas estilo Zendesk/Intercom)">
+                <svg class="mini-svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                Atender
+              </button>
               <a href="${waLink}" target="_blank" rel="noopener" class="btn btn-wa btn-sm" title="Abrir chat en WhatsApp Web">
                 <svg class="mini-svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
                 WhatsApp
@@ -1493,6 +1508,521 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
   }
+
+  // ==========================================================================
+  // 12. BANDEJA DEL ASESOR · AGENT WORKSPACE 3-COLUMN (ESTILO ZENDESK / INTERCOM)
+  // Consola Omnicanal: Cola de Triage, Feed en Vivo WhatsApp y Customer 360
+  // ==========================================================================
+
+  const AGENT_MACROS = {
+    saludo: '¡Hola! Te saluda un asesor del equipo de Extensión y Educación Continua de la Facultad de Medicina UdeA. Con mucho gusto te acompaño en tu proceso de información y matrícula. ¿En qué programa estás interesado?',
+    pago: '¡Excelente decisión académica! Puedes asegurar tu cupo y realizar tu pago oficial directamente a través de la plataforma universitaria AsOne de la UdeA en el siguiente enlace:\n🔗 https://asone.udea.edu.co/\n\nRecuerda adjuntarme el comprobante o avisarme cuando realices el pago para formalizar tu registro.',
+    requisitos: '📋 Requisitos de Inscripción:\n1. Copia de documento de identidad al 150%.\n2. Acta de grado o tarjeta profesional (según el perfil requerido del curso).\n3. Comprobante de pago emitido por AsOne UdeA.\n\n¿Tienes alguna duda sobre la documentación?',
+    horarios: '⏰ Horarios y Modalidad:\nNuestros diplomados y cursos combinan sesiones sincrónicas los fines de semana (viernes de 5:00 p.m. a 9:00 p.m. y sábados de 8:00 a.m. a 12:00 m.) con trabajo en plataforma virtual y talleres prácticos en el Campus de la Salud UdeA.',
+    despedida: '¡Ha sido un placer orientarte! Quedamos atentos a cualquier inquietud adicional. Recuerda que en la Facultad de Medicina de la Universidad de Antioquia transformamos el conocimiento en bienestar para la comunidad. ¡Feliz día! 🎓👨‍⚕️'
+  };
+
+  let currentInboxPhone = null;
+  let currentInboxFilter = 'all'; // 'all', 'mine', 'hot', 'needs_human'
+  let currentInboxSearch = '';
+
+  // Elementos de la Bandeja de Entrada
+  const inboxTotalCountBadge = document.getElementById('inboxTotalCountBadge');
+  const inboxSearchInput = document.getElementById('inboxSearchInput');
+  const inboxConversationsList = document.getElementById('inboxConversationsList');
+  const inboxTriagePills = document.querySelectorAll('.inbox-triage-pills .triage-pill');
+
+  // Elementos de la Columna Central (Chat Feed)
+  const inboxChatHeader = document.getElementById('inboxChatHeader');
+  const inboxActiveAvatar = document.getElementById('inboxActiveAvatar');
+  const inboxActiveName = document.getElementById('inboxActiveName');
+  const inboxActiveTempBadge = document.getElementById('inboxActiveTempBadge');
+  const inboxActivePhone = document.getElementById('inboxActivePhone');
+  const inboxActiveStatus = document.getElementById('inboxActiveStatus');
+  const inboxAiToggleCheck = document.getElementById('inboxAiToggleCheck');
+  const inboxAiToggleLabel = document.getElementById('inboxAiToggleLabel');
+  const btnInboxMarkAttended = document.getElementById('btnInboxMarkAttended');
+  const inboxMessagesFeed = document.getElementById('inboxMessagesFeed');
+  const inboxComposer = document.getElementById('inboxComposer');
+  const inboxMessageInput = document.getElementById('inboxMessageInput');
+  const btnInboxSendMessage = document.getElementById('btnInboxSendMessage');
+  const macroChips = document.querySelectorAll('.macros-bar .macro-chip');
+
+  // Elementos de la Columna Derecha (Customer 360)
+  const inboxCustomerPanel = document.getElementById('inboxCustomerPanel');
+  const inboxCustAvatar = document.getElementById('inboxCustAvatar');
+  const inboxCustName = document.getElementById('inboxCustName');
+  const inboxCustPhone = document.getElementById('inboxCustPhone');
+  const inboxCustWaLink = document.getElementById('inboxCustWaLink');
+  const inboxCustDoc = document.getElementById('inboxCustDoc');
+  const inboxCustEmail = document.getElementById('inboxCustEmail');
+  const inboxCustProfession = document.getElementById('inboxCustProfession');
+  const inboxCustArea = document.getElementById('inboxCustArea');
+  const inboxCustProgram = document.getElementById('inboxCustProgram');
+  const btnInboxCopyPaymentLink = document.getElementById('btnInboxCopyPaymentLink');
+  const inboxCustInfoLink = document.getElementById('inboxCustInfoLink');
+  const inboxCustStatusSelect = document.getElementById('inboxCustStatusSelect');
+  const inboxCustAdvisorSelect = document.getElementById('inboxCustAdvisorSelect');
+  const btnInboxAssignToMe = document.getElementById('btnInboxAssignToMe');
+  const inboxCustTempSelect = document.getElementById('inboxCustTempSelect');
+  const inboxCustNotesTextarea = document.getElementById('inboxCustNotesTextarea');
+  const btnInboxSaveNotes = document.getElementById('btnInboxSaveNotes');
+  const inboxNotesSavedStatus = document.getElementById('inboxNotesSavedStatus');
+
+  // Filtros tipo píldora de la cola de triage
+  inboxTriagePills.forEach(pill => {
+    pill.addEventListener('click', () => {
+      inboxTriagePills.forEach(p => p.classList.remove('active'));
+      pill.classList.add('active');
+      currentInboxFilter = pill.getAttribute('data-filter') || 'all';
+      renderInbox(true);
+    });
+  });
+
+  // Buscador reactivo en tiempo real
+  if (inboxSearchInput) {
+    inboxSearchInput.addEventListener('input', (e) => {
+      currentInboxSearch = (e.target.value || '').toLowerCase().trim();
+      renderInbox(true);
+    });
+  }
+
+  // Cargar y renderizar la columna 1 (Lista de conversaciones)
+  function renderInbox(preserveSelection = false) {
+    if (!inboxConversationsList) return;
+
+    const myAdvisor = getActiveAdvisor();
+    let list = [...allLoadedLeads];
+
+    // Aplicar filtro de Triage
+    if (currentInboxFilter === 'mine') {
+      list = list.filter(l => (l.assigned_advisor || '') === myAdvisor);
+    } else if (currentInboxFilter === 'hot') {
+      list = list.filter(l => l.interest_temperature === 'hot');
+    } else if (currentInboxFilter === 'needs_human') {
+      list = list.filter(l => l.status === 'advisor_requested');
+    }
+
+    // Aplicar búsqueda por texto
+    if (currentInboxSearch) {
+      list = list.filter(l =>
+        (l.name && l.name.toLowerCase().includes(currentInboxSearch)) ||
+        (l.phone_number && l.phone_number.includes(currentInboxSearch)) ||
+        (l.program_interest && l.program_interest.toLowerCase().includes(currentInboxSearch)) ||
+        (l.segment_profession && l.segment_profession.toLowerCase().includes(currentInboxSearch)) ||
+        (l.last_message && l.last_message.toLowerCase().includes(currentInboxSearch))
+      );
+    }
+
+    if (inboxTotalCountBadge) {
+      inboxTotalCountBadge.textContent = `${list.length} chat${list.length === 1 ? '' : 's'}`;
+    }
+
+    if (list.length === 0) {
+      inboxConversationsList.innerHTML = `
+        <div style="padding: 2.5rem 1rem; text-align: center; color: var(--text-muted); font-size: 0.82rem;">
+          <div style="font-size: 1.8rem; margin-bottom: 0.5rem; opacity: 0.6;">📭</div>
+          <strong>No hay conversaciones</strong>
+          <p style="margin: 0.25rem 0 0; font-size: 0.74rem;">No hay prospectos que coincidan con los filtros seleccionados.</p>
+        </div>
+      `;
+      if (!preserveSelection) {
+        resetInboxView();
+      }
+      return;
+    }
+
+    inboxConversationsList.innerHTML = list.map(lead => {
+      const isSelected = lead.phone_number === currentInboxPhone;
+      const initials = getInitials(lead.name || 'Interesado UdeA');
+      const tempIcon = lead.interest_temperature === 'hot' ? '🔥' : (lead.interest_temperature === 'warm' ? '🟡' : '❄️');
+      const safeName = escapeHtml(lead.name || 'Interesado UdeA');
+      const safeMsg = escapeHtml(lead.last_message || 'Inició conversación...');
+      const safePhone = escapeHtml(lead.phone_number || '');
+      const timeStr = lead.updated_at ? new Date(lead.updated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+      const isUrgent = lead.status === 'advisor_requested';
+
+      return `
+        <div class="inbox-conv-item ${isSelected ? 'active' : ''} ${isUrgent ? 'unread' : ''}" onclick="window.selectInboxLead('${safePhone}')">
+          <div class="conv-avatar">${initials}</div>
+          <div class="conv-body">
+            <div class="conv-top">
+              <span class="conv-name">${safeName}</span>
+              <span class="conv-time">${timeStr}</span>
+            </div>
+            <div class="conv-preview">${safeMsg}</div>
+            <div class="conv-tags">
+              <span class="conv-tag temp">${tempIcon} ${lead.interest_temperature ? lead.interest_temperature.toUpperCase() : 'COLD'}</span>
+              ${isUrgent ? `<span class="conv-tag req">🚨 Requiere Asesor</span>` : ''}
+              ${lead.assigned_advisor && lead.assigned_advisor !== 'Sin Asignar' ? `<span class="conv-tag" style="background:#f1f5f9; color:#475569;">👤 ${escapeHtml(lead.assigned_advisor)}</span>` : ''}
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    // Si había un lead seleccionado o si ninguno lo está y hay elementos en la lista, abrir el primero si no hay selección previa
+    if (currentInboxPhone && list.some(l => l.phone_number === currentInboxPhone)) {
+      // Mantener selección activa
+    } else if (!currentInboxPhone && list.length > 0 && !preserveSelection) {
+      selectInboxLead(list[0].phone_number);
+    }
+  }
+
+  function resetInboxView() {
+    currentInboxPhone = null;
+    if (inboxChatHeader) inboxChatHeader.style.display = 'none';
+    if (inboxComposer) inboxComposer.style.display = 'none';
+    if (inboxCustomerPanel) inboxCustomerPanel.style.display = 'none';
+    if (inboxMessagesFeed) {
+      inboxMessagesFeed.innerHTML = `
+        <div class="workspace-no-chat-selected">
+          <div class="no-chat-icon">💬</div>
+          <h3>Bandeja de Conversaciones WhatsApp</h3>
+          <p>Selecciona un prospecto en la columna izquierda para abrir su chat en tiempo real, enviar respuestas oficiales y gestionar su matrícula.</p>
+        </div>
+      `;
+    }
+  }
+
+  function getInitials(name) {
+    if (!name) return 'UD';
+    const parts = name.trim().split(/\s+/);
+    if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
+    return (parts[0][0] + parts[1][0]).toUpperCase();
+  }
+
+  // 13. Abrir y Cargar Chat de un Prospecto en el Workspace
+  window.selectInboxLead = async (phone) => {
+    currentInboxPhone = phone;
+    
+    // Destacar en la lista lateral
+    document.querySelectorAll('.inbox-conv-item').forEach(el => el.classList.remove('active'));
+    renderInbox(true);
+
+    // Mostrar contenedores de trabajo
+    if (inboxChatHeader) inboxChatHeader.style.display = 'flex';
+    if (inboxComposer) inboxComposer.style.display = 'flex';
+    if (inboxCustomerPanel) inboxCustomerPanel.style.display = 'flex';
+
+    if (inboxMessagesFeed) {
+      inboxMessagesFeed.innerHTML = `
+        <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; color:var(--text-muted); font-size:0.85rem;">
+          <div class="spinner-mini" style="margin-bottom:0.75rem;"></div>
+          <span>Cargando mensajes de WhatsApp...</span>
+        </div>
+      `;
+    }
+
+    try {
+      const res = await fetch(`/api/leads/${encodeURIComponent(phone)}/chat`);
+      const data = await res.json();
+      const messages = data.messages || [];
+      const lead = data.lead || {};
+
+      // Actualizar Header del Chat (Columna 2)
+      const initials = getInitials(lead.name || 'Interesado UdeA');
+      if (inboxActiveAvatar) inboxActiveAvatar.textContent = initials;
+      if (inboxActiveName) inboxActiveName.textContent = lead.name || 'Interesado UdeA';
+      if (inboxActivePhone) inboxActivePhone.textContent = lead.phone_number || '';
+      if (inboxActiveStatus) inboxActiveStatus.textContent = lead.status === 'advisor_requested' ? '🚨 Espera asesor' : (lead.status === 'advisor_handling' ? '👨‍⚕️ Asesor al mando' : '🤖 IA Apolo');
+
+      if (inboxActiveTempBadge) {
+        const temp = lead.interest_temperature || 'cold';
+        inboxActiveTempBadge.className = `temp-badge ${temp}`;
+        inboxActiveTempBadge.textContent = temp === 'hot' ? '🔥 Alta Intención' : (temp === 'warm' ? '🟡 Media Intención' : '❄️ Consulta General');
+      }
+
+      // Configurar Toggle de IA
+      const isAiActive = lead.status !== 'advisor_handling';
+      if (inboxAiToggleCheck) inboxAiToggleCheck.checked = isAiActive;
+      if (inboxAiToggleLabel) {
+        inboxAiToggleLabel.textContent = isAiActive ? '🤖 IA Activa' : '⏸️ IA Pausada (Asesor)';
+        inboxAiToggleLabel.style.color = isAiActive ? 'var(--udea-emerald)' : '#ea580c';
+      }
+
+      // Renderizar Feed de Mensajes estilo WhatsApp
+      if (inboxMessagesFeed) {
+        if (messages.length === 0) {
+          inboxMessagesFeed.innerHTML = `
+            <div style="text-align:center; padding:3rem 1rem; color:var(--text-muted); font-size:0.84rem;">
+              <p>No hay mensajes registrados aún en este chat.</p>
+              <p style="font-size:0.75rem;">Usa las respuestas rápidas o escribe abajo para iniciar la conversación.</p>
+            </div>
+          `;
+        } else {
+          inboxMessagesFeed.innerHTML = messages.map(m => {
+            const isUser = m.sender === 'user';
+            const isAdvisor = m.sender === 'advisor';
+            const senderClass = isUser ? 'user' : (isAdvisor ? 'advisor' : 'bot');
+            const senderTag = isUser ? '👤 Prospecto' : (isAdvisor ? '👨‍⚕️ Asesor Humano UdeA' : '🤖 Asistente Apolo (IA)');
+            const time = m.timestamp ? new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+            const safeContent = escapeHtml(m.content);
+
+            return `
+              <div class="wa-bubble ${senderClass}">
+                <div class="wa-bubble-sender">${senderTag}</div>
+                <div class="wa-bubble-content">${safeContent}</div>
+                <div class="wa-bubble-meta">
+                  <span class="wa-bubble-time">${time}</span>
+                  ${isAdvisor || !isUser ? `<span class="wa-check">✓✓</span>` : ''}
+                </div>
+              </div>
+            `;
+          }).join('');
+
+          // Auto-scroll al fondo
+          inboxMessagesFeed.scrollTop = inboxMessagesFeed.scrollHeight;
+        }
+      }
+
+      // Actualizar Ficha Customer 360 (Columna 3)
+      if (inboxCustAvatar) inboxCustAvatar.textContent = initials;
+      if (inboxCustName) inboxCustName.textContent = lead.name || 'Interesado UdeA';
+      if (inboxCustPhone) inboxCustPhone.textContent = lead.phone_number || '';
+      
+      const cleanPhone = (lead.phone_number || '').replace(/[^\d]/g, '');
+      if (inboxCustWaLink) inboxCustWaLink.href = `https://wa.me/${cleanPhone}`;
+
+      if (inboxCustDoc) {
+        inboxCustDoc.textContent = (lead.doc_number) ? `${lead.doc_type || 'CC'} ${lead.doc_number}` : 'No suministrado';
+      }
+      if (inboxCustEmail) inboxCustEmail.textContent = lead.email || 'No registrado';
+      if (inboxCustProfession) inboxCustProfession.textContent = lead.segment_profession || 'Por Definir';
+      if (inboxCustArea) inboxCustArea.textContent = lead.thematic_area || 'Clínica General';
+      if (inboxCustProgram) inboxCustProgram.textContent = lead.program_interest || 'Oferta Institucional General';
+
+      // Enlace de ficha informativa si coincide con el portafolio
+      if (inboxCustInfoLink) {
+        const foundCourse = allPortfolioItems.find(p => p.title.toLowerCase().includes((lead.program_interest || '').toLowerCase()));
+        if (foundCourse && foundCourse.registration_url) {
+          inboxCustInfoLink.href = foundCourse.registration_url;
+          inboxCustInfoLink.style.display = 'inline-flex';
+        } else {
+          inboxCustInfoLink.href = 'https://asone.udea.edu.co/';
+          inboxCustInfoLink.style.display = 'inline-flex';
+        }
+      }
+
+      // Select de Asesores
+      if (inboxCustAdvisorSelect) {
+        const currentAdv = lead.assigned_advisor || 'Sin Asignar';
+        inboxCustAdvisorSelect.innerHTML = [
+          `<option value="Sin Asignar" ${currentAdv === 'Sin Asignar' ? 'selected' : ''}>Sin Asignar</option>`,
+          ...allAdvisorsList.map(a => `<option value="${escapeHtml(a.name)}" ${currentAdv === a.name ? 'selected' : ''}>${escapeHtml(a.name)}</option>`)
+        ].join('');
+      }
+
+      // Select de Estado
+      if (inboxCustStatusSelect) {
+        inboxCustStatusSelect.value = lead.status || 'ai_handling';
+      }
+
+      // Select de Temperatura
+      if (inboxCustTempSelect) {
+        inboxCustTempSelect.value = lead.interest_temperature || 'cold';
+      }
+
+      // Textarea de Notas Internas
+      if (inboxCustNotesTextarea) {
+        inboxCustNotesTextarea.value = lead.notes || '';
+      }
+      if (inboxNotesSavedStatus) inboxNotesSavedStatus.textContent = '';
+
+    } catch (err) {
+      console.error('Error al cargar chat en inbox:', err);
+    }
+  };
+
+  // Enviar mensaje del asesor humano por WhatsApp
+  async function sendAdvisorMessageFromInbox() {
+    if (!currentInboxPhone) return;
+    const text = inboxMessageInput ? inboxMessageInput.value.trim() : '';
+    if (!text) return;
+
+    const advisorName = getActiveAdvisor();
+    btnInboxSendMessage.disabled = true;
+
+    try {
+      const res = await fetch(`/api/leads/${encodeURIComponent(currentInboxPhone)}/send-message`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: text, advisorName })
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        if (inboxMessageInput) inboxMessageInput.value = '';
+        // Recargar chat y actualizar lista
+        await window.selectInboxLead(currentInboxPhone);
+        fetchLeads();
+      } else {
+        alert('Error enviando mensaje: ' + (data.error || 'Desconocido'));
+      }
+    } catch (err) {
+      alert('Error de conexión al enviar: ' + err.message);
+    } finally {
+      if (btnInboxSendMessage) btnInboxSendMessage.disabled = false;
+      if (inboxMessageInput) inboxMessageInput.focus();
+    }
+  }
+
+  if (btnInboxSendMessage) {
+    btnInboxSendMessage.addEventListener('click', sendAdvisorMessageFromInbox);
+  }
+
+  // Enviar con Enter (y shift+enter para salto de línea)
+  if (inboxMessageInput) {
+    inboxMessageInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendAdvisorMessageFromInbox();
+      }
+    });
+  }
+
+  // Respuestas Rápidas (Macros en 1 clic)
+  macroChips.forEach(chip => {
+    chip.addEventListener('click', () => {
+      const macroKey = chip.getAttribute('data-macro');
+      const macroText = AGENT_MACROS[macroKey];
+      if (macroText && inboxMessageInput) {
+        if (inboxMessageInput.value.trim().length > 0) {
+          inboxMessageInput.value += '\n\n' + macroText;
+        } else {
+          inboxMessageInput.value = macroText;
+        }
+        inboxMessageInput.focus();
+        inboxMessageInput.scrollTop = inboxMessageInput.scrollHeight;
+      }
+    });
+  });
+
+  // Toggle de IA Apolo (Pausar / Reanudar bot por conversación)
+  if (inboxAiToggleCheck) {
+    inboxAiToggleCheck.addEventListener('change', async () => {
+      if (!currentInboxPhone) return;
+      const willBeActive = inboxAiToggleCheck.checked;
+      const pauseAi = !willBeActive;
+
+      try {
+        const res = await fetch(`/api/leads/${encodeURIComponent(currentInboxPhone)}/toggle-ai`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pauseAi })
+        });
+        const data = await res.json();
+        if (data.success) {
+          if (inboxAiToggleLabel) {
+            inboxAiToggleLabel.textContent = willBeActive ? '🤖 IA Activa' : '⏸️ IA Pausada (Asesor)';
+            inboxAiToggleLabel.style.color = willBeActive ? 'var(--udea-emerald)' : '#ea580c';
+          }
+          fetchLeads();
+        }
+      } catch (err) {
+        console.error('Error al alternar IA:', err);
+      }
+    });
+  }
+
+  // Marcar como atendido desde el header del chat
+  if (btnInboxMarkAttended) {
+    btnInboxMarkAttended.addEventListener('click', async () => {
+      if (!currentInboxPhone) return;
+      await window.markAttendedByActiveAdvisor(currentInboxPhone);
+      await window.selectInboxLead(currentInboxPhone);
+    });
+  }
+
+  // Guardar notas internas en Neon Cloud
+  if (btnInboxSaveNotes) {
+    btnInboxSaveNotes.addEventListener('click', async () => {
+      if (!currentInboxPhone) return;
+      const notes = inboxCustNotesTextarea ? inboxCustNotesTextarea.value : '';
+      btnInboxSaveNotes.disabled = true;
+
+      try {
+        const res = await fetch(`/api/leads/${encodeURIComponent(currentInboxPhone)}/notes`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ notes })
+        });
+        const data = await res.json();
+        if (data.success) {
+          if (inboxNotesSavedStatus) {
+            inboxNotesSavedStatus.textContent = '✓ Guardado en Neon Cloud';
+            setTimeout(() => {
+              if (inboxNotesSavedStatus) inboxNotesSavedStatus.textContent = '';
+            }, 3000);
+          }
+          fetchLeads();
+        }
+      } catch (err) {
+        alert('Error guardando notas: ' + err.message);
+      } finally {
+        btnInboxSaveNotes.disabled = false;
+      }
+    });
+  }
+
+  // Cambiar asesor asignado en Customer 360
+  if (inboxCustAdvisorSelect) {
+    inboxCustAdvisorSelect.addEventListener('change', async () => {
+      if (!currentInboxPhone) return;
+      await window.reassignAdvisor(currentInboxPhone, inboxCustAdvisorSelect.value);
+    });
+  }
+
+  // Asignarme el caso inmediatamente en Customer 360
+  if (btnInboxAssignToMe) {
+    btnInboxAssignToMe.addEventListener('click', async () => {
+      if (!currentInboxPhone) return;
+      await window.assignToMe(currentInboxPhone);
+      if (inboxCustAdvisorSelect) inboxCustAdvisorSelect.value = getActiveAdvisor();
+    });
+  }
+
+  // Cambiar estado del lead en Customer 360
+  if (inboxCustStatusSelect) {
+    inboxCustStatusSelect.addEventListener('change', async () => {
+      if (!currentInboxPhone) return;
+      try {
+        await fetch(`/api/leads/${encodeURIComponent(currentInboxPhone)}/status`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: inboxCustStatusSelect.value })
+        });
+        fetchLeads();
+      } catch (err) {
+        console.warn('Error actualizando estado:', err.message);
+      }
+    });
+  }
+
+  // Copiar link oficial de pago AsOne UdeA con feedback
+  if (btnInboxCopyPaymentLink) {
+    btnInboxCopyPaymentLink.addEventListener('click', async () => {
+      const link = 'https://asone.udea.edu.co/';
+      try {
+        await navigator.clipboard.writeText(link);
+        const originalText = btnInboxCopyPaymentLink.textContent;
+        btnInboxCopyPaymentLink.textContent = '✓ ¡Copiado!';
+        btnInboxCopyPaymentLink.style.background = '#059669';
+        setTimeout(() => {
+          btnInboxCopyPaymentLink.textContent = originalText;
+          btnInboxCopyPaymentLink.style.background = '';
+        }, 2000);
+      } catch (e) {
+        prompt('Copia el enlace de pago oficial de AsOne:', link);
+      }
+    });
+  }
+
+  // Abrir prospecto directamente en la Bandeja del Asesor desde cualquier parte de la app
+  window.openLeadInWorkspace = (phone) => {
+    window.switchTab('view-inbox');
+    window.selectInboxLead(phone);
+  };
 
   // Control de Acceso: Verificar si el asesor está autenticado para mostrar Landing o Dashboard
   function checkAuthAndInit() {

@@ -86,6 +86,13 @@
           </span>
           <span class="nav-label">Panel General</span>
         </button>
+        <button class="nav-item" data-view="view-inbox" id="navItemInbox">
+          <span class="nav-icon">
+            <svg class="nav-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          </span>
+          <span class="nav-label">Bandeja Asesor</span>
+          <span class="nav-badge alert" id="inboxPendingBadge" style="display:none;">0</span>
+        </button>
         <button class="nav-item" data-view="view-leads">
           <span class="nav-icon">
             <svg class="nav-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
@@ -330,6 +337,219 @@
               </tbody>
             </table>
           </div>
+        </div>
+      </section>
+
+      <!-- VISTA 1.5: BANDEJA DEL ASESOR (AGENT WORKSPACE 3-COLUMN ESTILO ZENDESK / INTERCOM) -->
+      <section class="view-panel" id="view-inbox">
+        <div class="agent-workspace-container">
+          
+          <!-- COLUMNA 1: COLA DE CONVERSACIONES & TRIAGE (IZQUIERDA) -->
+          <aside class="workspace-sidebar">
+            <div class="workspace-sidebar-header">
+              <div class="workspace-title-row">
+                <div style="display:flex; align-items:center; gap:0.5rem;">
+                  <span class="status-pulse-dot" style="margin:0;"></span>
+                  <h3 style="margin:0; font-size:0.95rem; font-weight:800; color:var(--udea-dark);">Bandeja de Entrada</h3>
+                </div>
+                <span class="badge" id="inboxTotalCountBadge" style="background:#e0f2fe; color:#0369a1; font-weight:700;">0 chats</span>
+              </div>
+              
+              <div class="inbox-search-box">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                <input type="text" id="inboxSearchInput" placeholder="Buscar por nombre, teléfono o programa..." />
+              </div>
+
+              <!-- Píldoras de Triage / Filtros Rápidos -->
+              <div class="inbox-triage-pills">
+                <button class="triage-pill active" data-filter="all">Todos</button>
+                <button class="triage-pill" data-filter="mine">Mis Casos</button>
+                <button class="triage-pill" data-filter="hot">🔥 Calientes</button>
+                <button class="triage-pill" data-filter="needs_human">🚨 Piden Asesor</button>
+              </div>
+            </div>
+
+            <!-- Lista scrolleable de chats -->
+            <div class="workspace-conversations-list" id="inboxConversationsList">
+              <div class="inbox-loading-state">
+                <div class="spinner-mini"></div>
+                <span>Cargando conversaciones...</span>
+              </div>
+            </div>
+          </aside>
+
+          <!-- COLUMNA 2: FEED DE CONVERSACIÓN WHATSAPP (CENTRO) -->
+          <main class="workspace-chat-main">
+            <!-- Header del chat activo -->
+            <div class="workspace-chat-header" id="inboxChatHeader" style="display:none;">
+              <div class="chat-header-user">
+                <div class="chat-avatar" id="inboxActiveAvatar">DR</div>
+                <div class="chat-user-meta">
+                  <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
+                    <h4 id="inboxActiveName" style="margin:0; font-size:1.02rem; font-weight:800; color:var(--udea-dark);">Nombre del Prospecto</h4>
+                    <span id="inboxActiveTempBadge" class="temp-badge hot">🔥 Caliente</span>
+                  </div>
+                  <div style="display:flex; align-items:center; gap:0.5rem; font-size:0.75rem; color:var(--text-muted); margin-top:2px;">
+                    <span id="inboxActivePhone">+57 300 000 0000</span>
+                    <span>•</span>
+                    <span id="inboxActiveStatus">En atención</span>
+                    <span>•</span>
+                    <span class="meta-window-tag" title="Ventana oficial de conversación de WhatsApp Cloud API">🟢 Ventana Meta 24h Activa</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Controles de acción en la cabecera del chat -->
+              <div class="chat-header-controls">
+                <div class="ai-toggle-box" title="Pausar o reanudar el asistente virtual Apolo para este prospecto">
+                  <span id="inboxAiToggleLabel" style="font-size:0.74rem; font-weight:700; color:var(--udea-emerald);">🤖 IA Activa</span>
+                  <label class="switch">
+                    <input type="checkbox" id="inboxAiToggleCheck" checked>
+                    <span class="slider round"></span>
+                  </label>
+                </div>
+                <button class="btn btn-secondary btn-sm" id="btnInboxMarkAttended" title="Marcar que atendiste a este usuario">
+                  <svg class="mini-svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                  <span>Atendido</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Feed de Mensajes -->
+            <div class="workspace-chat-feed" id="inboxMessagesFeed">
+              <div class="workspace-no-chat-selected">
+                <div class="no-chat-icon">💬</div>
+                <h3>Bandeja de Conversaciones WhatsApp</h3>
+                <p>Selecciona un prospecto en la columna izquierda para abrir su chat en tiempo real, enviar respuestas oficiales y gestionar su matrícula.</p>
+              </div>
+            </div>
+
+            <!-- Caja de Redacción / Composer del Asesor -->
+            <div class="workspace-composer" id="inboxComposer" style="display:none;">
+              <!-- Barra de Respuestas Rápidas (Macros / Canned Responses en 1 clic) -->
+              <div class="macros-bar">
+                <span class="macros-label">⚡ Respuestas Rápidas:</span>
+                <button class="macro-chip" data-macro="saludo">👋 Saludo Oficial</button>
+                <button class="macro-chip" data-macro="pago">💳 Enlace de Pago AsOne</button>
+                <button class="macro-chip" data-macro="requisitos">📋 Requisitos</button>
+                <button class="macro-chip" data-macro="horarios">⏰ Horarios & Fechas</button>
+                <button class="macro-chip" data-macro="despedida">🎓 Despedida Cordial</button>
+              </div>
+
+              <div class="composer-input-row">
+                <textarea id="inboxMessageInput" class="composer-textarea" rows="2" placeholder="Escribe tu respuesta de WhatsApp como asesor... (o usa las respuestas rápidas arriba)"></textarea>
+                <div class="composer-actions">
+                  <button class="btn btn-primary btn-send-wa" id="btnInboxSendMessage" title="Enviar respuesta por WhatsApp">
+                    <span>Enviar</span>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </main>
+
+          <!-- COLUMNA 3: CUSTOMER 360 / FICHA DEL PROSPECTO & CRM (DERECHA) -->
+          <aside class="workspace-customer-panel" id="inboxCustomerPanel" style="display:none;">
+            <div class="customer-panel-header">
+              <div class="customer-avatar-big" id="inboxCustAvatar">DR</div>
+              <h4 id="inboxCustName" style="margin:0; font-size:1.05rem; font-weight:800; color:var(--udea-dark);">Nombre del Prospecto</h4>
+              <span id="inboxCustPhone" style="font-size:0.8rem; color:var(--text-muted); font-family:var(--font-mono);">+57 300 000 0000</span>
+              <a id="inboxCustWaLink" href="#" target="_blank" class="btn-wa-direct" title="Abrir en WhatsApp Web o Móvil">
+                <span>Abrir en WhatsApp</span>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+              </a>
+            </div>
+
+            <div class="customer-details-scroll">
+              
+              <!-- Sección: Datos Clínicos y de Identidad -->
+              <div class="cust-card-section">
+                <span class="cust-section-title">Datos Clínicos & Contacto</span>
+                <div class="cust-prop-row">
+                  <span class="cust-prop-label">Documento:</span>
+                  <strong class="cust-prop-val" id="inboxCustDoc">—</strong>
+                </div>
+                <div class="cust-prop-row">
+                  <span class="cust-prop-label">Correo:</span>
+                  <strong class="cust-prop-val" id="inboxCustEmail" style="word-break:break-all;">—</strong>
+                </div>
+                <div class="cust-prop-row">
+                  <span class="cust-prop-label">Perfil Clínico:</span>
+                  <span class="badge" id="inboxCustProfession" style="background:#e0e7ff; color:#3730a3; font-weight:700;">Por Definir</span>
+                </div>
+                <div class="cust-prop-row">
+                  <span class="cust-prop-label">Área Temática:</span>
+                  <strong class="cust-prop-val" id="inboxCustArea">General</strong>
+                </div>
+              </div>
+
+              <!-- Sección: Programa de Interés & Enlace de Pago AsOne -->
+              <div class="cust-card-section highlight-emerald-subtle">
+                <span class="cust-section-title" style="color:var(--udea-emerald);">Programa de Interés</span>
+                <div style="font-weight:800; font-size:0.88rem; color:var(--udea-dark); margin-bottom:0.5rem; line-height:1.3;" id="inboxCustProgram">
+                  Diplomado en Ciencias Ómicas
+                </div>
+                <div style="display:flex; gap:0.4rem; flex-wrap:wrap;">
+                  <button class="btn btn-primary btn-xs" id="btnInboxCopyPaymentLink" title="Copiar enlace oficial de matrícula en AsOne">
+                    💳 Copiar Link Pago
+                  </button>
+                  <a href="#" target="_blank" id="inboxCustInfoLink" class="btn btn-secondary btn-xs" title="Ver ficha en Extensión UdeA">
+                    🔗 Ver Ficha
+                  </a>
+                </div>
+              </div>
+
+              <!-- Sección: Gestión de Embudo y Asesor -->
+              <div class="cust-card-section">
+                <span class="cust-section-title">Gestión del Caso</span>
+                
+                <div style="margin-bottom:0.6rem;">
+                  <label class="cust-prop-label" style="display:block; margin-bottom:0.25rem;">Estado en CRM:</label>
+                  <select id="inboxCustStatusSelect" class="form-select form-select-sm">
+                    <option value="ai_handling">En gestión IA</option>
+                    <option value="advisor_requested">Requiere Asesor Humano</option>
+                    <option value="contacted">Asesor Contactado</option>
+                    <option value="attended">Atendido / En Seguimiento</option>
+                    <option value="enrolled">Matriculado Oficialmente 🎓</option>
+                    <option value="closed">Cerrado / No Interesado</option>
+                  </select>
+                </div>
+
+                <div style="margin-bottom:0.6rem;">
+                  <label class="cust-prop-label" style="display:block; margin-bottom:0.25rem;">Asesor Asignado:</label>
+                  <div style="display:flex; gap:0.3rem;">
+                    <select id="inboxCustAdvisorSelect" class="form-select form-select-sm" style="flex:1;">
+                      <option value="Sin Asignar">Sin Asignar</option>
+                    </select>
+                    <button class="btn btn-secondary btn-xs" id="btnInboxAssignToMe" title="Asignarme este caso inmediatamente">Tomar</button>
+                  </div>
+                </div>
+
+                <div>
+                  <label class="cust-prop-label" style="display:block; margin-bottom:0.25rem;">Temperatura:</label>
+                  <select id="inboxCustTempSelect" class="form-select form-select-sm">
+                    <option value="hot">🔥 Caliente (Alta intención de compra)</option>
+                    <option value="warm">🟡 Tibio (En evaluación de fechas)</option>
+                    <option value="cold">❄️ Frío (Consulta genérica)</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- Sección: Bitácora de Notas Internas Privadas -->
+              <div class="cust-card-section">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.35rem;">
+                  <span class="cust-section-title" style="margin:0;">Notas Internas (Privadas)</span>
+                  <span id="inboxNotesSavedStatus" style="font-size:0.72rem; font-weight:700; color:#10b981;"></span>
+                </div>
+                <textarea id="inboxCustNotesTextarea" class="form-input" rows="3" placeholder="Escribe notas privadas del caso (ej: solicitó 10% descuento por egresado, llamar el jueves)..." style="font-size:0.8rem;"></textarea>
+                <button class="btn btn-secondary btn-xs" id="btnInboxSaveNotes" style="margin-top:0.4rem; width:100%;">
+                  Guardar Nota en Neon Cloud
+                </button>
+              </div>
+
+            </div>
+          </aside>
+
         </div>
       </section>
 

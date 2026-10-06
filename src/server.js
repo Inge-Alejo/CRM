@@ -459,12 +459,44 @@ app.get('/api/leads/:phone/chat', async (req, res) => {
   res.json({ phone, messages, lead: leadData });
 });
 
-// Actualizar estado de un lead (Contactado, Cerrado, etc.)
-app.patch('/api/leads/:phone/status', async (req, res) => {
+// Envío de mensaje en vivo por parte del asesor humano (Agent Workspace)
+app.post('/api/leads/:phone/send-message', async (req, res) => {
   const phone = req.params.phone;
-  const { status, programInterest, name } = req.body;
-  await LeadService.updateLeadStatus(phone, status, programInterest, name);
-  res.json({ success: true });
+  const { message, advisorName } = req.body;
+  if (!message || !message.trim()) {
+    return res.status(400).json({ error: 'El mensaje no puede estar vacío.' });
+  }
+
+  const cleanMessage = SecurityGuardrails.sanitizeInput(message.trim());
+  const senderName = advisorName || 'Asesor UdeA';
+
+  // 1. Guardar mensaje en base de datos con emisor asesor
+  await LeadService.recordLeadMessage(phone, cleanMessage, 'advisor');
+
+  // 2. Si Meta Cloud API está configurado, enviar por WhatsApp real
+  try {
+    await MetaCloudAdapter.sendWhatsAppMessage(phone, cleanMessage);
+  } catch (err) {
+    console.warn('Advertencia enviando WhatsApp saliente:', err.message);
+  }
+
+  // 3. Marcar atendido y actualizar estado
+  await LeadService.markAttended(phone, senderName);
+
+  // 4. Retornar datos actualizados
+  const messages = await LeadService.getLeadConversation(phone);
+  const leadData = await LeadService.getLeadByPhone(phone);
+  res.json({ success: true, messages, lead: leadData });
+});
+
+// Pausar o reanudar el bot de IA en una conversación específica
+app.patch('/api/leads/:phone/toggle-ai', async (req, res) => {
+  const phone = req.params.phone;
+  const { pauseAi } = req.body;
+  const newStatus = pauseAi ? 'advisor_handling' : 'ai_handling';
+  await LeadService.updateLeadStatus(phone, newStatus);
+  const leadData = await LeadService.getLeadByPhone(phone);
+  res.json({ success: true, status: newStatus, lead: leadData });
 });
 
 // Portafolio de Conocimiento UdeA
