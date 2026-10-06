@@ -14,5 +14,10 @@ export const config = {
     email: process.env.ADVISOR_NOTIFICATION_EMAIL || 'extensionmedicina@udea.edu.co',
     smtpUser: process.env.SMTP_USER || '',
     smtpPass: process.env.SMTP_PASS || ''
+  },
+  firebase: {
+    apiKey: process.env.FIREBASE_API_KEY || '',
+    authDomain: process.env.FIREBASE_AUTH_DOMAIN || '',
+    projectId: process.env.FIREBASE_PROJECT_ID || ''
   }
 };

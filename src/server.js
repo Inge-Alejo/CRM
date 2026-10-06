@@ -292,6 +292,18 @@ app.post('/api/settings/gemini-key', (req, res) => {
   }
 });
 
+// Configuración pública para el cliente (Firebase Auth desde variables de entorno Vercel)
+app.get('/api/config/client', (req, res) => {
+  res.json({
+    firebase: {
+      apiKey: config.firebase.apiKey,
+      authDomain: config.firebase.authDomain,
+      projectId: config.firebase.projectId
+    },
+    hasGeminiKey: !!config.geminiApiKey
+  });
+});
+
 // Middleware Global de Manejo de Errores (sin filtrar trazas sensibles al cliente)
 app.use((err, req, res, next) => {
   console.error('💥 Error no controlado en la aplicación:', err);

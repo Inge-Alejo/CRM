@@ -121,15 +121,32 @@ document.addEventListener('DOMContentLoaded', () => {
   let firebaseCreateUser = null;
   let firebaseSignIn = null;
 
-  // Intentar inicializar Firebase Auth si hay credenciales configuradas
+  // Intentar inicializar Firebase Auth si hay credenciales configuradas (Vercel o localStorage)
   async function initFirebaseClient() {
-    const savedConfig = JSON.parse(localStorage.getItem('udea_firebase_config') || 'null');
-    if (savedConfig && savedConfig.apiKey && savedConfig.projectId) {
+    let configToUse = JSON.parse(localStorage.getItem('udea_firebase_config') || 'null');
+
+    // Si no está en localStorage, intentar obtener desde las variables de entorno de Vercel
+    if (!configToUse || !configToUse.apiKey) {
+      try {
+        const res = await fetch('/api/config/client');
+        const data = await res.json();
+        if (data && data.firebase && data.firebase.apiKey && data.firebase.projectId) {
+          configToUse = data.firebase;
+          if (firebaseApiKeyInput) firebaseApiKeyInput.value = configToUse.apiKey;
+          if (firebaseAuthDomainInput) firebaseAuthDomainInput.value = configToUse.authDomain || '';
+          if (firebaseProjectIdInput) firebaseProjectIdInput.value = configToUse.projectId;
+        }
+      } catch (e) {
+        console.warn('Aviso al consultar config remota:', e.message);
+      }
+    }
+
+    if (configToUse && configToUse.apiKey && configToUse.projectId) {
       try {
         const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js');
         const { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword } = await import('https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js');
         
-        firebaseApp = initializeApp(savedConfig);
+        firebaseApp = initializeApp(configToUse);
         firebaseAuth = getAuth(firebaseApp);
         firebaseCreateUser = createUserWithEmailAndPassword;
         firebaseSignIn = signInWithEmailAndPassword;
@@ -138,7 +155,7 @@ document.addEventListener('DOMContentLoaded', () => {
           firebaseStatusIndicator.className = 'firebase-status-badge connected';
         }
         if (firebaseStatusText) {
-          firebaseStatusText.textContent = `Firebase Conectado (${savedConfig.projectId})`;
+          firebaseStatusText.textContent = `Firebase Conectado (${configToUse.projectId})`;
         }
       } catch (err) {
         console.warn('Aviso: Inicialización de Firebase con fallback local:', err.message);
