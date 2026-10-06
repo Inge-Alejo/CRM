@@ -1715,4 +1715,295 @@ body.dashboard-body {
   .auth-tabs { overflow-x: auto; }
 }
 
+/* ==============================================================
+   LANDING PAGE DE ACCESO INSTITUCIONAL (LOGIN GATE)
+   Diseño Minimalista, Seguro & Estética Médica UdeA
+   ============================================================== */
+.login-landing-wrapper {
+  min-height: 100vh;
+  width: 100vw;
+  background: radial-gradient(circle at 15% 20%, rgba(5, 150, 105, 0.12) 0%, transparent 45%),
+              radial-gradient(circle at 85% 80%, rgba(0, 87, 61, 0.15) 0%, transparent 45%),
+              #09111e;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  position: relative;
+  overflow: hidden;
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  z-index: 100;
+}
+
+.landing-bg-decor {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.landing-glow-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.35;
+}
+
+.landing-glow-orb.orb-1 {
+  width: 450px;
+  height: 450px;
+  background: #059669;
+  top: -100px;
+  right: -100px;
+}
+
+.landing-glow-orb.orb-2 {
+  width: 500px;
+  height: 500px;
+  background: #00573d;
+  bottom: -150px;
+  left: -150px;
+}
+
+.landing-card {
+  width: 100%;
+  max-width: 460px;
+  background: #ffffff;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  border-radius: 20px;
+  box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.1);
+  padding: 2.25rem 2rem 1.75rem 2rem;
+  position: relative;
+  z-index: 2;
+  animation: landingFadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes landingFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.landing-header {
+  text-align: center;
+  margin-bottom: 1.25rem;
+}
+
+.landing-logo-badge {
+  background: #ffffff;
+  padding: 0.75rem 1.25rem;
+  border-radius: 14px;
+  display: inline-block;
+  margin-bottom: 1rem;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
+  border: 1px solid #e2e8f0;
+}
+
+.landing-logo-badge img {
+  max-height: 48px;
+  width: auto;
+  display: block;
+}
+
+.landing-title {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: var(--udea-deep-dark);
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+
+.landing-subtitle,
+.landing-faculty {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin-top: 0.25rem;
+  font-weight: 500;
+}
+
+.landing-security-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+  padding: 0.25rem 0.65rem;
+  border-radius: 9999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  margin-top: 0.75rem;
+}
+
+.landing-alert {
+  padding: 0.65rem 0.85rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  font-size: 0.8rem;
+  background: #fef2f2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.landing-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.input-icon-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.field-icon {
+  position: absolute;
+  left: 0.85rem;
+  color: #94a3b8;
+  pointer-events: none;
+}
+
+.input-icon-wrap .form-input {
+  padding-left: 2.35rem;
+}
+
+.btn-landing-submit {
+  width: 100%;
+  padding: 0.8rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #059669 0%, #00573d 100%);
+  border: none;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  box-shadow: 0 4px 12px rgba(5, 150, 105, 0.25);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-top: 0.25rem;
+}
+
+.btn-landing-submit:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(5, 150, 105, 0.35);
+  filter: brightness(1.05);
+}
+
+.btn-landing-submit:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.landing-divider {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  margin: 1.25rem 0 0.85rem 0;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.landing-divider::before, .landing-divider::after {
+  content: '';
+  flex: 1;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.landing-divider span {
+  padding: 0 0.65rem;
+}
+
+.landing-quick-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.45rem;
+}
+
+.landing-quick-grid .quick-adv-chip {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 0.45rem 0.55rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  transition: all 0.15s ease;
+  text-align: left;
+}
+
+.landing-quick-grid .quick-adv-chip:hover {
+  border-color: #059669;
+  background: #ecfdf5;
+  transform: translateY(-1px);
+}
+
+.landing-quick-grid .chip-avatar {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #e2e8f0;
+  color: #334155;
+  font-weight: 700;
+  font-size: 0.7rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.landing-quick-grid .quick-adv-chip:hover .chip-avatar {
+  background: #059669;
+  color: #ffffff;
+}
+
+.landing-quick-grid .chip-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+  overflow: hidden;
+}
+
+.landing-quick-grid .chip-text strong {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.landing-quick-grid .chip-text small {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+}
+
+.landing-footer {
+  text-align: center;
+  margin-top: 1.25rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid #f1f5f9;
+  font-size: 0.72rem;
+  color: #94a3b8;
+}
+
 

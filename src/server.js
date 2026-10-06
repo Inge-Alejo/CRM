@@ -27,7 +27,7 @@ app.use((req, res, next) => {
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   res.setHeader(
     'Content-Security-Policy',
-    "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:;"
+    "default-src 'self'; script-src 'self' 'unsafe-inline' https://www.gstatic.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:;"
   );
   next();
 });
@@ -82,6 +82,19 @@ app.get('/api/telemetry', (req, res) => {
     metrics,
     hasGeminiKey: Boolean(config.geminiApiKey && config.geminiApiKey.trim() !== ''),
     metaConfigured: Boolean(config.meta.phoneNumberId && config.meta.accessToken)
+  });
+});
+
+// Configuración pública para el cliente (Firebase Auth)
+app.get('/api/config/client', (req, res) => {
+  res.json({
+    firebase: {
+      apiKey: config.firebase.apiKey,
+      authDomain: config.firebase.authDomain,
+      projectId: config.firebase.projectId,
+      storageBucket: config.firebase.storageBucket,
+      appId: config.firebase.appId
+    }
   });
 });
 
@@ -318,10 +331,13 @@ app.get('/api/config/client', (req, res) => {
 
 // Middleware Global de Manejo de Errores (sin filtrar trazas sensibles al cliente)
 app.use((err, req, res, next) => {
-  console.error('💥 Error no controlado en la aplicación:', err);
   if (res.headersSent) {
     return next(err);
   }
+  if (err.status === 400 || err.statusCode === 400) {
+    return res.status(400).json({ error: 'Formato de solicitud o JSON inválido.' });
+  }
+  console.error('💥 Error no controlado en la aplicación:', err);
   res.status(500).json({ error: 'Ha ocurrido un error interno en el servidor.' });
 });
 

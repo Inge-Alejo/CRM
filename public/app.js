@@ -80,14 +80,15 @@ document.addEventListener('DOMContentLoaded', () => {
   const modalNotesInput = document.getElementById('modalNotesInput');
   const btnSaveNotes = document.getElementById('btnSaveNotes');
 
-  // Auth & Perfil Asesor con Firebase Authentication (crm-fdem)
+  // Elementos de la Landing Page de Login y Dashboard
+  const loginLandingView = document.getElementById('loginLandingView');
+  const dashboardAppView = document.getElementById('dashboardAppView');
+  const landingAlertBox = document.getElementById('landingAlertBox');
+
   const topbarAdvisorName = document.getElementById('topbarAdvisorName');
   const topbarAdvisorAvatar = document.getElementById('topbarAdvisorAvatar');
   const btnSwitchAdvisor = document.getElementById('btnSwitchAdvisor');
   const btnLogoutAdvisor = document.getElementById('btnLogoutAdvisor');
-  const advisorLoginModal = document.getElementById('advisorLoginModal');
-  const btnCloseLoginModal = document.getElementById('btnCloseLoginModal');
-  const loginAlertBox = document.getElementById('loginAlertBox');
 
   const advisorLoginForm = document.getElementById('advisorLoginForm');
   const loginEmailInput = document.getElementById('loginEmailInput');
@@ -150,12 +151,7 @@ document.addEventListener('DOMContentLoaded', () => {
   ];
 
   // Estado de sesión del Asesor
-  let currentAdvisorUser = JSON.parse(localStorage.getItem('udea_advisor_user') || 'null') || {
-    name: 'Dra. Carolina Martínez',
-    email: 'carolina.martinez@udea.edu.co',
-    role: 'Coordinadora de Educación Continua',
-    initials: 'CM'
-  };
+  let currentAdvisorUser = JSON.parse(localStorage.getItem('udea_advisor_user') || 'null');
 
   function updateAdvisorUI(adv) {
     if (!adv) return;
@@ -192,7 +188,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Login handler institucional con Firebase Authentication
   async function performLogin(email, password) {
     try {
-      if (loginAlertBox) loginAlertBox.style.display = 'none';
+      if (landingAlertBox) landingAlertBox.style.display = 'none';
       if (btnLoginSubmit) {
         btnLoginSubmit.disabled = true;
         btnLoginSubmit.textContent = 'Verificando...';
@@ -210,9 +206,9 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (fbErr) {
           console.warn('Firebase Auth:', fbErr.code);
           if (fbErr.code === 'auth/invalid-credential' || fbErr.code === 'auth/wrong-password' || fbErr.code === 'auth/user-not-found') {
-            if (loginAlertBox) {
-              loginAlertBox.textContent = 'Credenciales no autorizadas o contraseña incorrecta.';
-              loginAlertBox.style.display = 'block';
+            if (landingAlertBox) {
+              landingAlertBox.textContent = 'Credenciales no autorizadas o contraseña incorrecta.';
+              landingAlertBox.style.display = 'block';
             }
             return false;
           }
@@ -227,27 +223,34 @@ document.addEventListener('DOMContentLoaded', () => {
       });
       const data = await res.json();
       if (!data.success) {
-        if (loginAlertBox) {
-          loginAlertBox.textContent = data.error || 'Credenciales no autorizadas.';
-          loginAlertBox.style.display = 'block';
+        if (landingAlertBox) {
+          landingAlertBox.textContent = data.error || 'Credenciales no autorizadas.';
+          landingAlertBox.style.display = 'block';
         }
         return false;
       }
 
       localStorage.setItem('udea_auth_token', data.token);
       updateAdvisorUI(data.advisor);
-      if (advisorLoginModal) advisorLoginModal.style.display = 'none';
+
+      // Desbloqueo y transición inmediata al Dashboard
+      if (loginLandingView) loginLandingView.style.display = 'none';
+      if (dashboardAppView) dashboardAppView.style.display = 'flex';
+
+      loadTelemetry();
+      fetchLeads();
+      fetchPortfolio();
       return true;
     } catch (err) {
-      if (loginAlertBox) {
-        loginAlertBox.textContent = 'Error de conexión: ' + err.message;
-        loginAlertBox.style.display = 'block';
+      if (landingAlertBox) {
+        landingAlertBox.textContent = 'Error de conexión: ' + err.message;
+        landingAlertBox.style.display = 'block';
       }
       return false;
     } finally {
       if (btnLoginSubmit) {
         btnLoginSubmit.disabled = false;
-        btnLoginSubmit.textContent = 'Ingresar al CRM';
+        btnLoginSubmit.innerHTML = `<span>Ingresar al CRM</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>`;
       }
     }
   }
@@ -264,8 +267,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (btnSwitchAdvisor) {
     btnSwitchAdvisor.addEventListener('click', () => {
-      if (loginAlertBox) loginAlertBox.style.display = 'none';
-      if (advisorLoginModal) advisorLoginModal.style.display = 'flex';
+      if (landingAlertBox) landingAlertBox.style.display = 'none';
+      if (dashboardAppView) dashboardAppView.style.display = 'none';
+      if (loginLandingView) loginLandingView.style.display = 'flex';
     });
   }
 
@@ -277,14 +281,9 @@ document.addEventListener('DOMContentLoaded', () => {
       localStorage.removeItem('udea_auth_token');
       localStorage.removeItem('udea_advisor_user');
       currentAdvisorUser = null;
-      if (loginAlertBox) loginAlertBox.style.display = 'none';
-      if (advisorLoginModal) advisorLoginModal.style.display = 'flex';
-    });
-  }
-
-  if (btnCloseLoginModal) {
-    btnCloseLoginModal.addEventListener('click', () => {
-      if (advisorLoginModal) advisorLoginModal.style.display = 'none';
+      if (landingAlertBox) landingAlertBox.style.display = 'none';
+      if (dashboardAppView) dashboardAppView.style.display = 'none';
+      if (loginLandingView) loginLandingView.style.display = 'flex';
     });
   }
 
@@ -1198,14 +1197,31 @@ document.addEventListener('DOMContentLoaded', () => {
   if (btnRefreshLeads) btnRefreshLeads.addEventListener('click', () => { fetchLeads(); loadTelemetry(); });
   if (btnGlobalRefresh) btnGlobalRefresh.addEventListener('click', () => { fetchLeads(); fetchPortfolio(); loadTelemetry(); });
 
-  // Inicialización Inmediata
-  loadTelemetry();
-  fetchLeads();
-  fetchPortfolio();
+  // Control de Acceso: Verificar si el asesor está autenticado para mostrar Landing o Dashboard
+  function checkAuthAndInit() {
+    const token = localStorage.getItem('udea_auth_token');
+    const user = JSON.parse(localStorage.getItem('udea_advisor_user') || 'null');
 
-  // Polling automático cada 7 segundos para mantener todo en tiempo real
+    if (token && user) {
+      if (loginLandingView) loginLandingView.style.display = 'none';
+      if (dashboardAppView) dashboardAppView.style.display = 'flex';
+      updateAdvisorUI(user);
+      loadTelemetry();
+      fetchLeads();
+      fetchPortfolio();
+    } else {
+      if (dashboardAppView) dashboardAppView.style.display = 'none';
+      if (loginLandingView) loginLandingView.style.display = 'flex';
+    }
+  }
+
+  checkAuthAndInit();
+
+  // Polling automático cada 7 segundos SOLO si hay sesión activa
   setInterval(() => {
-    loadTelemetry();
-    fetchLeads();
+    if (localStorage.getItem('udea_auth_token')) {
+      loadTelemetry();
+      fetchLeads();
+    }
   }, 7000);
 });
