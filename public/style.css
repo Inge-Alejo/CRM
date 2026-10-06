@@ -1579,11 +1579,66 @@ body.dashboard-body {
   max-width: 170px;
 }
 
+/* ================= FIREBASE AUTH TABS & REGISTRATION ================= */
+.auth-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 1.25rem;
+  gap: 0.5rem;
+}
+
+.auth-tab-btn {
+  background: transparent;
+  border: none;
+  padding: 0.65rem 1rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.auth-tab-btn:hover {
+  color: var(--udea-emerald);
+}
+
+.auth-tab-btn.active {
+  color: var(--udea-emerald);
+  border-bottom-color: var(--udea-emerald);
+  font-weight: 700;
+}
+
+.firebase-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fef3c7;
+  padding: 0.25rem 0.6rem;
+  border-radius: 9999px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+}
+
+.firebase-status-badge.connected {
+  background: #ecfdf5;
+  color: #047857;
+  border-color: #a7f3d0;
+}
+
 @media (max-width: 900px) {
   .dashboard-layout { flex-direction: column; }
   .sidebar { width: 100%; height: auto; }
   .simulator-layout { grid-template-columns: 1fr; }
   .quick-advisor-grid { grid-template-columns: 1fr; }
   .topbar-advisor-profile { margin-top: 0.5rem; }
+  .auth-tabs { overflow-x: auto; }
 }
+
 

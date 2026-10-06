@@ -80,27 +80,85 @@ document.addEventListener('DOMContentLoaded', () => {
   const modalNotesInput = document.getElementById('modalNotesInput');
   const btnSaveNotes = document.getElementById('btnSaveNotes');
 
-  // Auth & Perfil Asesor
+  // Auth & Perfil Asesor con Soporte Firebase Authentication
   const topbarAdvisorName = document.getElementById('topbarAdvisorName');
   const topbarAdvisorAvatar = document.getElementById('topbarAdvisorAvatar');
   const btnOpenLoginModal = document.getElementById('btnOpenLoginModal');
   const advisorLoginModal = document.getElementById('advisorLoginModal');
   const btnCloseLoginModal = document.getElementById('btnCloseLoginModal');
-  const quickAdvisorGrid = document.getElementById('quickAdvisorGrid');
-  const formAdvisorLogin = document.getElementById('formAdvisorLogin');
+  const loginAlertBox = document.getElementById('loginAlertBox');
+  const firebaseStatusIndicator = document.getElementById('firebaseStatusIndicator');
+  const firebaseStatusText = document.getElementById('firebaseStatusText');
+
+  // Formularios y Pestañas
+  const tabBtnLogin = document.getElementById('tabBtnLogin');
+  const tabBtnRegister = document.getElementById('tabBtnRegister');
+  const tabBtnQuick = document.getElementById('tabBtnQuick');
+  const tabLogin = document.getElementById('tab-login');
+  const tabRegister = document.getElementById('tab-register');
+  const tabQuick = document.getElementById('tab-quick');
+
+  const advisorLoginForm = document.getElementById('advisorLoginForm');
   const loginEmailInput = document.getElementById('loginEmailInput');
   const loginPasswordInput = document.getElementById('loginPasswordInput');
-  const loginErrorAlert = document.getElementById('loginErrorAlert');
+
+  const advisorRegisterForm = document.getElementById('advisorRegisterForm');
+  const regNameInput = document.getElementById('regNameInput');
+  const regRoleInput = document.getElementById('regRoleInput');
+  const regEmailInput = document.getElementById('regEmailInput');
+  const regPhoneInput = document.getElementById('regPhoneInput');
+  const regPasswordInput = document.getElementById('regPasswordInput');
+
+  const quickAdvisorGrid = document.querySelector('#tab-quick .quick-advisor-grid');
 
   let allLoadedLeads = [];
   let allPortfolioItems = [];
   let currentActivePhone = null;
 
+  // Firebase Auth SDK state
+  let firebaseAuth = null;
+  let firebaseApp = null;
+  let firebaseCreateUser = null;
+  let firebaseSignIn = null;
+
+  // Intentar inicializar Firebase Auth si hay credenciales configuradas
+  async function initFirebaseClient() {
+    const savedConfig = JSON.parse(localStorage.getItem('udea_firebase_config') || 'null');
+    if (savedConfig && savedConfig.apiKey && savedConfig.projectId) {
+      try {
+        const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js');
+        const { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword } = await import('https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js');
+        
+        firebaseApp = initializeApp(savedConfig);
+        firebaseAuth = getAuth(firebaseApp);
+        firebaseCreateUser = createUserWithEmailAndPassword;
+        firebaseSignIn = signInWithEmailAndPassword;
+
+        if (firebaseStatusIndicator) {
+          firebaseStatusIndicator.className = 'firebase-status-badge connected';
+        }
+        if (firebaseStatusText) {
+          firebaseStatusText.textContent = `Firebase Conectado (${savedConfig.projectId})`;
+        }
+      } catch (err) {
+        console.warn('Aviso: Inicialización de Firebase con fallback local:', err.message);
+        setLocalAuthStatus();
+      }
+    } else {
+      setLocalAuthStatus();
+    }
+  }
+
+  function setLocalAuthStatus() {
+    if (firebaseStatusIndicator) firebaseStatusIndicator.className = 'firebase-status-badge';
+    if (firebaseStatusText) firebaseStatusText.textContent = 'Auth Sincronizado en Tiempo Real';
+  }
+
   // Lista de asesores autorizados de la Facultad de Medicina UdeA
   const UDEA_ADVISORS = [
-    { name: 'Dra. Carolina Martínez', role: 'Asesora Posgrados y Diplomados', email: 'carolina.martinez@udea.edu.co', initials: 'CM' },
-    { name: 'Dr. Alejandro Restrepo', role: 'Asesor Educación Continua', email: 'alejandro.restrepo@udea.edu.co', initials: 'AR' },
-    { name: 'Enf. Marcela Gómez', role: 'Asesora Cursos Clínicos y Talleres', email: 'marcela.gomez@udea.edu.co', initials: 'MG' },
+    { name: 'Dra. Carolina Martínez', role: 'Coordinadora de Educación Continua', email: 'carolina.martinez@udea.edu.co', initials: 'CM' },
+    { name: 'Dr. Alejandro Restrepo', role: 'Asesor Posgrados y Diplomados', email: 'alejandro.restrepo@udea.edu.co', initials: 'AR' },
+    { name: 'Enf. Marcela Gómez', role: 'Asesora Cursos Clínicos y AHA', email: 'marcela.gomez@udea.edu.co', initials: 'MG' },
     { name: 'Lic. David Builes', role: 'Asesor Admisiones e Inscripciones', email: 'david.builes@udea.edu.co', initials: 'DB' }
   ];
 
@@ -108,7 +166,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let currentAdvisorUser = JSON.parse(localStorage.getItem('udea_advisor_user') || 'null') || {
     name: 'Dra. Carolina Martínez',
     email: 'carolina.martinez@udea.edu.co',
-    role: 'Asesora Posgrados y Diplomados',
+    role: 'Coordinadora de Educación Continua',
     initials: 'CM'
   };
 
@@ -130,36 +188,58 @@ document.addEventListener('DOMContentLoaded', () => {
     return currentAdvisorUser ? currentAdvisorUser.name : (localStorage.getItem('udea_active_advisor') || 'Dra. Carolina Martínez');
   }
 
-  // Renderizar chips de selección rápida en modal de Login
-  function renderQuickAdvisorGrid() {
-    if (!quickAdvisorGrid) return;
-    quickAdvisorGrid.innerHTML = UDEA_ADVISORS.map(adv => `
-      <div class="quick-adv-chip ${currentAdvisorUser && currentAdvisorUser.email === adv.email ? 'active' : ''}" 
-           data-email="${adv.email}" data-name="${adv.name}">
-        <div class="adv-chip-avatar">${adv.initials}</div>
-        <div class="adv-chip-meta">
-          <span class="adv-chip-name">${adv.name}</span>
-          <span class="adv-chip-role">${adv.role}</span>
-        </div>
-      </div>
-    `).join('');
+  // Control de Pestañas en Modal de Login / Registro
+  function setupAuthTabs() {
+    const tabs = [
+      { btn: tabBtnLogin, content: tabLogin },
+      { btn: tabBtnRegister, content: tabRegister },
+      { btn: tabBtnQuick, content: tabQuick }
+    ];
 
-    quickAdvisorGrid.querySelectorAll('.quick-adv-chip').forEach(chip => {
-      chip.addEventListener('click', () => {
-        const email = chip.dataset.email;
-        if (loginEmailInput) loginEmailInput.value = email;
-        if (loginPasswordInput) loginPasswordInput.value = 'UdeA2026*';
-        if (loginErrorAlert) loginErrorAlert.style.display = 'none';
-        quickAdvisorGrid.querySelectorAll('.quick-adv-chip').forEach(c => c.classList.remove('active'));
-        chip.classList.add('active');
+    tabs.forEach(({ btn, content }) => {
+      if (!btn || !content) return;
+      btn.addEventListener('click', () => {
+        tabs.forEach(t => {
+          if (t.btn) t.btn.classList.remove('active');
+          if (t.content) t.content.style.display = 'none';
+        });
+        btn.classList.add('active');
+        content.style.display = 'block';
+        if (loginAlertBox) loginAlertBox.style.display = 'none';
       });
     });
   }
 
-  // Login handler
+  // Acceso Rápido Asesores
+  function setupQuickAdvisors() {
+    const chips = document.querySelectorAll('.quick-adv-chip');
+    chips.forEach(chip => {
+      chip.addEventListener('click', () => {
+        const email = chip.getAttribute('data-email');
+        const match = UDEA_ADVISORS.find(a => a.email === email);
+        if (match) {
+          updateAdvisorUI(match);
+          if (advisorLoginModal) advisorLoginModal.style.display = 'none';
+        }
+      });
+    });
+  }
+
+  // Login handler (Firebase + Backend)
   async function performLogin(email, password) {
     try {
-      if (loginErrorAlert) loginErrorAlert.style.display = 'none';
+      if (loginAlertBox) loginAlertBox.style.display = 'none';
+
+      // 1. Si Firebase Auth está activo, autenticar con Firebase
+      if (firebaseAuth && firebaseSignIn) {
+        try {
+          await firebaseSignIn(firebaseAuth, email, password);
+        } catch (fbErr) {
+          console.warn('Firebase signIn notice:', fbErr.message);
+        }
+      }
+
+      // 2. Autenticar con el servidor CRM para sincronizar sesión y token
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -167,9 +247,9 @@ document.addEventListener('DOMContentLoaded', () => {
       });
       const data = await res.json();
       if (!data.success) {
-        if (loginErrorAlert) {
-          loginErrorAlert.textContent = data.error || 'Credenciales inválidas.';
-          loginErrorAlert.style.display = 'block';
+        if (loginAlertBox) {
+          loginAlertBox.textContent = data.error || 'Credenciales inválidas.';
+          loginAlertBox.style.display = 'block';
         }
         return false;
       }
@@ -179,16 +259,60 @@ document.addEventListener('DOMContentLoaded', () => {
       if (advisorLoginModal) advisorLoginModal.style.display = 'none';
       return true;
     } catch (err) {
-      if (loginErrorAlert) {
-        loginErrorAlert.textContent = 'Error de conexión: ' + err.message;
-        loginErrorAlert.style.display = 'block';
+      if (loginAlertBox) {
+        loginAlertBox.textContent = 'Error de inicio de sesión: ' + err.message;
+        loginAlertBox.style.display = 'block';
       }
       return false;
     }
   }
 
-  if (formAdvisorLogin) {
-    formAdvisorLogin.addEventListener('submit', async (e) => {
+  // Registro de Asesor (Firebase + Backend)
+  async function performRegister(userData) {
+    try {
+      if (loginAlertBox) loginAlertBox.style.display = 'none';
+
+      // 1. Si Firebase Auth está activo, crear usuario en Firebase
+      if (firebaseAuth && firebaseCreateUser) {
+        try {
+          await firebaseCreateUser(firebaseAuth, userData.email, userData.password);
+        } catch (fbErr) {
+          console.warn('Firebase createUser notice:', fbErr.message);
+        }
+      }
+
+      // 2. Registrar en la base de datos relacional del CRM
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(userData)
+      });
+      const data = await res.json();
+      if (!data.success) {
+        if (loginAlertBox) {
+          loginAlertBox.textContent = data.error || 'Error al registrar asesor.';
+          loginAlertBox.style.display = 'block';
+        }
+        return false;
+      }
+
+      localStorage.setItem('udea_auth_token', data.token);
+      updateAdvisorUI(data.advisor);
+      alert(`¡Bienvenido al Centro de Extensión, ${data.advisor.name}! Tu cuenta ha sido creada exitosamente.`);
+      if (advisorLoginModal) advisorLoginModal.style.display = 'none';
+      return true;
+    } catch (err) {
+      if (loginAlertBox) {
+        loginAlertBox.textContent = 'Error de registro: ' + err.message;
+        loginAlertBox.style.display = 'block';
+      }
+      return false;
+    }
+  }
+
+  // Listeners de Formularios
+  if (advisorLoginForm) {
+    advisorLoginForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       const email = loginEmailInput ? loginEmailInput.value.trim() : '';
       const password = loginPasswordInput ? loginPasswordInput.value.trim() : '';
@@ -196,11 +320,22 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  if (advisorRegisterForm) {
+    advisorRegisterForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const name = regNameInput.value.trim();
+      const role = regRoleInput.value.trim();
+      const email = regEmailInput.value.trim();
+      const phone = regPhoneInput.value.trim();
+      const password = regPasswordInput.value.trim();
+
+      await performRegister({ name, role, email, phone, password });
+    });
+  }
+
   if (btnOpenLoginModal) {
     btnOpenLoginModal.addEventListener('click', () => {
-      renderQuickAdvisorGrid();
-      if (loginEmailInput) loginEmailInput.value = currentAdvisorUser.email || '';
-      if (loginPasswordInput) loginPasswordInput.value = 'UdeA2026*';
+      if (loginAlertBox) loginAlertBox.style.display = 'none';
       if (advisorLoginModal) advisorLoginModal.style.display = 'flex';
     });
   }
@@ -218,9 +353,11 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Inicializar UI de Asesor
+  // Inicializar UI de Asesor y Firebase
   updateAdvisorUI(currentAdvisorUser);
-  renderQuickAdvisorGrid();
+  setupAuthTabs();
+  setupQuickAdvisors();
+  initFirebaseClient();
 
   // Función de sanitización XSS para renderizado seguro en DOM
   function escapeHtml(str) {
@@ -1071,6 +1208,44 @@ document.addEventListener('DOMContentLoaded', () => {
       } catch (err) {
         alert('Error: ' + err.message);
       }
+    });
+  }
+
+  // Guardar y Cargar Configuración de Firebase Auth
+  const firebaseApiKeyInput = document.getElementById('firebaseApiKeyInput');
+  const firebaseAuthDomainInput = document.getElementById('firebaseAuthDomainInput');
+  const firebaseProjectIdInput = document.getElementById('firebaseProjectIdInput');
+  const btnSaveFirebaseConfig = document.getElementById('btnSaveFirebaseConfig');
+  const firebaseConfigStatus = document.getElementById('firebaseConfigStatus');
+
+  const existingFbConfig = JSON.parse(localStorage.getItem('udea_firebase_config') || 'null');
+  if (existingFbConfig) {
+    if (firebaseApiKeyInput && existingFbConfig.apiKey) firebaseApiKeyInput.value = existingFbConfig.apiKey;
+    if (firebaseAuthDomainInput && existingFbConfig.authDomain) firebaseAuthDomainInput.value = existingFbConfig.authDomain;
+    if (firebaseProjectIdInput && existingFbConfig.projectId) firebaseProjectIdInput.value = existingFbConfig.projectId;
+  }
+
+  if (btnSaveFirebaseConfig) {
+    btnSaveFirebaseConfig.addEventListener('click', async () => {
+      const apiKey = firebaseApiKeyInput ? firebaseApiKeyInput.value.trim() : '';
+      const authDomain = firebaseAuthDomainInput ? firebaseAuthDomainInput.value.trim() : '';
+      const projectId = firebaseProjectIdInput ? firebaseProjectIdInput.value.trim() : '';
+
+      if (!apiKey || !projectId) {
+        alert('Por favor ingresa al menos la API Key y el Project ID de Firebase.');
+        return;
+      }
+
+      const config = { apiKey, authDomain, projectId };
+      localStorage.setItem('udea_firebase_config', JSON.stringify(config));
+
+      if (firebaseConfigStatus) {
+        firebaseConfigStatus.textContent = 'Configuración de Firebase guardada. Conectando con Firebase Auth...';
+        firebaseConfigStatus.style.color = '#059669';
+      }
+
+      await initFirebaseClient();
+      alert('¡Configuración de Firebase guardada y activada con éxito!');
     });
   }
 

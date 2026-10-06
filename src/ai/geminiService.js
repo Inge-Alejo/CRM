@@ -48,7 +48,7 @@ export class GeminiService {
         : 'uno de nuestros asesores académicos';
 
       return {
-        replyText: `Comprendo perfectamente. He transferido tu caso a la Coordinación de Extensión de la Facultad de Medicina UdeA. 🩺\n\nTu solicitud ha sido asignada para ser atendida por *${assignedAdvisor}*, quien revisará este chat y se comunicará contigo a la mayor brevedad posible.\n\n¿Deseas indicarnos tu nombre completo o dejarnos alguna duda puntual para avanzar en tu solicitud?`,
+        replyText: `Comprendo perfectamente. He transferido tu caso al Centro de Extensión de la Facultad de Medicina UdeA. 🩺\n\nTu solicitud ha sido asignada para ser atendida por *${assignedAdvisor}*, quien revisará este chat y se comunicará contigo a la mayor brevedad posible.\n\n¿Deseas indicarnos tu nombre completo o dejarnos alguna duda puntual para avanzar en tu solicitud?`,
         detectedProgram: this.detectProgramFromText(sanitizedMsg),
         requestAdvisor: true,
         segmentation: { ...segResult, interest_temperature: 'hot' }
@@ -93,7 +93,7 @@ export class GeminiService {
     const knowledgeContext = KnowledgeBaseService.generateContextPrompt();
 
     const systemInstruction = `
-Eres "Apolo", el asistente virtual oficial de la Coordinación de Extensión y Educación Continua de la Facultad de Medicina de la prestigiosa Universidad de Antioquia (UdeA) en Medellín, Colombia.
+Eres "Apolo", el asistente virtual oficial del Centro de Extensión de la Facultad de Medicina de la prestigiosa Universidad de Antioquia (UdeA) en Medellín, Colombia.
 
 TU MISIÓN:
 Responder dudas de médicos, profesionales de la salud y público interesado sobre los programas de extensión (diplomados, cursos, talleres, certificaciones).
@@ -219,7 +219,7 @@ ${knowledgeContext}
 
     // Saludo inicial con solicitud de datos de onboarding
     if (q.includes('hola') || q.includes('buenos dias') || q.includes('buenas tardes') || q.includes('buenas noches') || q === 'menu') {
-      let reply = `¡Hola! 👋 Te damos la bienvenida a la *Coordinación de Extensión de la Facultad de Medicina* de la *Universidad de Antioquia (UdeA)* 🩺.\n\n`;
+      let reply = `¡Hola! 👋 Te damos la bienvenida al *Centro de Extensión de la Facultad de Medicina* de la *Universidad de Antioquia (UdeA)* 🩺.\n\n`;
       reply += `Para registrarte en nuestro sistema y brindarte asesoría personalizada, por favor compártenos tus datos:\n`;
       reply += `1. 👤 *Nombre completo*\n`;
       reply += `2. 🪪 *Tipo y número de documento* (CC, CE, Pasaporte)\n`;

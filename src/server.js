@@ -2,7 +2,7 @@ import express from 'express';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { config } from './config.js';
-import { initDatabase, closeDatabase, getAdvisors, getSegmentationStats, verifyAdvisorCredentials, findAdvisorByEmail } from './db/database.js';
+import { initDatabase, closeDatabase, getAdvisors, getSegmentationStats, verifyAdvisorCredentials, findAdvisorByEmail, registerNewAdvisor } from './db/database.js';
 import { MetaCloudAdapter } from './adapters/metaCloudAdapter.js';
 import { SimulatorAdapter } from './adapters/simulatorAdapter.js';
 import { ConversationTracker } from './domain/conversationTracker.js';
@@ -109,6 +109,21 @@ app.post('/api/auth/login', (req, res) => {
 
   const token = Buffer.from(JSON.stringify({ id: advisor.id, email: advisor.email, time: Date.now() })).toString('base64');
   res.json({ success: true, advisor, token });
+});
+
+app.post('/api/auth/register', (req, res) => {
+  const { name, email, password, role, phone } = req.body;
+  if (!name || !email || !password) {
+    return res.status(400).json({ success: false, error: 'Nombre, correo y contraseña son obligatorios' });
+  }
+
+  try {
+    const advisor = registerNewAdvisor({ name, email, password, role, phone });
+    const token = Buffer.from(JSON.stringify({ id: advisor.id, email: advisor.email, time: Date.now() })).toString('base64');
+    res.json({ success: true, advisor, token });
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
 });
 
 app.get('/api/auth/me', (req, res) => {

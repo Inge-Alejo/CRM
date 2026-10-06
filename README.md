@@ -1,6 +1,6 @@
 # 🩺 CRM & WhatsApp Chatbot - Facultad de Medicina UdeA
 
-Sistema completo de **Chatbot Inteligente con IA para WhatsApp y Panel CRM** desarrollado para la **Coordinación de Extensión y Educación Continua de la Facultad de Medicina de la Universidad de Antioquia**.
+Sistema completo de **Chatbot Inteligente con IA para WhatsApp y Panel CRM** desarrollado para el **Centro de Extensión de la Facultad de Medicina de la Universidad de Antioquia (UdeA)**.
 
 ---
 

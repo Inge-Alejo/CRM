@@ -168,31 +168,85 @@ export class ScraperService {
     const slug = slugMatch ? slugMatch[1].toUpperCase() : `EXT-${Date.now()}`;
     const code = `UDEA-${slug.replace(/[^A-Z0-9]/g, '-').slice(0, 20)}`;
 
-    // Extraer valor de inversión si está presente en el texto
+    // Función auxiliar para fechas en español
+    const formatFriendlyDate = (isoStart, isoEnd) => {
+      if (!isoStart) return null;
+      const mNames = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+      const p1 = isoStart.split('T')[0].split('-');
+      if (p1.length !== 3) return null;
+      const y1 = parseInt(p1[0], 10), m1 = parseInt(p1[1], 10) - 1, d1 = parseInt(p1[2], 10);
+
+      if (!isoEnd) {
+        return `Inicia: ${d1} de ${mNames[m1]} de ${y1}`;
+      }
+      const p2 = isoEnd.split('T')[0].split('-');
+      if (p2.length !== 3) return `Inicia: ${d1} de ${mNames[m1]} de ${y1}`;
+      const y2 = parseInt(p2[0], 10), m2 = parseInt(p2[1], 10) - 1, d2 = parseInt(p2[2], 10);
+
+      if (y1 === y2 && m1 === m2 && d1 === d2) {
+        return `Fecha: ${d1} de ${mNames[m1]} de ${y1}`;
+      }
+      if (y1 === y2 && m1 === m2) {
+        return `Inicia: ${d1} al ${d2} de ${mNames[m1]} de ${y1}`;
+      }
+      if (y1 === y2) {
+        return `Inicia: ${d1} de ${mNames[m1]} al ${d2} de ${mNames[m2]} de ${y2}`;
+      }
+      return `Inicia: ${d1} de ${mNames[m1]} de ${y1} al ${d2} de ${mNames[m2]} de ${y2}`;
+    };
+
+    // 1. Extraer fecha exacta desde Schema.org / JSON-LD / MEC Plugin
+    const schemaStartDate = html.match(/"startDate"\s*:\s*"([^"]+)"/i);
+    const schemaEndDate = html.match(/"endDate"\s*:\s*"([^"]+)"/i);
+    const occurrenceDate = html.match(/occurrence=([0-9]{4}-[0-9]{2}-[0-9]{2})/i);
+
+    let startDate = null;
+    if (schemaStartDate) {
+      startDate = formatFriendlyDate(schemaStartDate[1], schemaEndDate ? schemaEndDate[1] : null);
+    } else if (occurrenceDate) {
+      startDate = formatFriendlyDate(occurrenceDate[1], null);
+    }
+
+    if (!startDate) {
+      const dateMatch = html.match(/Fecha:?\s*<\/strong>\s*([^<]+)/i) ||
+                        html.match(/Inicia:?\s*<\/strong>\s*([^<]+)/i) ||
+                        html.match(/(\d{1,2}\s+de\s+[a-záéíóú]+\s+(?:de\s+)?202\d)/i);
+      if (dateMatch) {
+        startDate = `Inicia: ${dateMatch[1].trim()}`;
+      } else {
+        startDate = 'Inscripciones abiertas (Consultar fechas de cohorte en enlace)';
+      }
+    }
+
+    // 2. Extraer valor de inversión oficial desde Schema.org o texto
     let investment = 'Consultar en portal oficial';
-    const priceMatch = html.match(/Inversi[oó]n:?\s*<\/strong>\s*([^<]+)/i) || html.match(/(\$[\d\.\,\s]+COP)/i);
-    if (priceMatch) {
-      investment = priceMatch[1].trim();
-    } else if (lowerHtml.includes('ingreso libre')) {
-      investment = 'Ingreso libre (Previa inscripción)';
+    const schemaPrice = html.match(/"price"\s*:\s*"?(\d+)"?/i);
+    if (schemaPrice) {
+      const numPrice = parseInt(schemaPrice[1], 10);
+      if (numPrice === 0) {
+        investment = 'Ingreso libre (Previa inscripción)';
+      } else {
+        investment = `$${numPrice.toLocaleString('es-CO')} COP`;
+      }
     } else {
-      investment = isDiplomado ? 'Tarifa diferencial UdeA (Aprox. $2.800.000 COP)' : 'Tarifa diferencial UdeA (Aprox. $950.000 COP)';
+      const priceMatch = html.match(/Inversi[oó]n:?\s*<\/strong>\s*([^<]+)/i) || html.match(/(\$[\d\.\,\s]+COP)/i);
+      if (priceMatch) {
+        investment = priceMatch[1].trim();
+      } else if (lowerHtml.includes('ingreso libre')) {
+        investment = 'Ingreso libre (Previa inscripción)';
+      } else {
+        investment = isDiplomado ? 'Tarifa diferencial UdeA (Aprox. $2.800.000 COP)' : 'Tarifa diferencial UdeA (Aprox. $950.000 COP)';
+      }
     }
 
-    // Extraer fecha de inicio
-    let startDate = 'Inicia: Noviembre 2026 (Inscripciones abiertas)';
-    const dateMatch = html.match(/Fecha:?\s*<\/strong>\s*([^<]+)/i) ||
-                      html.match(/Inicia:?\s*<\/strong>\s*([^<]+)/i) ||
-                      html.match(/(\d{1,2}\s+de\s+[a-záéíóú]+\s+(?:de\s+)?202\d)/i);
-    if (dateMatch) {
-      startDate = `Inicia: ${dateMatch[1].trim()}`;
-    }
-
-    // Extraer horario
+    // 3. Extraer ubicación y horario
     let schedule = 'Encuentros sincrónicos virtuales y trabajo autónomo';
+    const addressMatch = html.match(/"address"\s*:\s*"([^"]+)"/i);
     const scheduleMatch = html.match(/Horario:?\s*<\/strong>\s*([^<]+)/i);
     if (scheduleMatch) {
       schedule = scheduleMatch[1].trim();
+    } else if (addressMatch) {
+      schedule = `Presencial en ${addressMatch[1].trim()}`;
     } else if (modality.includes('Presencial')) {
       schedule = 'Sábados intensivos en Centro de Simulación Médica Robledo';
     }

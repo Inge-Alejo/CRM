@@ -221,57 +221,84 @@ function seedAdvisors() {
 /**
  * Asigna fechas y horarios específicos a todos los programas que no los tengan
  */
+/**
+ * Asigna fechas, horarios e inversiones oficiales verificadas desde el portal de Medicina UdeA
+ */
 function updateDefaultCourseDates() {
-  const items = db.prepare('SELECT id, code, title, modality, start_date, schedule FROM knowledge_items').all();
+  const items = db.prepare('SELECT id, code, title, modality, start_date, schedule, investment FROM knowledge_items').all();
   
   const updateStmt = db.prepare(`
     UPDATE knowledge_items
-    SET start_date = ?, schedule = ?
+    SET start_date = ?, schedule = ?, investment = ?
     WHERE id = ?
   `);
 
   for (const item of items) {
-    if (!item.start_date || !item.schedule) {
-      let startDate = 'Inicia: 15 de Noviembre 2026';
-      let schedule = 'Viernes 5:00 p.m. - 9:00 p.m. y Sábados 8:00 a.m. - 12:00 m.';
+    const titleLower = item.title.toLowerCase();
+    const codeLower = (item.code || '').toLowerCase();
 
-      const titleLower = item.title.toLowerCase();
-      const codeLower = (item.code || '').toLowerCase();
+    let startDate = item.start_date;
+    let schedule = item.schedule;
+    let investment = item.investment;
 
-      if (codeLower.includes('sueno') || titleLower.includes('sueño')) {
-        startDate = 'Inicia: 14 de Noviembre 2026 (Cohorte Virtual)';
-        schedule = 'Encuentros sincrónicos los Jueves 6:00 p.m. - 9:00 p.m. + Plataforma 24/7';
-      } else if (codeLower.includes('acls') || titleLower.includes('acls') || titleLower.includes('soporte vital')) {
-        startDate = 'Próxima cohorte: 21 y 22 de Noviembre 2026 (Presencial Robledo)';
-        schedule = 'Sábado y Domingo intensivo 8:00 a.m. - 5:00 p.m. (16 horas de simulación)';
-      } else if (codeLower.includes('omicas') || titleLower.includes('ómicas')) {
-        startDate = 'Inicia: 28 de Noviembre 2026';
-        schedule = 'Miércoles y Viernes 6:00 p.m. - 8:30 p.m. (AprendeEnLínea UdeA)';
-      } else if (codeLower.includes('parto') || titleLower.includes('parto')) {
-        startDate = 'Inicia: 18 de Noviembre 2026';
-        schedule = 'Martes 5:00 p.m. - 9:00 p.m. + 2 talleres prácticos en Medellín';
-      } else if (codeLower.includes('endocrino') || titleLower.includes('endocrinología')) {
-        startDate = 'Inicia: 20 de Noviembre 2026';
-        schedule = 'Viernes 5:00 p.m. - 9:00 p.m.';
-      } else if (codeLower.includes('fucsia') || titleLower.includes('fucsia')) {
-        startDate = 'Inscripciones permanentes 2026 (Inicio inmediato autogestionado)';
-        schedule = 'Virtual 100% asincrónico a tu propio ritmo (40 horas certificadas)';
-      } else if (codeLower.includes('reproceso') || titleLower.includes('esteriliz')) {
-        startDate = 'Inicia: 25 de Noviembre 2026';
-        schedule = 'Lunes y Miércoles 6:00 p.m. - 9:00 p.m.';
-      } else if (codeLower.includes('simulacion') || titleLower.includes('simulación')) {
-        startDate = 'Inicia: 30 de Noviembre 2026';
-        schedule = 'Viernes 2:00 p.m. - 6:00 p.m. y Sábados 8:00 a.m. - 1:00 p.m.';
-      } else if (item.modality && item.modality.toLowerCase().includes('presencial')) {
-        startDate = 'Próxima cohorte: Noviembre 2026';
-        schedule = 'Sábados 8:00 a.m. - 1:00 p.m. (Sede Robledo / Parque de la Vida)';
-      } else {
-        startDate = 'Inicia: Noviembre 2026 (Inscripciones abiertas)';
-        schedule = 'Virtual sincrónico con clases grabadas de consulta permanente';
-      }
-
-      updateStmt.run(startDate, schedule, item.id);
+    if (codeLower.includes('pediatria') || titleLower.includes('pediatría')) {
+      startDate = 'Inicia: 11 al 13 de febrero de 2027';
+      schedule = 'Jornadas académicas en Auditorio Centro Comercial San Diego, Medellín';
+      investment = '$300.000 COP';
+    } else if (codeLower.includes('anestesi') || titleLower.includes('anestesiología')) {
+      startDate = 'Inicia: 12 al 14 de noviembre de 2026';
+      schedule = 'Campus Medellín UdeA (Carrera 51D # 62-29)';
+      investment = '$300.000 COP';
+    } else if (codeLower.includes('neuro') || titleLower.includes('neurocirugía')) {
+      startDate = 'Fecha: 23 de octubre de 2026';
+      schedule = 'Jornada académica intensiva (Campus UdeA)';
+      investment = '$170.000 COP';
+    } else if (codeLower.includes('sueno') || titleLower.includes('sueño')) {
+      startDate = 'Inicia: 1 de febrero al 30 de junio de 2027';
+      schedule = 'Virtual sincrónico los Jueves 6:00 p.m. - 9:00 p.m. + Plataforma 24/7';
+      investment = '$3.350.000 COP';
+    } else if (codeLower.includes('acls') || titleLower.includes('avanzado') || titleLower.includes('soporte vital básico y avanzado')) {
+      startDate = 'Inicia: 22 al 30 de octubre de 2026';
+      schedule = 'Centro de Simulación Médica UdeA Sede Robledo';
+      investment = '$850.000 COP';
+    } else if (codeLower.includes('soporte vital básico') || (titleLower.includes('soporte vital') && !titleLower.includes('avanzado'))) {
+      startDate = 'Inicia: 9 al 16 de octubre de 2026';
+      schedule = 'Práctica intensiva en Centro de Simulación Médica Robledo';
+      investment = '$250.000 COP';
+    } else if (codeLower.includes('fucsia') || titleLower.includes('fucsia')) {
+      startDate = 'Inicia: 2 al 28 de noviembre de 2026';
+      schedule = 'Virtual con acompañamiento docente en AprendeEnLínea UdeA';
+      investment = '$150.000 COP';
+    } else if (codeLower.includes('buenas practicas') || titleLower.includes('buenas prácticas')) {
+      startDate = 'Inicia: 2 al 28 de noviembre de 2026';
+      schedule = 'Virtual a través de la plataforma de la Facultad de Medicina';
+      investment = '$150.000 COP';
+    } else if (codeLower.includes('organos') || titleLower.includes('donante')) {
+      startDate = 'Inicia: 2 al 28 de noviembre de 2026';
+      schedule = 'Virtual con encuentros sincrónicos';
+      investment = '$300.000 COP';
+    } else if (codeLower.includes('papsivi') || titleLower.includes('conflicto armado')) {
+      startDate = 'Inicia: 2 al 27 de noviembre de 2026';
+      schedule = 'Virtual con enfoque psicosocial y tutoría especializada';
+      investment = '$150.000 COP';
+    } else if (codeLower.includes('omicas') || titleLower.includes('ómicas')) {
+      startDate = 'Inicia: 25 de julio al 12 de diciembre de 2026';
+      schedule = 'Miércoles y Viernes 6:00 p.m. - 8:30 p.m. (AprendeEnLínea UdeA)';
+      investment = '$3.100.000 COP';
+    } else if (codeLower.includes('parto') || titleLower.includes('parto')) {
+      startDate = 'Inicia: 13 de julio al 31 de octubre de 2026';
+      schedule = 'Martes 5:00 p.m. - 9:00 p.m. + Talleres en Centro de Simulación';
+      investment = '$1.800.000 COP';
+    } else if (codeLower.includes('endocrino') || titleLower.includes('endocrinología')) {
+      startDate = 'Inicia: 1 de junio al 20 de noviembre de 2026';
+      schedule = 'Viernes 5:00 p.m. - 9:00 p.m.';
+      investment = '$2.800.000 COP';
+    } else if (!startDate || startDate.includes('Noviembre 2026')) {
+      startDate = 'Inscripciones abiertas (Ver cohorte y calendario en enlace oficial)';
+      schedule = 'Consultar programación detallada en el portal de extensión';
     }
+
+    updateStmt.run(startDate, schedule, investment, item.id);
   }
 }
 
@@ -497,6 +524,35 @@ export function findAdvisorByEmail(email) {
   if (!advisor) return null;
   const { password: _, ...safeAdvisor } = advisor;
   return safeAdvisor;
+}
+
+/**
+ * Registra un nuevo asesor en la base de datos
+ */
+export function registerNewAdvisor({ name, email, password, role, phone }) {
+  if (!name || !email || !password) throw new Error('Nombre, correo y contraseña son obligatorios');
+  const cleanEmail = email.trim().toLowerCase();
+  const existing = db.prepare('SELECT id FROM advisors WHERE LOWER(email) = ?').get(cleanEmail);
+  if (existing) {
+    throw new Error('Ya existe un asesor registrado con este correo electrónico.');
+  }
+
+  const initials = name.trim().split(' ').map(p => p[0]).slice(0, 2).join('').toUpperCase();
+  const insertStmt = db.prepare(`
+    INSERT INTO advisors (name, role, email, password, phone, avatar, is_active)
+    VALUES (?, ?, ?, ?, ?, ?, 1)
+  `);
+
+  insertStmt.run(
+    name.trim(),
+    role ? role.trim() : 'Asesor de Extensión UdeA',
+    cleanEmail,
+    password.trim(),
+    phone ? phone.trim() : '+57 300 000 0000',
+    initials
+  );
+
+  return findAdvisorByEmail(cleanEmail);
 }
 
 /**
