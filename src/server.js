@@ -2,7 +2,7 @@ import express from 'express';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { config } from './config.js';
-import { initDatabase, closeDatabase, getAdvisors, getSegmentationStats, verifyAdvisorCredentials, findAdvisorByEmail, registerNewAdvisor, syncFirebaseAdvisor } from './db/database.js';
+import { initDatabase, closeDatabase, getAdvisors, getSegmentationStats, verifyAdvisorCredentials, findAdvisorByEmail, registerNewAdvisor, syncFirebaseAdvisor, recordSecurityAudit } from './db/database.js';
 import { MetaCloudAdapter } from './adapters/metaCloudAdapter.js';
 import { SimulatorAdapter } from './adapters/simulatorAdapter.js';
 import { ConversationTracker } from './domain/conversationTracker.js';
@@ -49,7 +49,43 @@ app.use(express.json({
 }));
 app.use(express.urlencoded({ extended: true }));
 
-// 5. Servir archivos estáticos del CRM Dashboard
+// 5. Middleware de Inspección Activa de Seguridad (Prevención SQLi y Sanitización en APIs)
+app.use('/api', (req, res, next) => {
+  const isSimulator = req.path === '/simulator/send';
+
+  const checkValue = (val, keyName = '') => {
+    if (typeof val === 'string') {
+      if (isSimulator && keyName === 'message') {
+        return false; // El simulador procesa y neutraliza el mensaje en los guardrails de la IA
+      }
+      if (SecurityGuardrails.detectSqlInjection(val)) {
+        return true;
+      }
+    } else if (typeof val === 'object' && val !== null) {
+      for (const k of Object.keys(val)) {
+        if (checkValue(val[k], k)) return true;
+      }
+    }
+    return false;
+  };
+
+  if (checkValue(req.query) || checkValue(req.params) || checkValue(req.body)) {
+    const clientIp = req.ip || req.socket.remoteAddress || 'unknown';
+    console.warn(`🚨 [CIBERSEGURIDAD UDEA] Intento de SQL Injection neutralizado desde ${clientIp} en ${req.method} ${req.originalUrl}`);
+    recordSecurityAudit('SQLI_ATTEMPT_BLOCKED', {
+      ip: clientIp,
+      path: req.originalUrl,
+      method: req.method,
+      query: req.query
+    });
+    return res.status(400).json({
+      error: 'Solicitud rechazada por filtros de seguridad institucional (patrón no seguro detectado).'
+    });
+  }
+  next();
+});
+
+// 6. Servir archivos estáticos del CRM Dashboard
 app.use(express.static(path.join(__dirname, '../public')));
 
 // ==========================================

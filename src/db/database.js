@@ -600,6 +600,21 @@ export function updateLeadIdentity(phoneNumber, data = {}) {
   stmt.run(name, docType, docNumber, email, profession, nowIso, phoneNumber);
 }
 
+/**
+ * Registra eventos de seguridad en la tabla de auditoría
+ */
+export function recordSecurityAudit(eventType, details) {
+  try {
+    const nowIso = new Date().toISOString();
+    db.prepare(`
+      INSERT INTO audit_logs (event, details, timestamp)
+      VALUES (?, ?, ?)
+    `).run(eventType, typeof details === 'string' ? details : JSON.stringify(details), nowIso);
+  } catch (err) {
+    console.error('Error registrando auditoría de seguridad:', err);
+  }
+}
+
 export function closeDatabase() {
   try {
     db.close();
