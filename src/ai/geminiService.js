@@ -248,7 +248,7 @@ ${knowledgeContext}
       reply += `📖 *Descripción:* ${bestMatch.description}\n\n`;
       reply += `🔗 *Enlace e Inscripción oficial:* ${bestMatch.registration_link}\n`;
       reply += `✉️ *Contacto:* ${bestMatch.contact_email}\n\n`;
-      reply += `¿Deseas que uno de nuestros asesores humanos te contacte para separar tu cupo o aclarar alguna duda?`;
+      reply += `¿Tienes alguna inquietud puntual sobre los contenidos o deseas conocer los pasos para formalizar tu inscripción en línea?`;
 
       return {
         replyText: reply,

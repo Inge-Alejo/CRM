@@ -14,7 +14,7 @@ export class AdvisorNotifier {
       id: Date.now(),
       phoneNumber,
       studentName: studentName || 'Interesado UdeA',
-      reason: reason || 'El usuario solicitó hablar con un asesor humano',
+      reason: reason || 'El usuario solicitó atención personalizada',
       lastUserMessage,
       timestamp,
       whatsappDirectUrl: `https://wa.me/${phoneNumber.replace('+', '')}`,
@@ -34,7 +34,7 @@ export class AdvisorNotifier {
 
     // 3. Simulación y log de correo electrónico / webhook
     console.log(`\n========================================================================`);
-    console.log(`🚨 [ALERTA DE ASESOR HUMANO - EXTENSIÓN MEDICINA UDEA]`);
+    console.log(`🚨 [ALERTA DE ATENCIÓN DE ASESOR - EXTENSIÓN MEDICINA UDEA]`);
     console.log(`Para: ${config.advisor.email}`);
     console.log(`Interesado: ${alertData.studentName} (${phoneNumber})`);
     console.log(`Motivo: ${alertData.reason}`);

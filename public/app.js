@@ -462,7 +462,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       if (dashAlertBanner) {
         dashAlertBanner.style.display = 'flex';
-        dashAlertMessage.textContent = `Hay ${advisorNeeded.length} persona(s) esperando atención de un asesor humano en este momento.`;
+        dashAlertMessage.textContent = `Hay ${advisorNeeded.length} persona(s) esperando atención de un asesor en este momento.`;
       }
       if (kpiAdvisorFooter) {
         kpiAdvisorFooter.textContent = '¡Atención prioritaria!';
@@ -942,9 +942,9 @@ document.addEventListener('DOMContentLoaded', () => {
         simFeedback.innerHTML = `
           <span style="color: #dc2626; font-weight: 700; display: inline-flex; align-items: center; gap: 0.35rem;">
             <svg class="mini-svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-            Solicitud de Asesor Humano Activada
+            Solicitud de Asesor Activada
           </span>
-          <br>El bot detectó la necesidad de atención humana y priorizó al contacto en el CRM.
+          <br>El bot identificó una solicitud de asesoría especializada y priorizó al contacto en el CRM.
         `;
       } else {
         simFeedback.innerHTML = `
