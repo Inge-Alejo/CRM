@@ -49,11 +49,19 @@ export class MetaCloudAdapter {
       const value = change?.value;
       const message = value?.messages?.[0];
 
-      if (!message || message.type !== 'text') {
-        return; // Solo procesamos mensajes de texto por ahora
-      }
+      if (!message) return;
 
       const senderPhone = message.from; // Número en formato E.164 (ej: 573001234567)
+
+      // Bloqueo de audios, imágenes y videos: Canal exclusivo de texto escrito
+      if (message.type !== 'text') {
+        const textOnlyNotice = 'Estimado(a) usuario(a), por directrices institucionales de la Facultad de Medicina UdeA, este canal automatizado de WhatsApp procesa exclusivamente consultas en texto escrito. 📝🩺\n\nPor favor envíanos tu consulta en un mensaje de texto para poder orientarte de inmediato con fechas, horarios y costos.';
+        LeadService.recordLeadMessage(senderPhone, `[Mensaje no admitido: ${message.type}]`, 'user');
+        LeadService.recordLeadMessage(senderPhone, textOnlyNotice, 'bot');
+        await this.sendWhatsAppMessage(senderPhone, textOnlyNotice);
+        return;
+      }
+
       const userText = message.text.body;
 
       // 2. Evaluar Kill-Switch y ventana de 24 horas (Control Anti-Cobros)

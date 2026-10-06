@@ -192,7 +192,24 @@ export class SecurityGuardrails {
       return 'Te damos la bienvenida al Centro de Extensión de la Facultad de Medicina UdeA. 🩺 ¿En qué curso o diplomado estás interesado hoy?';
     }
 
-    return replyText;
+    let cleaned = replyText.trim();
+
+    // Validar y reparar si la respuesta quedó cortada a mitad de una palabra u oración (evita tokens truncados)
+    const validEndRegex = /[.!?*:\)\]\p{Emoji_Presentation}\p{Extended_Pictographic}]$/u;
+    if (!validEndRegex.test(cleaned)) {
+      const lastPunctuation = Math.max(
+        cleaned.lastIndexOf('.'),
+        cleaned.lastIndexOf('!'),
+        cleaned.lastIndexOf('?')
+      );
+      if (lastPunctuation > cleaned.length * 0.5) {
+        cleaned = cleaned.slice(0, lastPunctuation + 1).trim();
+      } else {
+        cleaned += '.';
+      }
+    }
+
+    return cleaned;
   }
 
   /**

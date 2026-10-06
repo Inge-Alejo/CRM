@@ -97,7 +97,30 @@ document.addEventListener('DOMContentLoaded', () => {
 
   let allLoadedLeads = [];
   let allPortfolioItems = [];
+  let allAdvisorsList = [];
   let currentActivePhone = null;
+
+  async function loadAdvisorsList() {
+    try {
+      const res = await fetch('/api/advisors');
+      const data = await res.json();
+      allAdvisorsList = data.advisors || [];
+      if (crmAdvisorFilter && allAdvisorsList.length > 0) {
+        const cur = crmAdvisorFilter.value;
+        crmAdvisorFilter.innerHTML = '<option value="">Todos los asesores</option><option value="Sin Asignar">Sin Asignar</option>' +
+          allAdvisorsList.map(a => `<option value="${escapeHtml(a.name)}">${escapeHtml(a.name)}</option>`).join('');
+        crmAdvisorFilter.value = cur;
+      }
+      if (modalAdvisorSelect && allAdvisorsList.length > 0) {
+        const cur = modalAdvisorSelect.value;
+        modalAdvisorSelect.innerHTML = '<option value="Sin Asignar">Sin Asignar</option>' +
+          allAdvisorsList.map(a => `<option value="${escapeHtml(a.name)}">${escapeHtml(a.name)}</option>`).join('');
+        modalAdvisorSelect.value = cur;
+      }
+    } catch (err) {
+      console.warn('Error cargando lista de asesores:', err);
+    }
+  }
 
   // Configuración oficial de Firebase Auth (crm-fdem)
   const OFFICIAL_FIREBASE_CONFIG = {
@@ -277,6 +300,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (loginLandingView) loginLandingView.style.display = 'none';
       if (dashboardAppView) dashboardAppView.style.display = 'flex';
 
+      loadAdvisorsList();
       loadTelemetry();
       fetchLeads();
       fetchPortfolio();
@@ -524,9 +548,9 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function getTemperatureBadge(temp) {
-    if (temp === 'hot') return '<span class="temperature-badge hot">🔥 Caliente</span>';
-    if (temp === 'warm') return '<span class="temperature-badge warm">⚡ Tibio</span>';
-    return '<span class="temperature-badge cold">❄️ Frío</span>';
+    if (temp === 'hot') return '<span class="temperature-badge hot">Alta</span>';
+    if (temp === 'warm') return '<span class="temperature-badge warm">Media</span>';
+    return '<span class="temperature-badge cold">Baja</span>';
   }
 
   function getProfessionPill(prof) {
@@ -535,12 +559,31 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function getAdvisorPill(advisor, phone) {
-    const isAssigned = advisor && advisor !== 'Sin Asignar';
+    const isSuperAdmin = currentAdvisorUser && (currentAdvisorUser.role_type === 'admin' || (currentAdvisorUser.email && currentAdvisorUser.email.toLowerCase() === 'proyectostic.med@udea.edu.co'));
+    const currentAdv = advisor || 'Sin Asignar';
+
+    // Si es Administrador TIC: selector interactivo para asignar/reasignar directamente a cualquier asesor
+    if (isSuperAdmin && allAdvisorsList.length > 0) {
+      const options = [
+        `<option value="Sin Asignar" ${currentAdv === 'Sin Asignar' ? 'selected' : ''}>Sin Asignar</option>`,
+        ...allAdvisorsList.map(a => `<option value="${escapeHtml(a.name)}" ${currentAdv === a.name ? 'selected' : ''}>${escapeHtml(a.name)}</option>`)
+      ].join('');
+
+      return `
+        <div style="display:flex; align-items:center; gap:0.35rem;">
+          <select class="form-select form-select-sm" onchange="window.reassignAdvisor('${phone}', this.value)" title="Reasignar asesor manualmente (Exclusivo Administrador TIC)" style="padding: 0.15rem 0.35rem; font-size: 0.76rem; font-weight: 600; border: 1px solid var(--udea-emerald); border-radius: 6px; background: #ffffff; cursor: pointer; color: var(--text-dark);">
+            ${options}
+          </select>
+        </div>
+      `;
+    }
+
+    const isAssigned = currentAdv !== 'Sin Asignar';
     return `
       <div style="display:flex; align-items:center; gap:0.35rem;">
         <span class="advisor-pill ${isAssigned ? 'assigned' : ''}">
           <svg class="micro-svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-          ${escapeHtml(advisor || 'Sin Asignar')}
+          ${escapeHtml(currentAdv)}
         </span>
         ${!isAssigned ? `<button class="btn btn-secondary btn-sm" style="padding:0.15rem 0.4rem; font-size:0.7rem;" onclick="window.assignToMe('${phone}')" title="Asignarme este caso">Tomar</button>` : ''}
       </div>
@@ -636,10 +679,10 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       const res = await fetch('/api/segmentation');
       const data = await res.json();
-      if (!data.success) return;
+      if (data.success === false) return;
 
       const stats = data.stats || {};
-      const audience = data.audience || [];
+      const audience = data.audience || data.leads || [];
 
       // KPIs
       if (kpiSegTotal) kpiSegTotal.textContent = stats.total_leads || 0;
@@ -669,13 +712,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }).join('');
       }
 
-      // Barras de Temperatura
+      // Barras de Temperatura (sin emojis)
       if (segTemperatureBars && stats.temperatures) {
         const total = stats.total_leads || 1;
         const tempLabels = {
-          hot: '🔥 Caliente (Alta Intención / Pago / Asesor)',
-          warm: '⚡ Tibio (Consulta Fechas / Horarios / Pensum)',
-          cold: '❄️ Frío (Contacto Inicial / Saludo General)'
+          hot: 'Prioridad Alta (Pago / Asesor / Matrícula)',
+          warm: 'Prioridad Media (Fechas / Horarios / Contenidos)',
+          cold: 'Prioridad Baja (Contacto Inicial)'
         };
         const tempColors = {
           hot: '#ef4444',
@@ -757,7 +800,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (segFilterTempSelect) segFilterTempSelect.addEventListener('change', loadSegmentation);
   if (btnRefreshSegmentation) btnRefreshSegmentation.addEventListener('click', loadSegmentation);
 
-  // 5. Asignación Rápida a Mí
+  // 5. Asignación Rápida a Mí y Reasignación Manual por Admin
   window.assignToMe = async (phone) => {
     const advisor = getActiveAdvisor();
     await fetch(`/api/leads/${encodeURIComponent(phone)}/advisor`, {
@@ -766,6 +809,19 @@ document.addEventListener('DOMContentLoaded', () => {
       body: JSON.stringify({ advisor })
     });
     fetchLeads();
+  };
+
+  window.reassignAdvisor = async (phone, advisorName) => {
+    try {
+      await fetch(`/api/leads/${encodeURIComponent(phone)}/advisor`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ advisor: advisorName })
+      });
+      fetchLeads();
+    } catch (err) {
+      alert('Error reasignando asesor: ' + err.message);
+    }
   };
 
   window.markAttendedByActiveAdvisor = async (phone) => {
@@ -1262,6 +1318,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (loginLandingView) loginLandingView.style.display = 'none';
       if (dashboardAppView) dashboardAppView.style.display = 'flex';
       updateAdvisorUI(user);
+      loadAdvisorsList();
       loadTelemetry();
       fetchLeads();
       fetchPortfolio();

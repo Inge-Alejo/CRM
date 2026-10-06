@@ -108,6 +108,7 @@ export function initDatabase() {
   seedAdvisors();
   seedKnowledgeBase();
   updateDefaultCourseDates();
+  seedLeads();
 }
 
 /**
@@ -385,6 +386,140 @@ function seedKnowledgeBase() {
 }
 
 /**
+ * Sembrar prospectos institucionales base para que la base de datos siempre tenga datos consistentes
+ */
+function seedLeads() {
+  const existingCount = db.prepare('SELECT COUNT(*) as c FROM leads').get()?.c || 0;
+  if (existingCount > 0) return;
+
+  const nowIso = new Date().toISOString();
+  const seedLeadsList = [
+    {
+      phone_number: '+573002345678',
+      name: 'Dra. Camila Restrepo',
+      doc_type: 'CC',
+      doc_number: '1020456789',
+      email: 'camila.restrepo@hospital.com',
+      program_interest: 'Curso Soporte Vital Básico y Avanzado (ACLS / BLS - AHA)',
+      status: 'advisor_requested',
+      created_at: nowIso,
+      updated_at: nowIso,
+      last_message: 'Buenas tardes, quisiera saber el precio de la certificación ACLS y las fechas de la próxima cohorte presencial en Robledo.',
+      assigned_advisor: 'Dra. Carolina Martínez',
+      attended_by: null,
+      attended_at: null,
+      segment_profession: 'Médico Especialista',
+      interest_temperature: 'hot',
+      thematic_area: 'Simulación & ACLS',
+      event_interests: 'Curso Soporte Vital Básico y Avanzado (ACLS / BLS - AHA)',
+      notes: 'Solicitó información sobre certificación internacional AHA de 2 años.'
+    },
+    {
+      phone_number: '+573124567890',
+      name: 'Dr. Juan Camilo Ortiz',
+      doc_type: 'CC',
+      doc_number: '71234567',
+      email: 'jc.ortiz@eps.com.co',
+      program_interest: 'Diplomado en Medicina del Sueño',
+      status: 'ai_handling',
+      created_at: nowIso,
+      updated_at: nowIso,
+      last_message: 'Hola, me interesa conocer los horarios del diplomado de medicina del sueño y si es 100% virtual.',
+      assigned_advisor: 'Dr. Alejandro Gómez',
+      attended_by: null,
+      attended_at: null,
+      segment_profession: 'Médico General',
+      interest_temperature: 'warm',
+      thematic_area: 'Medicina del Sueño',
+      event_interests: 'Diplomado en Medicina del Sueño',
+      notes: ''
+    },
+    {
+      phone_number: '+573209876543',
+      name: 'Enf. Valeria Gómez',
+      doc_type: 'CC',
+      doc_number: '1035678901',
+      email: 'valeria.gomez@udea.edu.co',
+      program_interest: 'Curso Código Fucsia: Atención a Víctimas de Violencia Sexual',
+      status: 'contacted',
+      created_at: nowIso,
+      updated_at: nowIso,
+      last_message: '¿El curso de código fucsia cumple con los requisitos de habilitación de la Resolución 459?',
+      assigned_advisor: 'Lic. Valeria Restrepo',
+      attended_by: 'Lic. Valeria Restrepo',
+      attended_at: nowIso,
+      segment_profession: 'Enfermería',
+      interest_temperature: 'hot',
+      thematic_area: 'Salud Pública & Legal',
+      event_interests: 'Curso Código Fucsia: Atención a Víctimas de Violencia Sexual',
+      notes: 'Enviada resolución y certificado de habilitación.'
+    },
+    {
+      phone_number: '+573158765432',
+      name: 'Dr. David Botero',
+      doc_type: 'CC',
+      doc_number: '1017894523',
+      email: 'dbotero@biotech.com',
+      program_interest: 'Diplomado en Ciencias Ómicas y Medicina de Precisión',
+      status: 'ai_handling',
+      created_at: nowIso,
+      updated_at: nowIso,
+      last_message: 'Quisiera información sobre el temario de secuenciación NGS y bioinformática.',
+      assigned_advisor: 'Sin Asignar',
+      attended_by: null,
+      attended_at: null,
+      segment_profession: 'Residente',
+      interest_temperature: 'cold',
+      thematic_area: 'Ciencias Ómicas & Genómica',
+      event_interests: 'Diplomado en Ciencias Ómicas y Medicina de Precisión',
+      notes: ''
+    },
+    {
+      phone_number: '+573017654321',
+      name: 'Dra. Marcela Cadavid',
+      doc_type: 'CC',
+      doc_number: '43987123',
+      email: 'm.cadavid@clinica.com',
+      program_interest: 'Diplomado en Buenas Prácticas de Atención al Parto Seguro',
+      status: 'ai_handling',
+      created_at: nowIso,
+      updated_at: nowIso,
+      last_message: '¿Cuándo inicia la cohorte del diplomado de parto seguro y cuántas horas de simulación tiene?',
+      assigned_advisor: 'Dra. Carolina Martínez',
+      attended_by: null,
+      attended_at: null,
+      segment_profession: 'Médico Especialista',
+      interest_temperature: 'warm',
+      thematic_area: 'Salud Materno-Perinatal',
+      event_interests: 'Diplomado en Buenas Prácticas de Atención al Parto Seguro',
+      notes: ''
+    }
+  ];
+
+  const insertLeadStmt = db.prepare(`
+    INSERT INTO leads (
+      phone_number, name, doc_type, doc_number, email, program_interest, status,
+      created_at, updated_at, last_message, assigned_advisor, attended_by, attended_at,
+      segment_profession, interest_temperature, thematic_area, event_interests, notes
+    ) VALUES (
+      @phone_number, @name, @doc_type, @doc_number, @email, @program_interest, @status,
+      @created_at, @updated_at, @last_message, @assigned_advisor, @attended_by, @attended_at,
+      @segment_profession, @interest_temperature, @thematic_area, @event_interests, @notes
+    )
+  `);
+
+  const insertMsgStmt = db.prepare(`
+    INSERT INTO messages (phone_number, sender, content, timestamp)
+    VALUES (?, ?, ?, ?)
+  `);
+
+  for (const lead of seedLeadsList) {
+    insertLeadStmt.run(lead);
+    insertMsgStmt.run(lead.phone_number, 'user', lead.last_message, lead.created_at);
+  }
+}
+
+/**
  * Obtener los asesores disponibles
  */
 export function getAdvisors() {
@@ -483,11 +618,20 @@ export function getSegmentationStats() {
     GROUP BY assigned_advisor
   `).all();
 
+  const profMap = {};
+  profRows.forEach(r => { profMap[r.segment_profession] = r.count; });
+
+  const areaMap = {};
+  areaRows.forEach(r => { areaMap[r.thematic_area] = r.count; });
+
   return {
     totalLeads,
+    total_leads: totalLeads,
     temperatures: tempMap,
-    professions: profRows,
-    thematicAreas: areaRows,
+    professions: profMap,
+    professionsList: profRows,
+    thematicAreas: areaMap,
+    thematicAreasList: areaRows,
     advisorStats
   };
 }

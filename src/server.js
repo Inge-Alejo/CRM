@@ -340,7 +340,7 @@ app.get('/api/segmentation', (req, res) => {
   const filterTemperature = req.query.temperature || null;
   const filterAdvisor = req.query.advisor || null;
   const leads = LeadService.getAllLeads(null, filterAdvisor, filterTemperature, filterProfession);
-  res.json({ stats, leads });
+  res.json({ success: true, stats, audience: leads, leads });
 });
 
 // Exportar base de datos segmentada a CSV (Exclusivo Administrador General)
