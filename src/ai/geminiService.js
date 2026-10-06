@@ -130,15 +130,31 @@ ${knowledgeContext}
       parts: [{ text: sanitizedMsg }]
     });
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.8-flash',
-      contents: contents,
-      config: {
-        systemInstruction: systemInstruction,
-        temperature: 0.2,
-        maxOutputTokens: 600
+    const modelCandidates = ['gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-3.8-flash'];
+    let response = null;
+    let lastError = null;
+
+    for (const modelName of modelCandidates) {
+      try {
+        response = await ai.models.generateContent({
+          model: modelName,
+          contents: contents,
+          config: {
+            systemInstruction: systemInstruction,
+            temperature: 0.2,
+            maxOutputTokens: 600
+          }
+        });
+        if (response && response.text) break;
+      } catch (err) {
+        lastError = err;
+        console.warn(`Aviso: Modelo ${modelName} no disponible o límite alcanzado (${err.message}). Reintentando con siguiente modelo...`);
       }
-    });
+    }
+
+    if (!response || !response.text) {
+      throw lastError || new Error('No se pudo generar respuesta con los modelos de Gemini disponibles.');
+    }
 
     const replyText = response.text || 'Disculpa, no pude procesar la respuesta en este momento. Por favor intenta nuevamente.';
     const detectedProgram = this.detectProgramFromText(sanitizedMsg);
