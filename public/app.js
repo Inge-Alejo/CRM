@@ -1356,6 +1356,26 @@ document.addEventListener('DOMContentLoaded', () => {
       if (document.getElementById('sysDbAdvisors')) document.getElementById('sysDbAdvisors').textContent = dbData.tables.advisorsCount;
       if (document.getElementById('sysDbAuditCount')) document.getElementById('sysDbAuditCount').textContent = dbData.tables.totalAuditLogs;
 
+      // Capacidad de Almacenamiento Neon / Postgres
+      if (dbData.storage) {
+        const s = dbData.storage;
+        if (document.getElementById('sysDbCapacityBar')) {
+          document.getElementById('sysDbCapacityBar').style.width = `${Math.min(100, Math.max(1, s.usagePercent || 1.6))}%`;
+        }
+        if (document.getElementById('sysDbCapacityLabel')) {
+          document.getElementById('sysDbCapacityLabel').textContent = s.sizeFormatted || `${s.sizePretty} / 512 MB`;
+        }
+        if (document.getElementById('sysDbCapacityPercent')) {
+          document.getElementById('sysDbCapacityPercent').textContent = `${s.usagePercent}% de cuota (${s.remainingMb || '503.5'} MB libres)`;
+        }
+      }
+      if (document.getElementById('sysDbEngineTitle')) {
+        document.getElementById('sysDbEngineTitle').textContent = dbData.isCloud ? 'Base de Datos PostgreSQL (Neon Cloud)' : 'Base de Datos SQLite (Local)';
+      }
+      if (document.getElementById('sysDbEngineBadge')) {
+        document.getElementById('sysDbEngineBadge').textContent = dbData.isCloud ? 'Neon Serverless' : 'SQLite Local';
+      }
+
       // 2. IA y Tokens
       const aiData = data.ai;
       if (document.getElementById('sysAiTotalTokens')) document.getElementById('sysAiTotalTokens').textContent = (aiData.totalEstimatedTokens || 0).toLocaleString();

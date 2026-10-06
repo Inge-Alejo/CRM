@@ -52,6 +52,7 @@ export class MetaCloudAdapter {
       if (!message) return;
 
       const senderPhone = message.from; // Número en formato E.164 (ej: 573001234567)
+      const contactName = value?.contacts?.[0]?.profile?.name;
 
       // Bloqueo de audios, imágenes y videos: Canal exclusivo de texto escrito
       if (message.type !== 'text') {
@@ -69,6 +70,9 @@ export class MetaCloudAdapter {
 
       // Guardar mensaje en base de datos
       await LeadService.recordLeadMessage(senderPhone, userText, 'user');
+      if (contactName) {
+        await LeadService.updateLeadSegmentation(senderPhone, { name: contactName });
+      }
 
       if (!evaluation.allowed) {
         console.warn(`🛑 [KILL-SWITCH ACTIVADO] Mensaje de ${senderPhone} no respondido para evitar cobros de Meta.`);

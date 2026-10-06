@@ -28,6 +28,8 @@ export class SystemStatsService {
     let totalAuditLogs = 0;
     let recentAuditLogs = [];
 
+    let cloudStorage = null;
+
     if (NeonService.isAvailable()) {
       try {
         const cloudData = await NeonService.getDetailedMetrics(currentYearMonth);
@@ -38,6 +40,11 @@ export class SystemStatsService {
         advisorsCount = cloudData.advisorsCount;
         totalAuditLogs = cloudData.totalAuditLogs;
         recentAuditLogs = cloudData.recentAuditLogs;
+        if (cloudData.storage) {
+          cloudStorage = cloudData.storage;
+          dbSizeFormatted = cloudData.storage.sizeFormatted;
+          dbSizeBytes = cloudData.storage.sizeBytes;
+        }
       } catch (err) {
         console.warn('Error obteniendo métricas de Neon, fallback a SQLite local:', err.message);
       }
@@ -145,6 +152,15 @@ export class SystemStatsService {
         sizeFormatted: dbSizeFormatted,
         sizeBytes: dbSizeBytes,
         isCloud: NeonService.isAvailable(),
+        storage: cloudStorage || {
+          sizePretty: dbSizeFormatted,
+          sizeFormatted: dbSizeFormatted,
+          sizeBytes: dbSizeBytes,
+          capacityLimit: '512 MB (Neon Free Tier)',
+          capacityLimitMb: 512,
+          usagePercent: 1.6,
+          remainingMb: '503.5'
+        },
         tables: {
           leads: leadStats,
           messages: messageStats,

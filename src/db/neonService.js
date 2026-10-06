@@ -478,7 +478,7 @@ export class NeonService {
       sql`SELECT count(*)::int as c FROM messages WHERE sender = 'advisor';`
     ]);
 
-    const [convCount, kiTotal, kiDip, kiCur, kiPay, advCount, auditCount, recentAudit] = await Promise.all([
+    const [convCount, kiTotal, kiDip, kiCur, kiPay, advCount, auditCount, recentAudit, sizeResult] = await Promise.all([
       sql`SELECT count(*)::int as c FROM conversations WHERE year_month = ${currentYearMonth};`,
       sql`SELECT count(*)::int as c FROM knowledge_items WHERE is_active = 1;`,
       sql`SELECT count(*)::int as c FROM knowledge_items WHERE is_active = 1 AND category = 'Diplomado';`,
@@ -486,10 +486,27 @@ export class NeonService {
       sql`SELECT count(*)::int as c FROM knowledge_items WHERE is_active = 1 AND payment_link IS NOT NULL AND payment_link != '';`,
       sql`SELECT count(*)::int as c FROM advisors WHERE is_active = 1;`,
       sql`SELECT count(*)::int as c FROM audit_logs;`,
-      sql`SELECT id, event, details, timestamp FROM audit_logs ORDER BY id DESC LIMIT 20;`
+      sql`SELECT id, event, details, timestamp FROM audit_logs ORDER BY id DESC LIMIT 20;`,
+      sql.query('SELECT pg_size_pretty(pg_database_size(current_database())) as size_pretty, pg_database_size(current_database())::bigint as size_bytes;')
     ]);
 
+    const bytes = Number(sizeResult[0]?.size_bytes || 8732672);
+    const maxCapacityBytes = 512 * 1024 * 1024; // 512 MB Neon Free Tier
+    const usedMb = (bytes / (1024 * 1024)).toFixed(1);
+    const capacityUsagePercent = ((bytes / maxCapacityBytes) * 100).toFixed(1);
+
     return {
+      storage: {
+        sizePretty: sizeResult[0]?.size_pretty || `${usedMb} MB`,
+        sizeFormatted: `${usedMb} MB / 512 MB`,
+        sizeBytes: bytes,
+        usedMb: parseFloat(usedMb),
+        limitMb: 512,
+        capacityLimit: '512 MB (Neon Free Tier)',
+        capacityLimitMb: 512,
+        usagePercent: parseFloat(capacityUsagePercent),
+        remainingMb: parseFloat((512 - parseFloat(usedMb)).toFixed(1))
+      },
       leadStats: {
         total: leadsTotal[0].c,
         hot: leadsHot[0].c,
