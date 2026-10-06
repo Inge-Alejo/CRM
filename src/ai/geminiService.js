@@ -154,7 +154,7 @@ ${knowledgeContext}
       parts: [{ text: sanitizedMsg }]
     });
 
-    const modelCandidates = ['gemini-3.8-flash', 'gemini-2.5-flash', 'gemini-1.5-flash'];
+    const modelCandidates = ['gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-3.8-flash'];
     let response = null;
     let lastError = null;
     let usedModel = null;

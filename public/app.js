@@ -1197,7 +1197,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         const data = await res.json();
         if (data.success) {
-          geminiKeyStatus.textContent = 'Clave activada con éxito para Gemini 3.8 Flash.';
+          geminiKeyStatus.textContent = 'Clave activada con éxito para Gemini 2.5 Flash.';
           geminiKeyInput.value = '';
           loadTelemetry();
         }
