@@ -48,7 +48,11 @@ export class LeadService {
    */
   static updateLeadSegmentation(phoneNumber, segData = {}) {
     const nowIso = new Date().toISOString();
-    const current = this.getLeadByPhone(phoneNumber) || {};
+    let current = this.getLeadByPhone(phoneNumber);
+    if (!current) {
+      this.recordLeadMessage(phoneNumber, '', 'user');
+      current = this.getLeadByPhone(phoneNumber) || {};
+    }
 
     const profession = segData.segment_profession || current.segment_profession || 'Por Definir';
     const temperature = segData.interest_temperature || current.interest_temperature || 'cold';

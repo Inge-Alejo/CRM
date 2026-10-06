@@ -194,13 +194,21 @@ export class SecurityGuardrails {
 
     let cleaned = replyText.trim();
 
-    // Validar y reparar si la respuesta quedó cortada a mitad de una palabra u oración (evita tokens truncados)
+    // Reparar URL truncada si quedó cortada en el dominio oficial
+    cleaned = cleaned.replace(/https:\/\/extension\.medicinaudea\.(?!\w)/gi, 'https://extension.medicinaudea.co');
+    cleaned = cleaned.replace(/https:\/\/extension\.medicinaudea(?!\w|\.)/gi, 'https://extension.medicinaudea.co');
+
+    // Si termina en una URL válida (ej: https://... o http://...), se considera terminación válida
+    const endsWithUrl = /https?:\/\/[^\s]+$/i.test(cleaned);
     const validEndRegex = /[.!?*:\)\]\p{Emoji_Presentation}\p{Extended_Pictographic}]$/u;
-    if (!validEndRegex.test(cleaned)) {
+
+    if (!validEndRegex.test(cleaned) && !endsWithUrl) {
+      // Buscar la última puntuación válida pero ignorando puntos dentro de URLs
+      const textWithoutUrls = cleaned.replace(/https?:\/\/[^\s]+/gi, (m) => 'X'.repeat(m.length));
       const lastPunctuation = Math.max(
-        cleaned.lastIndexOf('.'),
-        cleaned.lastIndexOf('!'),
-        cleaned.lastIndexOf('?')
+        textWithoutUrls.lastIndexOf('.'),
+        textWithoutUrls.lastIndexOf('!'),
+        textWithoutUrls.lastIndexOf('?')
       );
       if (lastPunctuation > cleaned.length * 0.5) {
         cleaned = cleaned.slice(0, lastPunctuation + 1).trim();

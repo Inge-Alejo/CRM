@@ -1328,14 +1328,19 @@ document.addEventListener('DOMContentLoaded', () => {
   async function loadSystemAdminMetrics() {
     try {
       const token = localStorage.getItem('udea_auth_token');
-      const res = await fetch('/api/admin/system-stats', {
+      const url = token ? `/api/admin/system-stats?token=${encodeURIComponent(token)}` : '/api/admin/system-stats';
+      const res = await fetch(url, {
         headers: {
           'Content-Type': 'application/json',
           ...(token ? { 'Authorization': `Bearer ${token}` } : {})
         }
       });
       if (!res.ok) {
-        console.warn('Acceso no autorizado a métricas del sistema.');
+        console.warn('Acceso no autorizado o error al cargar métricas del sistema:', res.status);
+        const errJson = await res.json().catch(() => ({}));
+        if (document.getElementById('sysServerUptime')) {
+          document.getElementById('sysServerUptime').textContent = errJson.error || 'Error de autorización TIC';
+        }
         return;
       }
       const data = await res.json();
