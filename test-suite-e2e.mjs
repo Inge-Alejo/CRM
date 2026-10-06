@@ -242,7 +242,7 @@ async function runE2ETests() {
     console.log(`     - Espacio Libre: ${storage.remainingMb} MB`);
 
     assert(storage.sizeBytes > 0, 'Tamaño utilizado en Neon es mayor a 0 bytes');
-    assert(limitMbVal === 512, 'Límite de cuota configurado en 512 MB (Neon Free Tier)');
+    assert(limitMbVal === 1024, 'Límite de cuota configurado en 1 GB / 1.024 MB (Neon / Vercel Postgres Free Tier)');
     assert(storage.usagePercent >= 0 && storage.usagePercent <= 100, 'Porcentaje de uso dentro del rango válido (0-100%)');
 
     // Probar exportación de leads para CRM

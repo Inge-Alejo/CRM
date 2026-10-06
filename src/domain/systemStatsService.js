@@ -156,10 +156,12 @@ export class SystemStatsService {
           sizePretty: dbSizeFormatted,
           sizeFormatted: dbSizeFormatted,
           sizeBytes: dbSizeBytes,
-          capacityLimit: '512 MB (Neon Free Tier)',
-          capacityLimitMb: 512,
-          usagePercent: 1.6,
-          remainingMb: '503.5'
+          usedMb: 8.5,
+          limitMb: 1024,
+          capacityLimit: '1 GB (Neon Free Tier)',
+          capacityLimitMb: 1024,
+          usagePercent: 0.8,
+          remainingMb: 1015.5
         },
         tables: {
           leads: leadStats,

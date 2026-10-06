@@ -1363,10 +1363,10 @@ document.addEventListener('DOMContentLoaded', () => {
           document.getElementById('sysDbCapacityBar').style.width = `${Math.min(100, Math.max(1, s.usagePercent || 1.6))}%`;
         }
         if (document.getElementById('sysDbCapacityLabel')) {
-          document.getElementById('sysDbCapacityLabel').textContent = s.sizeFormatted || `${s.sizePretty} / 512 MB`;
+          document.getElementById('sysDbCapacityLabel').textContent = s.sizeFormatted || `${s.sizePretty} / 1 GB`;
         }
         if (document.getElementById('sysDbCapacityPercent')) {
-          document.getElementById('sysDbCapacityPercent').textContent = `${s.usagePercent}% de cuota (${s.remainingMb || '503.5'} MB libres)`;
+          document.getElementById('sysDbCapacityPercent').textContent = `${s.usagePercent}% de cuota (${s.remainingMb || '1015.5'} MB libres)`;
         }
       }
       if (document.getElementById('sysDbEngineTitle')) {

@@ -491,21 +491,23 @@ export class NeonService {
     ]);
 
     const bytes = Number(sizeResult[0]?.size_bytes || 8732672);
-    const maxCapacityBytes = 512 * 1024 * 1024; // 512 MB Neon Free Tier
+    const limitMb = parseInt(process.env.DB_STORAGE_LIMIT_MB || '1024', 10);
+    const maxCapacityBytes = limitMb * 1024 * 1024; // 1 GB (1.024 MB) Neon / Vercel Free Tier
     const usedMb = (bytes / (1024 * 1024)).toFixed(1);
     const capacityUsagePercent = ((bytes / maxCapacityBytes) * 100).toFixed(1);
+    const limitDisplay = limitMb >= 1024 ? `${(limitMb / 1024).toFixed(0)} GB` : `${limitMb} MB`;
 
     return {
       storage: {
         sizePretty: sizeResult[0]?.size_pretty || `${usedMb} MB`,
-        sizeFormatted: `${usedMb} MB / 512 MB`,
+        sizeFormatted: `${usedMb} MB / ${limitDisplay}`,
         sizeBytes: bytes,
         usedMb: parseFloat(usedMb),
-        limitMb: 512,
-        capacityLimit: '512 MB (Neon Free Tier)',
-        capacityLimitMb: 512,
+        limitMb: limitMb,
+        capacityLimit: `${limitDisplay} (Neon Free Tier)`,
+        capacityLimitMb: limitMb,
         usagePercent: parseFloat(capacityUsagePercent),
-        remainingMb: parseFloat((512 - parseFloat(usedMb)).toFixed(1))
+        remainingMb: parseFloat((limitMb - parseFloat(usedMb)).toFixed(1))
       },
       leadStats: {
         total: leadsTotal[0].c,
