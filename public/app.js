@@ -319,16 +319,10 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  if (activeAdvisorSelect) {
-    activeAdvisorSelect.addEventListener('change', () => {
-      const match = UDEA_ADVISORS.find(a => a.name === activeAdvisorSelect.value);
-      if (match) updateAdvisorUI(match);
-    });
-  }
-
   // Inicializar UI de Asesor y Firebase
-  updateAdvisorUI(currentAdvisorUser);
-  setupQuickAdvisors();
+  if (currentAdvisorUser) {
+    updateAdvisorUI(currentAdvisorUser);
+  }
   initFirebaseClient();
 
   // Función de sanitización XSS para renderizado seguro en DOM
@@ -1187,6 +1181,9 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Guardar Gemini Key
+  const btnSaveGeminiKey = document.getElementById('btnSaveGeminiKey');
+  const geminiKeyInput = document.getElementById('geminiKeyInput');
+  const geminiKeyStatus = document.getElementById('geminiKeyStatus');
   if (btnSaveGeminiKey) {
     btnSaveGeminiKey.addEventListener('click', async () => {
       const key = geminiKeyInput.value.trim();
