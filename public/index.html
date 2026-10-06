@@ -412,6 +412,10 @@
                   <svg class="mini-svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
                   <span>Atendido</span>
                 </button>
+                <button class="btn btn-secondary btn-sm btn-toggle-360" id="btnToggleCustomerPanel" title="Mostrar u ocultar la Ficha del Prospecto (Customer 360)">
+                  <svg class="mini-svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                  <span class="btn-text">Ficha 360</span>
+                </button>
               </div>
             </div>
 
@@ -429,19 +433,23 @@
               <!-- Barra de Respuestas Rápidas (Macros / Canned Responses en 1 clic) -->
               <div class="macros-bar">
                 <span class="macros-label">⚡ Respuestas Rápidas:</span>
-                <button class="macro-chip" data-macro="saludo">👋 Saludo Oficial</button>
-                <button class="macro-chip" data-macro="pago">💳 Enlace de Pago AsOne</button>
-                <button class="macro-chip" data-macro="requisitos">📋 Requisitos</button>
-                <button class="macro-chip" data-macro="horarios">⏰ Horarios & Fechas</button>
-                <button class="macro-chip" data-macro="despedida">🎓 Despedida Cordial</button>
+                <div class="macros-chips-container">
+                  <button class="macro-chip" data-macro="saludo" title="Insertar saludo oficial de Extensión UdeA">👋 Saludo</button>
+                  <button class="macro-chip" data-macro="pago" title="Insertar link oficial de pago AsOne">💳 Pago AsOne</button>
+                  <button class="macro-chip" data-macro="requisitos" title="Insertar requisitos de inscripción">📋 Requisitos</button>
+                  <button class="macro-chip" data-macro="horarios" title="Insertar horarios y modalidades">⏰ Horarios</button>
+                  <button class="macro-chip" data-macro="despedida" title="Insertar despedida cordial">🎓 Despedida</button>
+                </div>
               </div>
 
-              <div class="composer-input-row">
-                <textarea id="inboxMessageInput" class="composer-textarea" rows="2" placeholder="Escribe tu respuesta de WhatsApp como asesor... (o usa las respuestas rápidas arriba)"></textarea>
-                <div class="composer-actions">
+              <!-- Input y Barra de Acciones del Composer -->
+              <div class="composer-container-card">
+                <textarea id="inboxMessageInput" class="composer-textarea" rows="2" placeholder="Escribe un mensaje de WhatsApp como asesor... (o haz clic en una respuesta rápida arriba)"></textarea>
+                <div class="composer-action-footer">
+                  <span class="composer-shortcut-hint"><kbd>Enter</kbd> para enviar • <kbd>Shift + Enter</kbd> salto de línea</span>
                   <button class="btn btn-primary btn-send-wa" id="btnInboxSendMessage" title="Enviar respuesta por WhatsApp">
                     <span>Enviar</span>
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
                   </button>
                 </div>
               </div>
@@ -451,6 +459,7 @@
           <!-- COLUMNA 3: CUSTOMER 360 / FICHA DEL PROSPECTO & CRM (DERECHA) -->
           <aside class="workspace-customer-panel" id="inboxCustomerPanel" style="display:none;">
             <div class="customer-panel-header">
+              <button class="btn-close-360-panel" id="btnCloseCustomerPanel" title="Cerrar panel">✕</button>
               <div class="customer-avatar-big" id="inboxCustAvatar">DR</div>
               <h4 id="inboxCustName" style="margin:0; font-size:1.05rem; font-weight:800; color:var(--udea-dark);">Nombre del Prospecto</h4>
               <span id="inboxCustPhone" style="font-size:0.8rem; color:var(--text-muted); font-family:var(--font-mono);">+57 300 000 0000</span>

@@ -477,6 +477,7 @@ document.addEventListener('DOMContentLoaded', () => {
       updateOverviewKPIs();
       renderLeads();
       loadSegmentation();
+      renderInbox(true);
     } catch (err) {
       console.error('Error fetching leads:', err);
     }
@@ -2014,6 +2015,35 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 2000);
       } catch (e) {
         prompt('Copia el enlace de pago oficial de AsOne:', link);
+      }
+    });
+  }
+
+  // Toggle para ocultar / mostrar la Ficha Customer 360 (despejar el chat)
+  const btnToggleCustomerPanel = document.getElementById('btnToggleCustomerPanel');
+  const btnCloseCustomerPanel = document.getElementById('btnCloseCustomerPanel');
+  const agentWorkspaceContainer = document.querySelector('.agent-workspace-container');
+
+  if (btnToggleCustomerPanel) {
+    btnToggleCustomerPanel.addEventListener('click', () => {
+      if (window.innerWidth <= 1100) {
+        if (inboxCustomerPanel) {
+          inboxCustomerPanel.classList.toggle('open-drawer');
+        }
+      } else {
+        if (agentWorkspaceContainer) {
+          agentWorkspaceContainer.classList.toggle('hide-customer-360');
+          const isHidden = agentWorkspaceContainer.classList.contains('hide-customer-360');
+          btnToggleCustomerPanel.classList.toggle('active', !isHidden);
+        }
+      }
+    });
+  }
+
+  if (btnCloseCustomerPanel) {
+    btnCloseCustomerPanel.addEventListener('click', () => {
+      if (inboxCustomerPanel) {
+        inboxCustomerPanel.classList.remove('open-drawer');
       }
     });
   }
