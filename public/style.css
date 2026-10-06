@@ -2100,12 +2100,12 @@ body.dashboard-body {
    ESTILOS PREMIUM: PANEL DE CONTROL Y ADMINISTRACIÓN TIC
    ========================================================= */
 .system-admin-header-card {
-  background: linear-gradient(135deg, #f8fafc 0%, #edf7ed 100%);
-  border: 1px solid rgba(15, 81, 50, 0.2);
+  background: linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%);
+  border: 1px solid rgba(16, 185, 129, 0.25);
   border-left: 5px solid var(--udea-emerald);
-  border-radius: var(--radius-md);
-  padding: 1.25rem 1.5rem;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.03);
+  border-radius: 14px;
+  padding: 1.25rem 1.6rem;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
 }
 
 .system-admin-badge-row {
@@ -2115,92 +2115,276 @@ body.dashboard-body {
   flex-wrap: wrap;
 }
 
+/* Rejilla Principal de 2 Columnas Balanceadas */
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.25rem;
+  margin-top: 1.25rem;
+}
+
+@media (max-width: 980px) {
+  .metrics-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Tarjeta Métrica Individual */
 .metric-panel-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 1.25rem;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  border-radius: var(--radius-md);
-  box-shadow: 0 2px 10px rgba(0,0,0,0.03);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  gap: 0.95rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 4px 12px rgba(0, 0, 0, 0.02);
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease;
 }
 
 .metric-panel-card:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.06);
   transform: translateY(-2px);
-  box-shadow: 0 6px 18px rgba(0,0,0,0.06);
 }
 
-.metric-highlight {
+/* Encabezado de la Tarjeta */
+.metric-card-header {
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.metric-card-icon-wrap {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  display: flex;
   align-items: center;
   justify-content: center;
-  padding: 1.25rem 0.5rem;
-  background: #f8fafc;
-  border-radius: var(--radius-sm);
-  margin-bottom: 1rem;
-  border: 1px solid var(--border-light);
+  flex-shrink: 0;
 }
 
-.metric-highlight-value {
-  font-family: 'Outfit', 'Inter', sans-serif;
-  font-size: 2.2rem;
+.metric-card-icon-wrap.icon-green {
+  background: rgba(0, 99, 65, 0.1);
+  color: #006341;
+}
+
+.metric-card-icon-wrap.icon-blue {
+  background: rgba(14, 165, 233, 0.12);
+  color: #0284c7;
+}
+
+.metric-card-icon-wrap.icon-emerald {
+  background: rgba(16, 185, 129, 0.12);
+  color: #059669;
+}
+
+.metric-card-icon-wrap.icon-purple {
+  background: rgba(147, 51, 234, 0.1);
+  color: #7e22ce;
+}
+
+.metric-card-title-group {
+  flex: 1;
+  min-width: 0;
+}
+
+.metric-card-title {
+  font-size: 0.98rem;
   font-weight: 800;
-  color: var(--udea-dark);
-  line-height: 1.1;
+  color: #0f172a;
+  margin: 0;
+  line-height: 1.25;
 }
 
-.metric-highlight-label {
-  font-size: 0.78rem;
-  font-weight: 600;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin-top: 0.25rem;
+.metric-card-subtitle {
+  font-size: 0.74rem;
+  color: #64748b;
+  display: block;
+  margin-top: 0.15rem;
 }
 
-.system-stats-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.45rem;
+.status-pill {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.25rem 0.65rem;
+  border-radius: 999px;
+  letter-spacing: 0.02em;
+  flex-shrink: 0;
 }
 
-.stat-line {
+.status-pill-success {
+  background: #dcfce7;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+}
+
+.status-pill-info {
+  background: #e0f2fe;
+  color: #0369a1;
+  border: 1px solid #bae6fd;
+}
+
+.status-pill-neutral {
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+}
+
+/* Banner Hero Metric Compacto */
+.metric-hero-banner {
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 0.85rem 1.1rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 0.82rem;
-  padding: 0.3rem 0;
-  border-bottom: 1px dashed #e2e8f0;
-  color: var(--text-main);
 }
 
-.stat-line strong {
+.metric-hero-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.metric-hero-value {
+  font-family: 'Outfit', 'Inter', sans-serif;
+  font-size: 1.85rem;
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1.15;
+  margin-top: 0.15rem;
+}
+
+.metric-hero-percent {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 0.86rem;
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: var(--udea-emerald);
 }
 
-.db-path-box {
-  margin-top: 1rem;
-  padding: 0.5rem 0.75rem;
-  background: #1e293b;
-  color: #94a3b8;
-  border-radius: 6px;
-  font-size: 0.73rem;
+.text-sky { color: #0284c7 !important; }
+.text-emerald { color: #059669 !important; }
+.text-purple { color: #7e22ce !important; }
+
+/* Sub-Rejilla de Tiles de Indicadores (2x3) */
+.metric-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.5rem;
+}
+
+.metric-kpi-tile {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 0.55rem 0.75rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.metric-kpi-tile:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.metric-kpi-tile.highlight-emerald {
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+}
+
+.kpi-tile-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #64748b;
+  margin-bottom: 0.2rem;
+}
+
+.kpi-tile-val {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.mini-id-code {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.72rem;
+  color: #0369a1;
+  background: #f0f9ff;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  border: 1px solid #bae6fd;
+  margin-top: 0.15rem;
+  display: inline-block;
+  max-width: 100%;
 }
 
-.db-path-box code {
-  color: #38bdf8;
+/* Footer de la Tarjeta */
+.metric-card-footer {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid #f1f5f9;
+  flex-wrap: wrap;
+}
+
+.footer-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #64748b;
+}
+
+.db-path-code {
   font-family: 'JetBrains Mono', monospace;
+  font-size: 0.72rem;
+  color: #334155;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  padding: 0.2rem 0.5rem;
+  border-radius: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+  flex: 1;
+}
+
+.last-model-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+  border-radius: 999px;
+  padding: 0.25rem 0.65rem;
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+.last-model-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: #10b981;
+  box-shadow: 0 0 6px #10b981;
 }
 
 .pool-models-chips {
   display: flex;
   flex-wrap: wrap;
   gap: 0.35rem;
-  margin-top: 0.85rem;
 }
 
 .model-chip {
@@ -2225,13 +2409,37 @@ body.dashboard-body {
   background: #e2e8f0;
   border-radius: 999px;
   overflow: hidden;
-  margin-top: 0.35rem;
+  margin-top: 0.4rem;
 }
 
 .wa-progress-fill {
   height: 100%;
   background: linear-gradient(90deg, var(--udea-emerald), #22c55e);
   transition: width 0.5s ease;
+}
+
+/* Tarjeta de Auditoría */
+.audit-log-card {
+  border-radius: 14px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 4px 12px rgba(0, 0, 0, 0.02);
+  overflow: hidden;
+}
+
+.audit-log-card .data-table thead th {
+  background: #f8fafc;
+  color: #475569;
+  font-size: 0.74rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.audit-log-card .data-table tbody td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #f1f5f9;
 }
 
 

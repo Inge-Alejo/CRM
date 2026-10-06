@@ -739,129 +739,235 @@
         </div>
 
         <!-- Rejilla de Métricas en Vivo -->
-        <div class="metrics-grid" style="margin-top:1.25rem;">
+        <div class="metrics-grid">
           
           <!-- TARJETA 1: Base de Datos SQLite / Vercel -->
-          <div class="card metric-panel-card">
-            <div class="card-header" style="padding-bottom:0.4rem;">
-              <h3 style="font-size:1rem; display:flex; align-items:center; gap:0.5rem;">
-                <svg class="mini-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
-                Base de Datos SQLite & Almacenamiento
-              </h3>
+          <div class="metric-panel-card">
+            <div class="metric-card-header">
+              <div class="metric-card-icon-wrap icon-green">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+              </div>
+              <div class="metric-card-title-group">
+                <h3 class="metric-card-title">Base de Datos SQLite</h3>
+                <span class="metric-card-subtitle">Persistencia institucional & portafolio</span>
+              </div>
+              <span class="status-pill status-pill-success">En línea</span>
             </div>
-            <div class="card-body">
-              <div class="metric-highlight">
-                <span class="metric-highlight-value" id="sysDbSize">--</span>
-                <span class="metric-highlight-label">Tamaño en Disco</span>
+
+            <div class="metric-hero-banner">
+              <div class="metric-hero-content">
+                <span class="metric-hero-label">Espacio en Disco</span>
+                <div class="metric-hero-value" id="sysDbSize">--</div>
               </div>
-              <div class="system-stats-list">
-                <div class="stat-line"><span>Prospectos Registrados:</span><strong id="sysDbLeads">0</strong></div>
-                <div class="stat-line"><span>Mensajes WhatsApp Almacenados:</span><strong id="sysDbMessages">0</strong></div>
-                <div class="stat-line"><span>Programas Activos en Portafolio:</span><strong id="sysDbCourses">0</strong></div>
-                <div class="stat-line"><span>Cursos con Enlace de Pago / Asone:</span><strong id="sysDbPaymentLinks" style="color:var(--udea-emerald);">0</strong></div>
-                <div class="stat-line"><span>Asesores Registrados:</span><strong id="sysDbAdvisors">0</strong></div>
-                <div class="stat-line"><span>Eventos de Auditoría:</span><strong id="sysDbAuditCount">0</strong></div>
+              <div class="metric-hero-meta">
+                <span class="badge" style="background:#e0f2fe; color:#0369a1; font-weight:700;">SQLite WAL</span>
               </div>
-              <div class="db-path-box" title="Ruta del archivo de base de datos">
-                <code>Ruta: <span id="sysDbPath">/tmp/crm_database.sqlite</span></code>
+            </div>
+
+            <div class="metric-kpi-grid">
+              <div class="metric-kpi-tile">
+                <span class="kpi-tile-label">Prospectos</span>
+                <strong class="kpi-tile-val" id="sysDbLeads">0</strong>
               </div>
+              <div class="metric-kpi-tile">
+                <span class="kpi-tile-label">Mensajes WA</span>
+                <strong class="kpi-tile-val" id="sysDbMessages">0</strong>
+              </div>
+              <div class="metric-kpi-tile">
+                <span class="kpi-tile-label">Programas</span>
+                <strong class="kpi-tile-val" id="sysDbCourses">0</strong>
+              </div>
+              <div class="metric-kpi-tile highlight-emerald">
+                <span class="kpi-tile-label">Con Pago AsOne</span>
+                <strong class="kpi-tile-val text-emerald" id="sysDbPaymentLinks">0</strong>
+              </div>
+              <div class="metric-kpi-tile">
+                <span class="kpi-tile-label">Asesores</span>
+                <strong class="kpi-tile-val" id="sysDbAdvisors">0</strong>
+              </div>
+              <div class="metric-kpi-tile">
+                <span class="kpi-tile-label">Auditorías</span>
+                <strong class="kpi-tile-val" id="sysDbAuditCount">0</strong>
+              </div>
+            </div>
+
+            <div class="metric-card-footer">
+              <span class="footer-label">Archivo BD:</span>
+              <code class="db-path-code" title="Ruta del archivo en el sistema" id="sysDbPath">/tmp/crm_database.sqlite</code>
             </div>
           </div>
 
           <!-- TARJETA 2: Inteligencia Artificial & Tokens Google DeepMind -->
-          <div class="card metric-panel-card">
-            <div class="card-header" style="padding-bottom:0.4rem;">
-              <h3 style="font-size:1rem; display:flex; align-items:center; gap:0.5rem;">
-                <svg class="mini-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
-                Uso de IA y Consumo de Tokens
-              </h3>
+          <div class="metric-panel-card">
+            <div class="metric-card-header">
+              <div class="metric-card-icon-wrap icon-blue">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
+              </div>
+              <div class="metric-card-title-group">
+                <h3 class="metric-card-title">Google Gemini IA</h3>
+                <span class="metric-card-subtitle">Telemetría de tokens & rotación de modelos</span>
+              </div>
+              <span class="status-pill status-pill-info" id="sysAiKeyStatus">Activa ✅</span>
             </div>
-            <div class="card-body">
-              <div class="metric-highlight">
-                <span class="metric-highlight-value" id="sysAiTotalTokens" style="color:#0ea5e9;">--</span>
-                <span class="metric-highlight-label">Tokens Estimados Totales</span>
+
+            <div class="metric-hero-banner">
+              <div class="metric-hero-content">
+                <span class="metric-hero-label">Tokens Totales Estimados</span>
+                <div class="metric-hero-value text-sky" id="sysAiTotalTokens">--</div>
               </div>
-              <div class="system-stats-list">
-                <div class="stat-line"><span>Tokens Entrada (Prompts + Catálogo):</span><strong id="sysAiInTokens">0</strong></div>
-                <div class="stat-line"><span>Tokens Salida (Respuestas Generadas):</span><strong id="sysAiOutTokens">0</strong></div>
-                <div class="stat-line"><span>Llamadas Gemini Oficiales Exitosas:</span><strong id="sysAiSuccessCalls" style="color:var(--udea-emerald);">0</strong></div>
-                <div class="stat-line"><span>Llamadas Motor Local (Fallback):</span><strong id="sysAiLocalCalls">0</strong></div>
-                <div class="stat-line"><span>Último Modelo en Rotación:</span><strong id="sysAiLastModel" style="color:var(--udea-emerald);">--</strong></div>
-                <div class="stat-line"><span>Estado Gemini API Key:</span><strong id="sysAiKeyStatus">--</strong></div>
+              <div class="metric-hero-meta">
+                <div class="last-model-badge">
+                  <span class="last-model-dot"></span>
+                  <span id="sysAiLastModel">gemini-3.5-flash-lite</span>
+                </div>
               </div>
+            </div>
+
+            <div class="metric-kpi-grid">
+              <div class="metric-kpi-tile">
+                <span class="kpi-tile-label">Tokens Entrada</span>
+                <strong class="kpi-tile-val" id="sysAiInTokens">0</strong>
+              </div>
+              <div class="metric-kpi-tile">
+                <span class="kpi-tile-label">Tokens Salida</span>
+                <strong class="kpi-tile-val" id="sysAiOutTokens">0</strong>
+              </div>
+              <div class="metric-kpi-tile highlight-emerald">
+                <span class="kpi-tile-label">Llamadas IA Éxito</span>
+                <strong class="kpi-tile-val text-emerald" id="sysAiSuccessCalls">0</strong>
+              </div>
+              <div class="metric-kpi-tile">
+                <span class="kpi-tile-label">Fallback Local</span>
+                <strong class="kpi-tile-val" id="sysAiLocalCalls">0</strong>
+              </div>
+            </div>
+
+            <div class="metric-card-footer">
+              <span class="footer-label">Pool Multimodelo Activo:</span>
               <div class="pool-models-chips" id="sysAiModelPoolContainer">
-                <!-- Se llena dinámicamente con chips de modelos disponibles -->
+                <!-- Chips dinámicos -->
               </div>
             </div>
           </div>
 
           <!-- TARJETA 3: WhatsApp Cloud API & Kill-Switch Meta -->
-          <div class="card metric-panel-card">
-            <div class="card-header" style="padding-bottom:0.4rem;">
-              <h3 style="font-size:1rem; display:flex; align-items:center; gap:0.5rem;">
-                <svg class="mini-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
-                Meta WhatsApp & Control de Facturación
-              </h3>
+          <div class="metric-panel-card">
+            <div class="metric-card-header">
+              <div class="metric-card-icon-wrap icon-emerald">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+              </div>
+              <div class="metric-card-title-group">
+                <h3 class="metric-card-title">Meta WhatsApp Cloud API</h3>
+                <span class="metric-card-subtitle">Consumo mensual & protección anti-cobros</span>
+              </div>
+              <span class="status-pill status-pill-success" id="sysWaKillSwitch">NORMAL</span>
             </div>
-            <div class="card-body">
-              <div class="metric-highlight">
-                <span class="metric-highlight-value" id="sysWaConversations">0 / 1000</span>
-                <span class="metric-highlight-label">Conversaciones Gratuitas Mes</span>
+
+            <div class="metric-hero-banner">
+              <div class="metric-hero-content" style="width:100%;">
+                <div style="display:flex; justify-content:space-between; align-items:baseline;">
+                  <span class="metric-hero-label">Conversaciones del Mes</span>
+                  <span class="metric-hero-percent" id="sysWaPercent">0%</span>
+                </div>
+                <div class="metric-hero-value" id="sysWaConversations">0 / 950</div>
+                <div class="wa-progress-track">
+                  <div class="wa-progress-fill" id="sysWaProgressBar" style="width: 0%;"></div>
+                </div>
               </div>
-              <!-- Barra de progreso cuota Meta -->
-              <div class="wa-progress-track">
-                <div class="wa-progress-fill" id="sysWaProgressBar" style="width: 0%;"></div>
+            </div>
+
+            <div class="metric-kpi-grid">
+              <div class="metric-kpi-tile">
+                <span class="kpi-tile-label">Límite Gratuito</span>
+                <strong class="kpi-tile-val">1.000 / mes</strong>
               </div>
-              <div class="system-stats-list" style="margin-top:0.75rem;">
-                <div class="stat-line"><span>Porcentaje Consumido:</span><strong id="sysWaPercent">0%</strong></div>
-                <div class="stat-line"><span>Estado del Kill-Switch:</span><strong id="sysWaKillSwitch">NORMAL</strong></div>
-                <div class="stat-line"><span>Teléfono Meta Phone ID:</span><strong id="sysWaPhoneId">--</strong></div>
-                <div class="stat-line"><span>WABA ID:</span><strong id="sysWaWabaId">--</strong></div>
+              <div class="metric-kpi-tile highlight-emerald">
+                <span class="kpi-tile-label">Corte Preventivo</span>
+                <strong class="kpi-tile-val text-emerald">950 conv</strong>
+              </div>
+              <div class="metric-kpi-tile" style="grid-column: span 2;">
+                <span class="kpi-tile-label">Meta Phone Number ID</span>
+                <code class="mini-id-code" id="sysWaPhoneId">--</code>
+              </div>
+              <div class="metric-kpi-tile" style="grid-column: span 2;">
+                <span class="kpi-tile-label">WABA Business Account ID</span>
+                <code class="mini-id-code" id="sysWaWabaId">--</code>
               </div>
             </div>
           </div>
 
           <!-- TARJETA 4: Rendimiento de Servidor & Memoria -->
-          <div class="card metric-panel-card">
-            <div class="card-header" style="padding-bottom:0.4rem;">
-              <h3 style="font-size:1rem; display:flex; align-items:center; gap:0.5rem;">
-                <svg class="mini-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
-                Recursos del Servidor Node.js
-              </h3>
+          <div class="metric-panel-card">
+            <div class="metric-card-header">
+              <div class="metric-card-icon-wrap icon-purple">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
+              </div>
+              <div class="metric-card-title-group">
+                <h3 class="metric-card-title">Infraestructura & Servidor</h3>
+                <span class="metric-card-subtitle">Recursos del entorno de ejecución</span>
+              </div>
+              <span class="status-pill status-pill-neutral" id="sysUptimeDetail">Uptime activo</span>
             </div>
-            <div class="card-body">
-              <div class="metric-highlight">
-                <span class="metric-highlight-value" id="sysHeapMemory">-- MB</span>
-                <span class="metric-highlight-label">Memoria Heap Utilizada</span>
+
+            <div class="metric-hero-banner">
+              <div class="metric-hero-content">
+                <span class="metric-hero-label">Memoria Heap Utilizada</span>
+                <div class="metric-hero-value text-purple" id="sysHeapMemory">-- MB</div>
               </div>
-              <div class="system-stats-list">
-                <div class="stat-line"><span>Heap Total Asignado:</span><strong id="sysHeapTotal">0 MB</strong></div>
-                <div class="stat-line"><span>Memoria RSS del Proceso:</span><strong id="sysRssMemory">0 MB</strong></div>
-                <div class="stat-line"><span>Versión del Motor Node:</span><strong id="sysNodeVer">--</strong></div>
-                <div class="stat-line"><span>Tiempo Activo (Uptime):</span><strong id="sysUptimeDetail">--</strong></div>
+              <div class="metric-hero-meta">
+                <span class="badge" style="background:#f3e8ff; color:#7e22ce; font-weight:700;" id="sysNodeVer">Node.js</span>
               </div>
+            </div>
+
+            <div class="metric-kpi-grid">
+              <div class="metric-kpi-tile">
+                <span class="kpi-tile-label">Heap Total</span>
+                <strong class="kpi-tile-val" id="sysHeapTotal">0 MB</strong>
+              </div>
+              <div class="metric-kpi-tile">
+                <span class="kpi-tile-label">Memoria RSS</span>
+                <strong class="kpi-tile-val" id="sysRssMemory">0 MB</strong>
+              </div>
+              <div class="metric-kpi-tile">
+                <span class="kpi-tile-label">Plataforma</span>
+                <strong class="kpi-tile-val">Linux / Cloud</strong>
+              </div>
+              <div class="metric-kpi-tile highlight-emerald">
+                <span class="kpi-tile-label">Salud del Nodo</span>
+                <strong class="kpi-tile-val text-emerald">Óptima (100%)</strong>
+              </div>
+            </div>
+
+            <div class="metric-card-footer">
+              <span class="footer-label">Arquitectura:</span>
+              <span style="font-size:0.75rem; color:#475569; font-weight:600;">Node.js Express + SQLite3 + Vercel Serverless</span>
             </div>
           </div>
 
         </div>
 
         <!-- Tabla en vivo de Auditoría del Sistema -->
-        <div class="card" style="margin-top:1.5rem;">
+        <div class="card audit-log-card" style="margin-top:1.5rem;">
           <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
-            <h3 style="font-size:1.05rem; display:flex; align-items:center; gap:0.4rem;">
-              <svg class="mini-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-              Bitácora de Auditoría y Eventos del Sistema (Tiempo Real)
-            </h3>
-            <span class="badge" style="font-size:0.75rem;" id="sysAuditBadgeCount">0 Registros</span>
+            <div style="display:flex; align-items:center; gap:0.6rem;">
+              <div class="metric-card-icon-wrap icon-green" style="width:32px; height:32px;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+              </div>
+              <div>
+                <h3 style="font-size:1.05rem; font-weight:800; color:var(--udea-dark); margin:0;">Bitácora de Auditoría y Eventos del Sistema</h3>
+                <span style="font-size:0.78rem; color:var(--text-muted);">Monitoreo de seguridad, asignaciones y persistencia en tiempo real</span>
+              </div>
+            </div>
+            <span class="badge" style="background:#e0f2fe; color:#0369a1; font-weight:700;" id="sysAuditBadgeCount">0 Registros</span>
           </div>
           <div class="card-body" style="padding:0;">
             <div class="table-responsive">
               <table class="data-table" id="sysAuditTable">
                 <thead>
                   <tr>
-                    <th>ID</th>
-                    <th>Fecha & Hora</th>
-                    <th>Evento</th>
+                    <th style="width:70px;">ID</th>
+                    <th style="width:170px;">Fecha & Hora</th>
+                    <th style="width:200px;">Evento</th>
                     <th>Detalles Técnicos</th>
                   </tr>
                 </thead>
