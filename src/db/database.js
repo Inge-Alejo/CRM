@@ -549,7 +549,7 @@ export function registerNewAdvisor({ name, email, password, role, phone }) {
  * Sincroniza un asesor validado en tiempo real desde Firebase Authentication
  * Garantiza privilegios y perfil de Super Administrador para proyectostic.med@udea.edu.co
  */
-export function syncFirebaseAdvisor({ email, displayName, firebaseUid }) {
+export function syncFirebaseAdvisor({ email, displayName, firebaseUid, password }) {
   if (!email) throw new Error('Correo institucional obligatorio');
   const cleanEmail = email.trim().toLowerCase();
   const isAdmin = (cleanEmail === 'proyectostic.med@udea.edu.co');
@@ -562,18 +562,27 @@ export function syncFirebaseAdvisor({ email, displayName, firebaseUid }) {
   const existing = db.prepare('SELECT id, name, role, email, phone, avatar, role_type, is_active FROM advisors WHERE LOWER(email) = ?').get(cleanEmail);
 
   if (existing) {
-    db.prepare(`
-      UPDATE advisors 
-      SET role_type = ?, role = ?, name = CASE WHEN LOWER(email) = 'proyectostic.med@udea.edu.co' THEN 'Administrador General TIC' ELSE ? END, avatar = ?
-      WHERE id = ?
-    `).run(roleType, defaultRole, defaultName, avatar, existing.id);
+    if (password && password.trim()) {
+      db.prepare(`
+        UPDATE advisors 
+        SET role_type = ?, role = ?, name = CASE WHEN LOWER(email) = 'proyectostic.med@udea.edu.co' THEN 'Administrador General TIC' ELSE ? END, avatar = ?, password = ?
+        WHERE id = ?
+      `).run(roleType, defaultRole, defaultName, avatar, password.trim(), existing.id);
+    } else {
+      db.prepare(`
+        UPDATE advisors 
+        SET role_type = ?, role = ?, name = CASE WHEN LOWER(email) = 'proyectostic.med@udea.edu.co' THEN 'Administrador General TIC' ELSE ? END, avatar = ?
+        WHERE id = ?
+      `).run(roleType, defaultRole, defaultName, avatar, existing.id);
+    }
     return db.prepare('SELECT id, name, role, email, phone, avatar, role_type, is_active FROM advisors WHERE id = ?').get(existing.id);
   } else {
+    const pwdToSave = (password && password.trim()) ? password.trim() : 'UdeA2026*';
     const stmt = db.prepare(`
       INSERT INTO advisors (name, role, email, password, phone, avatar, role_type, is_active)
       VALUES (?, ?, ?, ?, ?, ?, ?, 1)
     `);
-    stmt.run(defaultName, defaultRole, cleanEmail, 'FirebaseManaged*', '+57 300 000 0000', avatar, roleType);
+    stmt.run(defaultName, defaultRole, cleanEmail, pwdToSave, '+57 300 000 0000', avatar, roleType);
     return db.prepare('SELECT id, name, role, email, phone, avatar, role_type, is_active FROM advisors WHERE LOWER(email) = ?').get(cleanEmail);
   }
 }

@@ -223,34 +223,34 @@ document.addEventListener('DOMContentLoaded', () => {
         btnLoginSubmit.textContent = 'Verificando con Firebase...';
       }
 
+      const cleanEmail = (email || '').trim().toLowerCase();
+      const cleanPassword = (password || '').trim();
+
+      if (!cleanEmail || !cleanPassword) {
+        if (landingAlertBox) {
+          landingAlertBox.textContent = 'Por favor ingresa tu correo institucional y contraseña.';
+          landingAlertBox.style.display = 'block';
+        }
+        return false;
+      }
+
       let firebaseVerified = false;
       let firebaseUid = null;
       let displayName = null;
 
-      // 1. Verificación obligatoria contra Firebase Authentication en tiempo real (crm-fdem)
+      // 1. Intento de verificación contra Firebase Authentication en tiempo real (crm-fdem)
       if (firebaseAuth && firebaseSignIn) {
         try {
-          const userCred = await firebaseSignIn(firebaseAuth, email, password);
+          const userCred = await firebaseSignIn(firebaseAuth, cleanEmail, cleanPassword);
           if (userCred && userCred.user) {
             firebaseVerified = true;
             firebaseUid = userCred.user.uid;
             displayName = userCred.user.displayName;
           }
         } catch (fbErr) {
-          console.warn('Firebase Auth error:', fbErr.code, fbErr.message);
-          let userMsg = 'Credenciales no autorizadas o usuario no registrado en Firebase.';
-          if (fbErr.code === 'auth/user-not-found') {
-            userMsg = 'Usuario no encontrado en la base de datos de Firebase. Regístralo en Firebase Console.';
-          } else if (fbErr.code === 'auth/wrong-password' || fbErr.code === 'auth/invalid-credential') {
-            userMsg = 'Contraseña institucional incorrecta o credenciales no válidas.';
-          } else if (fbErr.code === 'auth/invalid-email') {
-            userMsg = 'El formato del correo institucional es inválido.';
-          }
-          if (landingAlertBox) {
-            landingAlertBox.textContent = userMsg;
-            landingAlertBox.style.display = 'block';
-          }
-          return false;
+          console.warn('Aviso Firebase SDK cliente (se procede con validación segura de servidor):', fbErr.code, fbErr.message);
+          // Si el SDK cliente reporta credencial inválida pero el servidor puede verificarla via REST o validar Admin,
+          // no abortamos aquí para no bloquear al usuario por restricciones de dominio Vercel o CSP.
         }
       }
 
@@ -258,7 +258,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, firebaseVerified, displayName, firebaseUid })
+        body: JSON.stringify({ email: cleanEmail, password: cleanPassword, firebaseVerified, displayName, firebaseUid })
       });
       const data = await res.json();
       if (!data.success) {
@@ -270,6 +270,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       localStorage.setItem('udea_auth_token', data.token);
+      localStorage.setItem('udea_advisor_user', JSON.stringify(data.advisor));
       updateAdvisorUI(data.advisor);
 
       // Desbloqueo y transición inmediata al Dashboard
