@@ -17,45 +17,45 @@ export class SimulatorAdapter {
     }
 
     // 1. Evaluar Kill-Switch y ventana de 24 horas
-    const evaluation = ConversationTracker.evaluateIncomingMessage(cleanPhone);
+    const evaluation = await ConversationTracker.evaluateIncomingMessage(cleanPhone);
 
     // 2. Registrar mensaje del usuario en la base de datos
-    LeadService.recordLeadMessage(cleanPhone, cleanMessage, 'user');
+    await LeadService.recordLeadMessage(cleanPhone, cleanMessage, 'user');
 
     // Si el Kill Switch se activa
     if (!evaluation.allowed) {
-      LeadService.updateLeadStatus(cleanPhone, 'advisor_requested', null, 'Límite mensual alcanzado');
+      await LeadService.updateLeadStatus(cleanPhone, 'advisor_requested', null, 'Límite mensual alcanzado');
       return {
         blocked: true,
         replyText: '🛑 [ALERTA DE SEGURIDAD]: El Kill-Switch Anti-Cobros se activó porque se alcanzó el límite mensual seguro de conversaciones. No se emitió respuesta saliente para proteger tu cuenta de cobros.',
         evaluation,
-        metrics: ConversationTracker.getTelemetryMetrics()
+        metrics: await ConversationTracker.getTelemetryMetrics()
       };
     }
 
     // 3. Obtener historial y procesar con la IA
-    const history = LeadService.getLeadConversation(cleanPhone);
+    const history = await LeadService.getLeadConversation(cleanPhone);
     const aiResult = await GeminiService.generateReply(cleanMessage, cleanPhone, history);
 
     // 4. Guardar respuesta del bot
-    LeadService.recordLeadMessage(cleanPhone, aiResult.replyText, 'bot');
+    await LeadService.recordLeadMessage(cleanPhone, aiResult.replyText, 'bot');
 
     // 5. Manejo de asesor
     let advisorAlert = null;
     if (aiResult.requestAdvisor) {
-      LeadService.updateLeadStatus(cleanPhone, 'advisor_requested', aiResult.detectedProgram);
+      await LeadService.updateLeadStatus(cleanPhone, 'advisor_requested', aiResult.detectedProgram);
       advisorAlert = await AdvisorNotifier.triggerAdvisorAlert({
         phoneNumber: cleanPhone,
         reason: 'Solicitó asesor en el simulador',
         lastUserMessage: cleanMessage
       });
     } else if (aiResult.detectedProgram) {
-      LeadService.updateLeadStatus(cleanPhone, 'ai_handling', aiResult.detectedProgram);
+      await LeadService.updateLeadStatus(cleanPhone, 'ai_handling', aiResult.detectedProgram);
     }
 
-    const metrics = ConversationTracker.getTelemetryMetrics();
-    const messages = LeadService.getLeadConversation(cleanPhone);
-    const leadData = LeadService.getLeadByPhone(cleanPhone);
+    const metrics = await ConversationTracker.getTelemetryMetrics();
+    const messages = await LeadService.getLeadConversation(cleanPhone);
+    const leadData = await LeadService.getLeadByPhone(cleanPhone);
 
     return {
       success: true,

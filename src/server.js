@@ -3,6 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { config } from './config.js';
 import { initDatabase, closeDatabase, getAdvisors, getSegmentationStats, verifyAdvisorCredentials, findAdvisorByEmail, registerNewAdvisor, syncFirebaseAdvisor, recordSecurityAudit } from './db/database.js';
+import { NeonService } from './db/neonService.js';
 import { MetaCloudAdapter } from './adapters/metaCloudAdapter.js';
 import { SimulatorAdapter } from './adapters/simulatorAdapter.js';
 import { ConversationTracker } from './domain/conversationTracker.js';
@@ -104,7 +105,7 @@ import { SystemStatsService } from './domain/systemStatsService.js';
 // ==========================================
 // MIDDLEWARES DE AUTORIZACIÓN Y ROLES (RBAC)
 // ==========================================
-function getAuthUser(req) {
+async function getAuthUser(req) {
   const authHeader = req.headers.authorization;
   let token = null;
   if (authHeader) {
@@ -115,7 +116,15 @@ function getAuthUser(req) {
   if (!token) return null;
   try {
     const decoded = JSON.parse(Buffer.from(token, 'base64').toString('utf8'));
-    let advisor = findAdvisorByEmail(decoded.email);
+    let advisor = null;
+    if (NeonService.isAvailable()) {
+      try {
+        advisor = await NeonService.findAdvisorByEmail(decoded.email);
+      } catch (err) {}
+    }
+    if (!advisor) {
+      advisor = findAdvisorByEmail(decoded.email);
+    }
     if (!advisor && decoded.email && decoded.email.toLowerCase() === 'proyectostic.med@udea.edu.co') {
       advisor = {
         id: 1,
@@ -136,8 +145,8 @@ function getAuthUser(req) {
   }
 }
 
-function requireAdmin(req, res, next) {
-  const user = getAuthUser(req);
+async function requireAdmin(req, res, next) {
+  const user = await getAuthUser(req);
   if (!user) {
     return res.status(401).json({ error: 'Sesión no válida o expirada. Inicie sesión nuevamente.' });
   }
@@ -183,8 +192,8 @@ app.post('/api/knowledge/sync', requireAdmin, async (req, res) => {
 });
 
 // Telemetría y contador de las 1.000 conversaciones
-app.get('/api/telemetry', (req, res) => {
-  const metrics = ConversationTracker.getTelemetryMetrics();
+app.get('/api/telemetry', async (req, res) => {
+  const metrics = await ConversationTracker.getTelemetryMetrics();
   res.json({
     metrics,
     hasGeminiKey: Boolean(config.geminiApiKey && config.geminiApiKey.trim() !== ''),
@@ -206,12 +215,12 @@ app.get('/api/config/client', (req, res) => {
 });
 
 // Lista de Leads en el CRM con soporte para filtros avanzados
-app.get('/api/leads', (req, res) => {
+app.get('/api/leads', async (req, res) => {
   const statusFilter = req.query.status || null;
   const advisorFilter = req.query.advisor || null;
   const tempFilter = req.query.temperature || null;
   const profFilter = req.query.profession || null;
-  const leads = LeadService.getAllLeads(statusFilter, advisorFilter, tempFilter, profFilter);
+  const leads = await LeadService.getAllLeads(statusFilter, advisorFilter, tempFilter, profFilter);
   res.json({ leads });
 });
 
@@ -230,25 +239,54 @@ app.post('/api/auth/login', async (req, res) => {
 
   // 1. Si vino verificado por el SDK cliente de Firebase
   if (firebaseVerified) {
-    advisor = syncFirebaseAdvisor({ email: cleanEmail, displayName, firebaseUid, password: cleanPassword });
+    if (NeonService.isAvailable()) {
+      try {
+        advisor = await NeonService.syncFirebaseAdvisor({ email: cleanEmail, displayName, firebaseUid, password: cleanPassword });
+      } catch (err) {}
+    }
+    const localAdv = syncFirebaseAdvisor({ email: cleanEmail, displayName, firebaseUid, password: cleanPassword });
+    if (!advisor) advisor = localAdv;
   } else {
-    // 2. Si no vino verificado por cliente (ej: bloqueo de dominio Vercel, CSP o ad-blocker),
-    // validar en tiempo real directamente con la API REST de Google Firebase Identity Toolkit
+    // 2. Si no vino verificado por cliente, validar con API REST de Firebase Identity Toolkit
     const fbCheck = await verifyFirebaseViaRest(cleanEmail, cleanPassword);
     if (fbCheck.success) {
-      advisor = syncFirebaseAdvisor({
+      if (NeonService.isAvailable()) {
+        try {
+          advisor = await NeonService.syncFirebaseAdvisor({
+            email: cleanEmail,
+            displayName: fbCheck.user.displayName || displayName,
+            firebaseUid: fbCheck.user.localId,
+            password: cleanPassword
+          });
+        } catch (err) {}
+      }
+      const localAdv = syncFirebaseAdvisor({
         email: cleanEmail,
         displayName: fbCheck.user.displayName || displayName,
         firebaseUid: fbCheck.user.localId,
         password: cleanPassword
       });
+      if (!advisor) advisor = localAdv;
     } else {
-      // 3. Verificación institucional (para garantizar acceso sin bloqueos al Super Admin o credenciales locales)
-      advisor = verifyAdvisorCredentials(cleanEmail, cleanPassword);
+      // 3. Verificación institucional (Neon Postgres / credenciales locales)
+      if (NeonService.isAvailable()) {
+        try {
+          advisor = await NeonService.verifyAdvisorCredentials(cleanEmail, cleanPassword);
+        } catch (err) {}
+      }
+      if (!advisor) {
+        advisor = verifyAdvisorCredentials(cleanEmail, cleanPassword);
+      }
       
       // Si es el Administrador General proyectostic.med@udea.edu.co, garantizar su existencia y acceso total
       if (!advisor && isTargetAdmin) {
-        advisor = syncFirebaseAdvisor({ email: cleanEmail, displayName: 'Administrador General TIC', password: cleanPassword });
+        if (NeonService.isAvailable()) {
+          try {
+            advisor = await NeonService.syncFirebaseAdvisor({ email: cleanEmail, displayName: 'Administrador General TIC', password: cleanPassword });
+          } catch (err) {}
+        }
+        const localAdv = syncFirebaseAdvisor({ email: cleanEmail, displayName: 'Administrador General TIC', password: cleanPassword });
+        if (!advisor) advisor = localAdv;
       }
     }
   }
@@ -291,8 +329,8 @@ app.post('/api/auth/register', (req, res) => {
   });
 });
 
-app.get('/api/auth/me', (req, res) => {
-  const advisor = getAuthUser(req);
+app.get('/api/auth/me', async (req, res) => {
+  const advisor = await getAuthUser(req);
   if (!advisor) return res.status(401).json({ authenticated: false });
   const isAdmin = (advisor.role_type === 'admin' || advisor.email.toLowerCase() === 'proyectostic.med@udea.edu.co');
   advisor.role_type = isAdmin ? 'admin' : 'advisor';
@@ -319,52 +357,68 @@ app.post('/api/auth/logout', (req, res) => {
 });
 
 // Lista de asesores oficiales del equipo de extensión
-app.get('/api/advisors', (req, res) => {
-  const advisors = getAdvisors();
+app.get('/api/advisors', async (req, res) => {
+  let advisors = [];
+  if (NeonService.isAvailable()) {
+    try {
+      advisors = await NeonService.getAdvisors();
+    } catch (e) {}
+  }
+  if (!advisors || advisors.length === 0) {
+    advisors = getAdvisors();
+  }
   res.json({ advisors });
 });
 
 // Asignar asesor a un lead
-app.patch('/api/leads/:phone/advisor', (req, res) => {
+app.patch('/api/leads/:phone/advisor', async (req, res) => {
   const phone = req.params.phone;
   const { advisor } = req.body;
   if (!advisor) return res.status(400).json({ error: 'Nombre del asesor es requerido' });
-  LeadService.assignAdvisor(phone, advisor);
+  await LeadService.assignAdvisor(phone, advisor);
   res.json({ success: true, advisor });
 });
 
 // Marcar que un asesor atendió al lead
-app.patch('/api/leads/:phone/attend', (req, res) => {
+app.patch('/api/leads/:phone/attend', async (req, res) => {
   const phone = req.params.phone;
   const { advisor } = req.body;
-  LeadService.markAttended(phone, advisor || 'Asesor UdeA');
+  await LeadService.markAttended(phone, advisor || 'Asesor UdeA');
   res.json({ success: true, advisor: advisor || 'Asesor UdeA' });
 });
 
 // Guardar notas internas de un lead
-app.patch('/api/leads/:phone/notes', (req, res) => {
+app.patch('/api/leads/:phone/notes', async (req, res) => {
   const phone = req.params.phone;
   const { notes } = req.body;
-  LeadService.saveNotes(phone, notes || '');
+  await LeadService.saveNotes(phone, notes || '');
   res.json({ success: true });
 });
 
 // Métricas de segmentación y base de audiencias en tiempo real
-app.get('/api/segmentation', (req, res) => {
-  const stats = getSegmentationStats();
+app.get('/api/segmentation', async (req, res) => {
+  let stats = null;
+  if (NeonService.isAvailable()) {
+    try {
+      stats = await NeonService.getSegmentationStats();
+    } catch (e) {}
+  }
+  if (!stats) {
+    stats = getSegmentationStats();
+  }
   const filterProfession = req.query.profession || null;
   const filterTemperature = req.query.temperature || null;
   const filterAdvisor = req.query.advisor || null;
-  const leads = LeadService.getAllLeads(null, filterAdvisor, filterTemperature, filterProfession);
+  const leads = await LeadService.getAllLeads(null, filterAdvisor, filterTemperature, filterProfession);
   res.json({ success: true, stats, audience: leads, leads });
 });
 
 // Exportar base de datos segmentada a CSV (Exclusivo Administrador General)
-app.get('/api/segmentation/export', requireAdmin, (req, res) => {
+app.get('/api/segmentation/export', requireAdmin, async (req, res) => {
   const filterProfession = req.query.profession || null;
   const filterTemperature = req.query.temperature || null;
   const filterAdvisor = req.query.advisor || null;
-  const leads = LeadService.getAllLeads(null, filterAdvisor, filterTemperature, filterProfession);
+  const leads = await LeadService.getAllLeads(null, filterAdvisor, filterTemperature, filterProfession);
 
   let csv = '\uFEFF'; // BOM para que Excel abra acentos UTF-8 correctamente
   csv += 'ID,Nombre,Tipo_Documento,Numero_Documento,Correo,Telefono,Profesion_Detectada,Temperatura,Area_Tematica,Eventos_Consultados,Asesor_Asignado,Atendido_Por,Fecha_Atencion,Estado,Notas,Ultimo_Mensaje,Fecha_Registro\n';
@@ -398,31 +452,31 @@ app.get('/api/segmentation/export', requireAdmin, (req, res) => {
 });
 
 // Historial de conversación de un lead
-app.get('/api/leads/:phone/chat', (req, res) => {
+app.get('/api/leads/:phone/chat', async (req, res) => {
   const phone = req.params.phone;
-  const messages = LeadService.getLeadConversation(phone);
-  const leadData = LeadService.getLeadByPhone(phone);
+  const messages = await LeadService.getLeadConversation(phone);
+  const leadData = await LeadService.getLeadByPhone(phone);
   res.json({ phone, messages, lead: leadData });
 });
 
 // Actualizar estado de un lead (Contactado, Cerrado, etc.)
-app.patch('/api/leads/:phone/status', (req, res) => {
+app.patch('/api/leads/:phone/status', async (req, res) => {
   const phone = req.params.phone;
   const { status, programInterest, name } = req.body;
-  LeadService.updateLeadStatus(phone, status, programInterest, name);
+  await LeadService.updateLeadStatus(phone, status, programInterest, name);
   res.json({ success: true });
 });
 
 // Portafolio de Conocimiento UdeA
-app.get('/api/knowledge', (req, res) => {
-  const items = KnowledgeBaseService.getActiveItems();
+app.get('/api/knowledge', async (req, res) => {
+  const items = await KnowledgeBaseService.getActiveItems();
   res.json({ items });
 });
 
-app.post('/api/knowledge', requireAdmin, (req, res) => {
+app.post('/api/knowledge', requireAdmin, async (req, res) => {
   try {
     const { code, title, category, target_audience, modality, duration_hours, investment, start_date, schedule, registration_link, payment_link, contact_email, description } = req.body;
-    KnowledgeBaseService.addItem({
+    await KnowledgeBaseService.addItem({
       code: SecurityGuardrails.sanitizeInput(code),
       title: SecurityGuardrails.sanitizeInput(title),
       category: SecurityGuardrails.sanitizeInput(category || 'Curso'),
@@ -444,9 +498,9 @@ app.post('/api/knowledge', requireAdmin, (req, res) => {
 });
 
 // Panel de Control TIC: Métricas consolidadas (Base de datos, IA, Tokens, WhatsApp, Logs)
-app.get('/api/admin/system-stats', requireAdmin, (req, res) => {
+app.get('/api/admin/system-stats', requireAdmin, async (req, res) => {
   try {
-    const metrics = SystemStatsService.getSystemMetrics();
+    const metrics = await SystemStatsService.getSystemMetrics();
     res.json(metrics);
   } catch (err) {
     console.error('Error al generar métricas de administración TIC:', err);
@@ -455,9 +509,9 @@ app.get('/api/admin/system-stats', requireAdmin, (req, res) => {
 });
 
 // Forzar guardado de respaldo JSON persistente para Vercel
-app.post('/api/admin/backup-now', requireAdmin, (req, res) => {
+app.post('/api/admin/backup-now', requireAdmin, async (req, res) => {
   try {
-    const allActive = KnowledgeBaseService.getActiveItems();
+    const allActive = await KnowledgeBaseService.getActiveItems();
     const backupPath = path.resolve(__dirname, 'db/knowledge_backup.json');
     import('node:fs').then(fsModule => {
       fsModule.writeFileSync(backupPath, JSON.stringify(allActive, null, 2), 'utf8');

@@ -56,8 +56,8 @@ export class MetaCloudAdapter {
       // Bloqueo de audios, imágenes y videos: Canal exclusivo de texto escrito
       if (message.type !== 'text') {
         const textOnlyNotice = 'Estimado(a) usuario(a), por directrices institucionales de la Facultad de Medicina UdeA, este canal automatizado de WhatsApp procesa exclusivamente consultas en texto escrito. 📝🩺\n\nPor favor envíanos tu consulta en un mensaje de texto para poder orientarte de inmediato con fechas, horarios y costos.';
-        LeadService.recordLeadMessage(senderPhone, `[Mensaje no admitido: ${message.type}]`, 'user');
-        LeadService.recordLeadMessage(senderPhone, textOnlyNotice, 'bot');
+        await LeadService.recordLeadMessage(senderPhone, `[Mensaje no admitido: ${message.type}]`, 'user');
+        await LeadService.recordLeadMessage(senderPhone, textOnlyNotice, 'bot');
         await this.sendWhatsAppMessage(senderPhone, textOnlyNotice);
         return;
       }
@@ -65,34 +65,34 @@ export class MetaCloudAdapter {
       const userText = message.text.body;
 
       // 2. Evaluar Kill-Switch y ventana de 24 horas (Control Anti-Cobros)
-      const evaluation = ConversationTracker.evaluateIncomingMessage(senderPhone);
+      const evaluation = await ConversationTracker.evaluateIncomingMessage(senderPhone);
 
       // Guardar mensaje en base de datos
-      LeadService.recordLeadMessage(senderPhone, userText, 'user');
+      await LeadService.recordLeadMessage(senderPhone, userText, 'user');
 
       if (!evaluation.allowed) {
         console.warn(`🛑 [KILL-SWITCH ACTIVADO] Mensaje de ${senderPhone} no respondido para evitar cobros de Meta.`);
-        LeadService.updateLeadStatus(senderPhone, 'advisor_requested', null, 'Límite mensual alcanzado');
+        await LeadService.updateLeadStatus(senderPhone, 'advisor_requested', null, 'Límite mensual alcanzado');
         return;
       }
 
       // 3. Obtener historial y generar respuesta con IA
-      const history = LeadService.getLeadConversation(senderPhone);
+      const history = await LeadService.getLeadConversation(senderPhone);
       const aiResult = await GeminiService.generateReply(userText, senderPhone, history);
 
       // Guardar respuesta del bot
-      LeadService.recordLeadMessage(senderPhone, aiResult.replyText, 'bot');
+      await LeadService.recordLeadMessage(senderPhone, aiResult.replyText, 'bot');
 
       // 4. Si el estudiante solicita asesor, disparar notificación
       if (aiResult.requestAdvisor) {
-        LeadService.updateLeadStatus(senderPhone, 'advisor_requested', aiResult.detectedProgram);
+        await LeadService.updateLeadStatus(senderPhone, 'advisor_requested', aiResult.detectedProgram);
         await AdvisorNotifier.triggerAdvisorAlert({
           phoneNumber: senderPhone,
           reason: 'Solicitud explícita de asesor o caso especial',
           lastUserMessage: userText
         });
       } else if (aiResult.detectedProgram) {
-        LeadService.updateLeadStatus(senderPhone, 'ai_handling', aiResult.detectedProgram);
+        await LeadService.updateLeadStatus(senderPhone, 'ai_handling', aiResult.detectedProgram);
       }
 
       // 5. Enviar mensaje de vuelta a WhatsApp mediante Meta Graph API

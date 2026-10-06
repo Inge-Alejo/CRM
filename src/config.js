@@ -21,5 +21,6 @@ export const config = {
     projectId: process.env.FIREBASE_PROJECT_ID || 'crm-fdem',
     storageBucket: process.env.FIREBASE_STORAGE_BUCKET || 'crm-fdem.firebasestorage.app',
     appId: process.env.FIREBASE_APP_ID || '1:191713944750:web:f68debb069680dcab8393f'
-  }
+  },
+  postgresUrl: process.env.POSTGRES_URL || process.env.DATABASE_URL || ''
 };

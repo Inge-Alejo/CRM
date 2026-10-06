@@ -38,9 +38,9 @@ export class GeminiService {
     }
 
     // 3. Segmentación en tiempo real por IA
-    const currentLead = LeadService.getLeadByPhone(phoneNumber) || {};
+    const currentLead = (await LeadService.getLeadByPhone(phoneNumber)) || {};
     const segResult = SegmentationEngine.analyzeLead(sanitizedMsg, currentLead);
-    LeadService.updateLeadSegmentation(phoneNumber, segResult);
+    await LeadService.updateLeadSegmentation(phoneNumber, segResult);
 
     // 3.5 Detección y bloqueo de formatos multimedia (audios, fotos, videos)
     if (/\[?(?:audio|nota de voz|imagen|foto|video|sticker|archivo adjunto|documento)\]?/i.test(sanitizedMsg) || 
@@ -94,7 +94,7 @@ export class GeminiService {
 
       return {
         replyText: `Comprendo perfectamente. He transferido tu caso al Centro de Extensión de la Facultad de Medicina UdeA. 🩺\n\nTu solicitud ha sido asignada para ser atendida por *${assignedAdvisor}*, quien revisará este chat y se comunicará contigo a la mayor brevedad posible.\n\n¿Deseas indicarnos tu nombre completo o dejarnos alguna duda puntual para avanzar en tu solicitud?`,
-        detectedProgram: this.detectProgramFromText(sanitizedMsg),
+        detectedProgram: await this.detectProgramFromText(sanitizedMsg),
         requestAdvisor: true,
         segmentation: { ...segResult, interest_temperature: 'hot' }
       };
@@ -107,11 +107,11 @@ export class GeminiService {
         aiReply = await this.callGeminiAPI(sanitizedMsg, conversationHistory, currentLead);
       } catch (error) {
         console.warn('⚠️ Error al invocar Gemini API, usando motor de contingencia local:', error.message);
-        aiReply = this.localKnowledgeEngine(sanitizedMsg, conversationHistory, currentLead);
+        aiReply = await this.localKnowledgeEngine(sanitizedMsg, conversationHistory, currentLead);
       }
     } else {
       // Motor de conocimiento inteligente local (Modo Sandbox / Zero-Setup)
-      aiReply = this.localKnowledgeEngine(sanitizedMsg, conversationHistory, currentLead);
+      aiReply = await this.localKnowledgeEngine(sanitizedMsg, conversationHistory, currentLead);
     }
 
     // Validar salida de la IA contra fugas accidentales
@@ -121,7 +121,7 @@ export class GeminiService {
     if (aiReply.detectedProgram) {
       const updatedEvents = SegmentationEngine.updateEventInterests(currentLead.event_interests, aiReply.detectedProgram);
       const updatedThematic = SegmentationEngine.detectThematicArea(aiReply.detectedProgram);
-      LeadService.updateLeadSegmentation(phoneNumber, {
+      await LeadService.updateLeadSegmentation(phoneNumber, {
         event_interests: updatedEvents,
         thematic_area: updatedThematic
       });
@@ -138,7 +138,7 @@ export class GeminiService {
    */
   static async callGeminiAPI(sanitizedMsg, conversationHistory, currentLead = {}) {
     const ai = new GoogleGenAI({ apiKey: config.geminiApiKey });
-    const knowledgeContext = KnowledgeBaseService.generateContextPrompt();
+    const knowledgeContext = await KnowledgeBaseService.generateContextPrompt();
 
     // Contexto de datos ya conocidos del usuario en CRM
     const knownName = (currentLead.name && currentLead.name !== 'Interesado UdeA') ? currentLead.name : null;
@@ -277,12 +277,12 @@ ${knowledgeContext}
    * Motor de conocimiento local determinista de alta fidelidad
    * Garantiza que la app funcione al 100% incluso sin configurar API keys de inmediato
    */
-  static localKnowledgeEngine(query, conversationHistory = [], currentLead = {}) {
+  static async localKnowledgeEngine(query, conversationHistory = [], currentLead = {}) {
     GeminiService.telemetry.totalCalls++;
     GeminiService.telemetry.localFallback++;
 
     const q = (query || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    const items = KnowledgeBaseService.getActiveItems();
+    const items = await KnowledgeBaseService.getActiveItems();
 
     const knownName = (currentLead.name && currentLead.name !== 'Interesado UdeA') ? currentLead.name : null;
     const knownDoc = currentLead.doc_number || null;
@@ -302,7 +302,7 @@ ${knowledgeContext}
     ].some(k => q.includes(k));
 
     // 1. Detectar si el usuario pregunta por un programa específico
-    let detectedProgramTitle = this.detectProgramFromText(query);
+    let detectedProgramTitle = await this.detectProgramFromText(query);
     if (!detectedProgramTitle && isMoreInfoIntent) {
       // Revisar si en el historial reciente o en la ficha del lead ya había un curso mencionado
       if (currentLead.program_interest) {
@@ -421,10 +421,10 @@ ${knowledgeContext}
    * Detecta con precisión semántica el programa de interés
    * Filtra stopwords universales y previene alucinaciones o asignaciones erróneas
    */
-  static detectProgramFromText(text) {
+  static async detectProgramFromText(text) {
     if (!text || typeof text !== 'string') return null;
     const t = text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    const items = KnowledgeBaseService.getActiveItems();
+    const items = await KnowledgeBaseService.getActiveItems();
 
     // Palabras genéricas del dominio médico/académico que NUNCA identifican un programa
     const STOPWORDS = new Set([

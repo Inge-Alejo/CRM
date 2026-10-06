@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { db } from '../db/database.js';
+import { NeonService } from '../db/neonService.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -103,6 +104,18 @@ export class ScraperService {
 
     for (const prog of scrapedPrograms) {
       upsertStmt.run(prog);
+    }
+
+    // Guardar también en Neon Postgres en la nube si está activo
+    if (NeonService.isAvailable()) {
+      try {
+        for (const prog of scrapedPrograms) {
+          await NeonService.addKnowledgeItem(prog);
+        }
+        console.log(`☁️ [NEON POSTGRES]: ${scrapedPrograms.length} programas sincronizados en la nube.`);
+      } catch (neonErr) {
+        console.warn('Aviso sincronizando programas con Neon:', neonErr.message);
+      }
     }
 
     // Persistir todos los programas sincronizados en knowledge_backup.json para que en Vercel no se pierdan

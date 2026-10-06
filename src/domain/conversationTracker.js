@@ -1,5 +1,6 @@
 import { db } from '../db/database.js';
 import { config } from '../config.js';
+import { NeonService } from '../db/neonService.js';
 
 export class ConversationTracker {
   /**
@@ -17,9 +18,38 @@ export class ConversationTracker {
    * Actúa como el INTERRUPTOR DE SEGURIDAD (Kill-Switch)
    * 
    * @param {string} phoneNumber 
-   * @returns {{ allowed: boolean, consumesNewQuota: boolean, currentCount: number, limit: number, reason?: string }}
+   * @returns {Promise<{ allowed: boolean, consumesNewQuota: boolean, currentCount: number, limit: number, reason?: string }>}
    */
-  static evaluateIncomingMessage(phoneNumber) {
+  static async evaluateIncomingMessage(phoneNumber) {
+    if (NeonService.isAvailable()) {
+      try {
+        const evalResult = await NeonService.evaluateConversationWindow(phoneNumber, config.conversationLimit);
+        // Mantener SQLite sincronizado como réplica local
+        this._syncLocalSqliteWindow(phoneNumber, evalResult);
+        return evalResult;
+      } catch (err) {
+        console.warn('Neon error in evaluateConversationWindow, fallback to SQLite:', err.message);
+      }
+    }
+
+    return this._evaluateSqliteWindow(phoneNumber);
+  }
+
+  static _syncLocalSqliteWindow(phoneNumber, evalResult) {
+    try {
+      const now = new Date();
+      const nowIso = now.toISOString();
+      const currentMonth = this.getCurrentYearMonth();
+      if (evalResult.consumesNewQuota && evalResult.activeWindowExpiresAt) {
+        db.prepare(`
+          INSERT INTO conversations (phone_number, window_started_at, window_expires_at, year_month, status)
+          VALUES (?, ?, ?, ?, 'active')
+        `).run(phoneNumber, nowIso, evalResult.activeWindowExpiresAt, currentMonth);
+      }
+    } catch (e) {}
+  }
+
+  static _evaluateSqliteWindow(phoneNumber) {
     const now = new Date();
     const nowIso = now.toISOString();
     const currentMonth = this.getCurrentYearMonth();
@@ -35,31 +65,29 @@ export class ConversationTracker {
     const activeWindow = activeWindowStmt.get(phoneNumber, nowIso);
 
     if (activeWindow) {
-      // Ya tiene ventana abierta. No consume cuota adicional.
       return {
         allowed: true,
         consumesNewQuota: false,
         activeWindowExpiresAt: activeWindow.window_expires_at,
-        currentCount: this.getMonthlyUsage(currentMonth),
+        currentCount: this._getSqliteMonthlyUsage(currentMonth),
         limit: config.conversationLimit
       };
     }
 
-    // 2. Si no tiene ventana activa, se requiere abrir una nueva conversación de servicio.
-    // Consultar el total de conversaciones consumidas en el mes.
-    const currentUsage = this.getMonthlyUsage(currentMonth);
+    // 2. Si no tiene ventana activa
+    const currentUsage = this._getSqliteMonthlyUsage(currentMonth);
 
     // 3. KILL-SWITCH ANTI-COBRO
     if (currentUsage >= config.conversationLimit) {
-      // Registrar evento de seguridad en auditoría
-      const auditStmt = db.prepare(`
-        INSERT INTO audit_logs (event, details, timestamp)
-        VALUES ('KILL_SWITCH_TRIGGERED', ?, ?)
-      `);
-      auditStmt.run(
-        JSON.stringify({ phoneNumber, currentUsage, limit: config.conversationLimit }),
-        nowIso
-      );
+      try {
+        db.prepare(`
+          INSERT INTO audit_logs (event, details, timestamp)
+          VALUES ('KILL_SWITCH_TRIGGERED', ?, ?)
+        `).run(
+          JSON.stringify({ phoneNumber, currentUsage, limit: config.conversationLimit }),
+          nowIso
+        );
+      } catch (e) {}
 
       return {
         allowed: false,
@@ -72,11 +100,10 @@ export class ConversationTracker {
 
     // 4. Abrir nueva ventana de 24 horas
     const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString();
-    const insertWindowStmt = db.prepare(`
+    db.prepare(`
       INSERT INTO conversations (phone_number, window_started_at, window_expires_at, year_month, status)
       VALUES (?, ?, ?, ?, 'active')
-    `);
-    insertWindowStmt.run(phoneNumber, nowIso, expiresAt, currentMonth);
+    `).run(phoneNumber, nowIso, expiresAt, currentMonth);
 
     return {
       allowed: true,
@@ -87,30 +114,45 @@ export class ConversationTracker {
     };
   }
 
-  /**
-   * Obtiene la cantidad de conversaciones consumidas en el mes
-   * @param {string} yearMonth 
-   * @returns {number}
-   */
-  static getMonthlyUsage(yearMonth = this.getCurrentYearMonth()) {
+  static _getSqliteMonthlyUsage(yearMonth) {
     const stmt = db.prepare('SELECT COUNT(*) as total FROM conversations WHERE year_month = ?');
     const result = stmt.get(yearMonth);
     return result ? result.total : 0;
   }
 
   /**
+   * Obtiene la cantidad de conversaciones consumidas en el mes
+   */
+  static async getMonthlyUsage(yearMonth = this.getCurrentYearMonth()) {
+    if (NeonService.isAvailable()) {
+      try {
+        return await NeonService.getMonthlyUsage(yearMonth);
+      } catch (e) {}
+    }
+    return this._getSqliteMonthlyUsage(yearMonth);
+  }
+
+  /**
    * Métricas en tiempo real para el Dashboard de Telemetría
    */
-  static getTelemetryMetrics() {
+  static async getTelemetryMetrics() {
+    if (NeonService.isAvailable()) {
+      try {
+        return await NeonService.getTelemetryMetrics(config.conversationLimit);
+      } catch (err) {
+        console.warn('Neon error in getTelemetryMetrics, fallback to SQLite:', err.message);
+      }
+    }
+
     const currentMonth = this.getCurrentYearMonth();
-    const used = this.getMonthlyUsage(currentMonth);
+    const used = this._getSqliteMonthlyUsage(currentMonth);
     const limit = config.conversationLimit;
     const remaining = Math.max(0, limit - used);
     const percentage = Math.min(100, Math.round((used / limit) * 100));
 
-    let riskLevel = 'safe'; // verde
-    if (percentage >= 95) riskLevel = 'blocked'; // rojo
-    else if (percentage >= 80) riskLevel = 'warning'; // amarillo
+    let riskLevel = 'safe';
+    if (percentage >= 95) riskLevel = 'blocked';
+    else if (percentage >= 80) riskLevel = 'warning';
 
     const nowIso = new Date().toISOString();
     const activeWindowsStmt = db.prepare(`
