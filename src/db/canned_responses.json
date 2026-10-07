@@ -1,0 +1,38 @@
+[
+  {
+    "id": "macro_saludo",
+    "title": "Saludo Oficial",
+    "shortcut": "👋 Saludo",
+    "message": "¡Hola! Te saluda un asesor del equipo de Extensión y Educación Continua de la Facultad de Medicina UdeA. Con mucho gusto te acompaño en tu proceso de información y matrícula. ¿En qué programa estás interesado?",
+    "category": "saludos",
+    "created_at": "2026-10-07T00:21:46.755Z",
+    "updated_at": "2026-10-07T00:21:46.755Z"
+  },
+  {
+    "id": "macro_requisitos",
+    "title": "Requisitos de Inscripción",
+    "shortcut": "📋 Requisitos",
+    "message": "📋 Requisitos de Inscripción:\n1. Copia de documento de identidad al 150%.\n2. Acta de grado o tarjeta profesional (según el perfil requerido del curso).\n3. Comprobante de pago emitido por AsOne UdeA.\n\n¿Tienes alguna duda sobre la documentación?",
+    "category": "inscripcion",
+    "created_at": "2026-10-07T00:21:46.755Z",
+    "updated_at": "2026-10-07T00:21:46.755Z"
+  },
+  {
+    "id": "macro_horarios",
+    "title": "Horarios y Modalidad",
+    "shortcut": "⏰ Horarios",
+    "message": "⏰ Horarios y Modalidad:\nNuestros diplomados y cursos combinan sesiones sincrónicas los fines de semana (viernes de 5:00 p.m. a 9:00 p.m. y sábados de 8:00 a.m. a 12:00 m.) con trabajo en plataforma virtual y talleres prácticos en el Campus de la Salud UdeA.",
+    "category": "academico",
+    "created_at": "2026-10-07T00:21:46.755Z",
+    "updated_at": "2026-10-07T00:21:46.755Z"
+  },
+  {
+    "id": "macro_despedida",
+    "title": "Despedida Institucional",
+    "shortcut": "🎓 Despedida",
+    "message": "¡Ha sido un placer orientarte! Quedamos atentos a cualquier inquietud adicional. Recuerda que en la Facultad de Medicina de la Universidad de Antioquia transformamos el conocimiento en bienestar para la comunidad. ¡Feliz día! 🎓👨‍⚕️",
+    "category": "cierre",
+    "created_at": "2026-10-07T00:21:46.755Z",
+    "updated_at": "2026-10-07T00:21:46.755Z"
+  }
+]

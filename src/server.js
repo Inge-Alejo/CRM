@@ -97,6 +97,7 @@ app.post('/webhook', (req, res) => MetaCloudAdapter.handleIncomingMessage(req, r
 
 import { ScraperService } from './domain/scraperService.js';
 import { SystemStatsService } from './domain/systemStatsService.js';
+import { cannedResponseService } from './domain/cannedResponseService.js';
 
 // ==========================================
 // RUTAS API PARA EL DASHBOARD CRM
@@ -497,6 +498,47 @@ app.patch('/api/leads/:phone/toggle-ai', async (req, res) => {
   await LeadService.updateLeadStatus(phone, newStatus);
   const leadData = await LeadService.getLeadByPhone(phone);
   res.json({ success: true, status: newStatus, lead: leadData });
+});
+
+// ==================== RESPUESTAS RÁPIDAS & PLANTILLAS DE ASESOR ====================
+app.get('/api/canned-responses', async (req, res) => {
+  try {
+    const macros = await cannedResponseService.getAll();
+    res.json({ success: true, responses: macros, macros });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/canned-responses', requireAdmin, async (req, res) => {
+  try {
+    const { title, shortcut, message, category } = req.body;
+    const newMacro = await cannedResponseService.create({ title, shortcut, message, category });
+    res.json({ success: true, macro: newMacro });
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
+app.put('/api/canned-responses/:id', requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { title, shortcut, message, category } = req.body;
+    const updated = await cannedResponseService.update(id, { title, shortcut, message, category });
+    res.json({ success: true, macro: updated });
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
+app.delete('/api/canned-responses/:id', requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    await cannedResponseService.delete(id);
+    res.json({ success: true, id });
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
 });
 
 // Portafolio de Conocimiento UdeA

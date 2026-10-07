@@ -565,9 +565,9 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function getTemperatureBadge(temp) {
-    if (temp === 'hot') return '<span class="temperature-badge hot">Alta</span>';
-    if (temp === 'warm') return '<span class="temperature-badge warm">Media</span>';
-    return '<span class="temperature-badge cold">Baja</span>';
+    if (temp === 'hot') return '<span class="priority-badge hot">Prioridad Alta</span>';
+    if (temp === 'warm') return '<span class="priority-badge warm">Prioridad Media</span>';
+    return '<span class="priority-badge cold">Prioridad Estándar</span>';
   }
 
   function getProfessionPill(prof) {
@@ -1431,36 +1431,100 @@ document.addEventListener('DOMContentLoaded', () => {
       if (document.getElementById('sysNodeVer')) document.getElementById('sysNodeVer').textContent = srvData.nodeVersion;
       if (document.getElementById('sysUptimeDetail')) document.getElementById('sysUptimeDetail').textContent = srvData.uptimeFormatted;
 
-      // 5. Tabla de Auditoría
+      // 5. Tabla de Auditoría & Trazabilidad (Diseño Profesional Senior)
       const auditTableBody = document.getElementById('sysAuditTableBody');
       const auditBadge = document.getElementById('sysAuditBadgeCount');
       if (auditBadge) auditBadge.textContent = `${data.auditLogs.length} Registros Recientes`;
       if (auditTableBody) {
-        if (data.auditLogs.length === 0) {
+        if (!data.auditLogs || data.auditLogs.length === 0) {
           auditTableBody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:1.5rem; color:var(--text-muted);">No hay eventos de auditoría registrados.</td></tr>';
         } else {
-          auditTableBody.innerHTML = data.auditLogs.map(log => {
-            let detailsFormatted = log.details;
-            try {
-              const parsed = JSON.parse(log.details);
-              detailsFormatted = JSON.stringify(parsed);
-            } catch (e) {}
-            return `
-              <tr>
-                <td><strong>#${log.id}</strong></td>
-                <td style="font-size:0.8rem; color:var(--text-muted);">${new Date(log.timestamp).toLocaleString('es-CO')}</td>
-                <td><span class="badge" style="font-size:0.75rem; background:#f1f5f9; color:var(--udea-dark);">${escapeHtml(log.event)}</span></td>
-                <td style="font-family:'JetBrains Mono', monospace; font-size:0.75rem; color:#475569; max-width:350px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${escapeHtml(detailsFormatted)}">
-                  ${escapeHtml(detailsFormatted)}
-                </td>
-              </tr>
-            `;
-          }).join('');
+          auditTableBody.innerHTML = data.auditLogs.map(log => renderAuditLogRow(log)).join('');
         }
       }
+
+      // Sincronizar también respuestas rápidas en el panel administrativo
+      loadCannedResponses();
     } catch (err) {
       console.error('Error al cargar métricas del sistema:', err);
     }
+  }
+
+  // Formateador Senior de Filas de Bitácora (Elegante, sin roturas de línea, con chips)
+  function renderAuditLogRow(log) {
+    const idBadge = `<span class="audit-id-badge">#${log.id}</span>`;
+    
+    // Fecha y hora en 1 sola línea (evita que "p. m." caiga en otra línea)
+    const d = new Date(log.timestamp);
+    const dateStr = d.toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    const timeStr = d.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+    const formattedDate = `<div class="audit-time-cell"><span class="audit-date">${dateStr}</span> <span class="audit-hour">${timeStr}</span></div>`;
+    
+    // Badge de Evento semántico
+    let eventBadge = '';
+    const ev = (log.event || '').toUpperCase();
+    if (ev.includes('ATTENDED')) {
+      eventBadge = `<span class="audit-event-badge attended">Atención Asesor</span>`;
+    } else if (ev.includes('ASSIGNED')) {
+      eventBadge = `<span class="audit-event-badge assigned">Asignación Asesor</span>`;
+    } else if (ev.includes('POSTGRES') || ev.includes('DB') || ev.includes('SQLITE')) {
+      eventBadge = `<span class="audit-event-badge db">Neon Postgres</span>`;
+    } else if (ev.includes('CANNED')) {
+      eventBadge = `<span class="audit-event-badge macro">Plantilla CRM</span>`;
+    } else if (ev.includes('AI') || ev.includes('GEMINI')) {
+      eventBadge = `<span class="audit-event-badge ai">IA Apolo</span>`;
+    } else if (ev.includes('BACKUP')) {
+      eventBadge = `<span class="audit-event-badge backup">Copia Respaldo</span>`;
+    } else {
+      eventBadge = `<span class="audit-event-badge generic">${escapeHtml(ev.replace(/_/g, ' '))}</span>`;
+    }
+
+    // Detalles técnicos: Extraer datos a chips visuales limpios en lugar de JSON crudo
+    let detailsHtml = '';
+    const rawDetails = log.details || '';
+    try {
+      let parsed = null;
+      if (typeof rawDetails === 'string' && rawDetails.trim().startsWith('{')) {
+        parsed = JSON.parse(rawDetails);
+      } else if (typeof rawDetails === 'object' && rawDetails !== null) {
+        parsed = rawDetails;
+      }
+
+      if (parsed) {
+        const chips = [];
+        if (parsed.phone) {
+          const cleanPh = parsed.phone.replace(/(\d{2})(\d{3})(\d{3})(\d{4})/, '+$1 $2 $3 $4');
+          chips.push(`<span class="audit-detail-chip phone">📞 ${escapeHtml(cleanPh)}</span>`);
+        }
+        if (parsed.advisor) {
+          chips.push(`<span class="audit-detail-chip advisor">👤 Asesor: ${escapeHtml(parsed.advisor)}</span>`);
+        }
+        if (parsed.title || parsed.shortcut) {
+          chips.push(`<span class="audit-detail-chip macro">🏷️ ${escapeHtml(parsed.shortcut || parsed.title)}</span>`);
+        }
+        if (parsed.count !== undefined) {
+          chips.push(`<span class="audit-detail-chip count">📦 ${parsed.count} items</span>`);
+        }
+        if (chips.length > 0) {
+          detailsHtml = `<div class="audit-chips-row">${chips.join(' ')}</div>`;
+        } else {
+          detailsHtml = `<span class="audit-text-desc">${escapeHtml(JSON.stringify(parsed))}</span>`;
+        }
+      } else {
+        detailsHtml = `<span class="audit-text-desc">${escapeHtml(rawDetails)}</span>`;
+      }
+    } catch (e) {
+      detailsHtml = `<span class="audit-text-desc">${escapeHtml(rawDetails)}</span>`;
+    }
+
+    return `
+      <tr>
+        <td style="text-align:center; width:65px;">${idBadge}</td>
+        <td style="width:190px;">${formattedDate}</td>
+        <td style="width:180px;">${eventBadge}</td>
+        <td>${detailsHtml}</td>
+      </tr>
+    `;
   }
 
   const btnRefreshSystemStats = document.getElementById('btnRefreshSystemStats');
@@ -1515,13 +1579,95 @@ document.addEventListener('DOMContentLoaded', () => {
   // Consola Omnicanal: Cola de Triage, Feed en Vivo WhatsApp y Customer 360
   // ==========================================================================
 
-  const AGENT_MACROS = {
-    saludo: '¡Hola! Te saluda un asesor del equipo de Extensión y Educación Continua de la Facultad de Medicina UdeA. Con mucho gusto te acompaño en tu proceso de información y matrícula. ¿En qué programa estás interesado?',
-    pago: '¡Excelente decisión académica! Puedes asegurar tu cupo y realizar tu pago oficial directamente a través de la plataforma universitaria AsOne de la UdeA en el siguiente enlace:\n🔗 https://asone.udea.edu.co/\n\nRecuerda adjuntarme el comprobante o avisarme cuando realices el pago para formalizar tu registro.',
-    requisitos: '📋 Requisitos de Inscripción:\n1. Copia de documento de identidad al 150%.\n2. Acta de grado o tarjeta profesional (según el perfil requerido del curso).\n3. Comprobante de pago emitido por AsOne UdeA.\n\n¿Tienes alguna duda sobre la documentación?',
-    horarios: '⏰ Horarios y Modalidad:\nNuestros diplomados y cursos combinan sesiones sincrónicas los fines de semana (viernes de 5:00 p.m. a 9:00 p.m. y sábados de 8:00 a.m. a 12:00 m.) con trabajo en plataforma virtual y talleres prácticos en el Campus de la Salud UdeA.',
-    despedida: '¡Ha sido un placer orientarte! Quedamos atentos a cualquier inquietud adicional. Recuerda que en la Facultad de Medicina de la Universidad de Antioquia transformamos el conocimiento en bienestar para la comunidad. ¡Feliz día! 🎓👨‍⚕️'
-  };
+  // ==========================================================================
+  // GESTIÓN DINÁMICA DE RESPUESTAS RÁPIDAS & PLANTILLAS EN TIEMPO REAL
+  // Sincronización transparente con Neon PostgreSQL y Bandeja del Asesor
+  // ==========================================================================
+  let allCannedResponses = [];
+
+  // Función para auto-expandir el textarea del asesor sin tapar la pantalla
+  function autoResizeComposerTextarea() {
+    if (!inboxMessageInput) return;
+    inboxMessageInput.style.height = 'auto';
+    const scrollH = inboxMessageInput.scrollHeight;
+    // Crece progresivamente de 52px (2 líneas) hasta 150px (alrededor de 6 líneas de texto cómodas)
+    const targetHeight = Math.min(Math.max(scrollH, 52), 150);
+    inboxMessageInput.style.height = targetHeight + 'px';
+  }
+
+  // Cargar respuestas rápidas desde el backend
+  async function loadCannedResponses() {
+    try {
+      const res = await fetch('/api/canned-responses');
+      const data = await res.json();
+      const list = data.responses || data.macros || [];
+      if (data.success && Array.isArray(list)) {
+        allCannedResponses = list;
+        renderInboxMacros();
+        renderCannedResponsesTable();
+      }
+    } catch (err) {
+      console.warn('Error al sincronizar respuestas rápidas:', err);
+    }
+  }
+
+  // Renderizar chips de respuesta rápida en la barra del chat
+  function renderInboxMacros() {
+    const container = document.getElementById('inboxMacrosContainer');
+    if (!container) return;
+    if (allCannedResponses.length === 0) {
+      container.innerHTML = '<span style="font-size:0.7rem; color:var(--text-muted); padding:0.2rem 0.5rem;">Sin respuestas configuradas</span>';
+      return;
+    }
+    container.innerHTML = allCannedResponses.map(m => {
+      const safeShortcut = escapeHtml(m.shortcut || m.title);
+      const safeTitle = escapeHtml(m.title);
+      return `<button type="button" class="macro-chip" data-id="${m.id}" title="${safeTitle}">${safeShortcut}</button>`;
+    }).join('');
+
+    // Asignar evento de inserción inmediata a cada botón
+    container.querySelectorAll('.macro-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        const mId = chip.getAttribute('data-id');
+        const found = allCannedResponses.find(r => r.id === mId);
+        if (found && inboxMessageInput) {
+          if (inboxMessageInput.value.trim().length > 0) {
+            inboxMessageInput.value += '\n\n' + found.message;
+          } else {
+            inboxMessageInput.value = found.message;
+          }
+          autoResizeComposerTextarea();
+          inboxMessageInput.focus();
+          inboxMessageInput.scrollTop = inboxMessageInput.scrollHeight;
+        }
+      });
+    });
+  }
+
+  // Renderizar tabla administrativa de respuestas rápidas en el Panel TIC
+  function renderCannedResponsesTable() {
+    const tbody = document.getElementById('cannedResponsesTableBody');
+    if (!tbody) return;
+    if (allCannedResponses.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:1.5rem; color:var(--text-muted);">No hay plantillas creadas. Agrega una con el botón "+ Nueva Plantilla".</td></tr>';
+      return;
+    }
+    tbody.innerHTML = allCannedResponses.map(m => {
+      return `
+        <tr>
+          <td><span class="macro-shortcut-tag">${escapeHtml(m.shortcut || m.title)}</span></td>
+          <td><strong>${escapeHtml(m.title)}</strong></td>
+          <td><div class="macro-msg-preview" title="${escapeHtml(m.message)}">${escapeHtml(m.message)}</div></td>
+          <td style="text-align:center;">
+            <div style="display:flex; justify-content:center; gap:0.35rem;">
+              <button class="btn btn-secondary btn-sm" onclick="window.editCannedResponse('${m.id}')" title="Editar plantilla">✏️ Editar</button>
+              <button class="btn btn-secondary btn-sm" onclick="window.deleteCannedResponse('${m.id}')" title="Eliminar plantilla" style="color:#dc2626;">🗑️</button>
+            </div>
+          </td>
+        </tr>
+      `;
+    }).join('');
+  }
 
   let currentInboxPhone = null;
   let currentInboxFilter = 'all'; // 'all', 'mine', 'hot', 'needs_human'
@@ -1636,7 +1782,8 @@ document.addEventListener('DOMContentLoaded', () => {
     inboxConversationsList.innerHTML = list.map(lead => {
       const isSelected = lead.phone_number === currentInboxPhone;
       const initials = getInitials(lead.name || 'Interesado UdeA');
-      const tempIcon = lead.interest_temperature === 'hot' ? '🔥' : (lead.interest_temperature === 'warm' ? '🟡' : '❄️');
+      const tempClass = lead.interest_temperature || 'cold';
+      const tempLabel = tempClass === 'hot' ? 'Prioridad Alta' : (tempClass === 'warm' ? 'Prioridad Media' : 'Prioridad Estándar');
       const safeName = escapeHtml(lead.name || 'Interesado UdeA');
       const safeMsg = escapeHtml(lead.last_message || 'Inició conversación...');
       const safePhone = escapeHtml(lead.phone_number || '');
@@ -1653,7 +1800,7 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
             <div class="conv-preview">${safeMsg}</div>
             <div class="conv-tags">
-              <span class="conv-tag temp">${tempIcon} ${lead.interest_temperature ? lead.interest_temperature.toUpperCase() : 'COLD'}</span>
+              <span class="conv-tag temp ${tempClass}">${tempLabel}</span>
               ${isUrgent ? `<span class="conv-tag req">🚨 Requiere Asesor</span>` : ''}
               ${lead.assigned_advisor && lead.assigned_advisor !== 'Sin Asignar' ? `<span class="conv-tag" style="background:#f1f5f9; color:#475569;">👤 ${escapeHtml(lead.assigned_advisor)}</span>` : ''}
             </div>
@@ -1730,8 +1877,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (inboxActiveTempBadge) {
         const temp = lead.interest_temperature || 'cold';
-        inboxActiveTempBadge.className = `temp-badge ${temp}`;
-        inboxActiveTempBadge.textContent = temp === 'hot' ? '🔥 Alta Intención' : (temp === 'warm' ? '🟡 Media Intención' : '❄️ Consulta General');
+        inboxActiveTempBadge.className = `priority-badge ${temp}`;
+        inboxActiveTempBadge.textContent = temp === 'hot' ? 'Prioridad Alta' : (temp === 'warm' ? 'Prioridad Media' : 'Prioridad Estándar');
       }
 
       // Configurar Toggle de IA
@@ -1853,7 +2000,10 @@ document.addEventListener('DOMContentLoaded', () => {
       const data = await res.json();
 
       if (data.success) {
-        if (inboxMessageInput) inboxMessageInput.value = '';
+        if (inboxMessageInput) {
+          inboxMessageInput.value = '';
+          autoResizeComposerTextarea();
+        }
         // Recargar chat y actualizar lista
         await window.selectInboxLead(currentInboxPhone);
         fetchLeads();
@@ -1872,8 +2022,9 @@ document.addEventListener('DOMContentLoaded', () => {
     btnInboxSendMessage.addEventListener('click', sendAdvisorMessageFromInbox);
   }
 
-  // Enviar con Enter (y shift+enter para salto de línea)
+  // Auto-ajustar altura al escribir y enviar con Enter (y shift+enter para salto de línea)
   if (inboxMessageInput) {
+    inboxMessageInput.addEventListener('input', autoResizeComposerTextarea);
     inboxMessageInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
@@ -1882,22 +2033,119 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Respuestas Rápidas (Macros en 1 clic)
-  macroChips.forEach(chip => {
-    chip.addEventListener('click', () => {
-      const macroKey = chip.getAttribute('data-macro');
-      const macroText = AGENT_MACROS[macroKey];
-      if (macroText && inboxMessageInput) {
-        if (inboxMessageInput.value.trim().length > 0) {
-          inboxMessageInput.value += '\n\n' + macroText;
-        } else {
-          inboxMessageInput.value = macroText;
+  // Handlers para el Modal Administrativo de Respuestas Rápidas (CRUD)
+  const cannedResponseModal = document.getElementById('cannedResponseModal');
+  const btnOpenNewMacroModal = document.getElementById('btnOpenNewMacroModal');
+  const btnCloseCannedModal = document.getElementById('btnCloseCannedModal');
+  const btnCancelCannedModal = document.getElementById('btnCancelCannedModal');
+  const cannedResponseForm = document.getElementById('cannedResponseForm');
+  const cannedModalTitle = document.getElementById('cannedModalTitle');
+  const cannedMacroId = document.getElementById('cannedMacroId');
+  const cannedMacroTitle = document.getElementById('cannedMacroTitle');
+  const cannedMacroShortcut = document.getElementById('cannedMacroShortcut');
+  const cannedMacroMessage = document.getElementById('cannedMacroMessage');
+  const cannedMacroCategory = document.getElementById('cannedMacroCategory');
+
+  function openNewCannedModal() {
+    if (!cannedResponseModal) return;
+    if (cannedModalTitle) cannedModalTitle.textContent = 'Nueva Respuesta Rápida';
+    if (cannedMacroId) cannedMacroId.value = '';
+    if (cannedResponseForm) cannedResponseForm.reset();
+    cannedResponseModal.style.display = 'flex';
+    if (cannedMacroTitle) cannedMacroTitle.focus();
+  }
+
+  function closeCannedModal() {
+    if (cannedResponseModal) cannedResponseModal.style.display = 'none';
+  }
+
+  window.editCannedResponse = (id) => {
+    const item = allCannedResponses.find(r => r.id === id);
+    if (!item || !cannedResponseModal) return;
+    if (cannedModalTitle) cannedModalTitle.textContent = 'Editar Respuesta Rápida';
+    if (cannedMacroId) cannedMacroId.value = item.id;
+    if (cannedMacroTitle) cannedMacroTitle.value = item.title || '';
+    if (cannedMacroShortcut) cannedMacroShortcut.value = item.shortcut || '';
+    if (cannedMacroMessage) cannedMacroMessage.value = item.message || '';
+    if (cannedMacroCategory) cannedMacroCategory.value = item.category || 'general';
+    cannedResponseModal.style.display = 'flex';
+  };
+
+  window.deleteCannedResponse = async (id) => {
+    const item = allCannedResponses.find(r => r.id === id);
+    const title = item ? item.title : id;
+    if (!confirm(`¿Estás seguro de eliminar la respuesta rápida "${title}"? Se actualizará para todos los asesores en tiempo real.`)) {
+      return;
+    }
+    try {
+      const token = localStorage.getItem('udea_auth_token');
+      const res = await fetch(`/api/canned-responses/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
         }
-        inboxMessageInput.focus();
-        inboxMessageInput.scrollTop = inboxMessageInput.scrollHeight;
+      });
+      const data = await res.json();
+      if (data.success) {
+        await loadCannedResponses();
+        loadSystemAdminMetrics();
+      } else {
+        alert('Error eliminando respuesta rápida: ' + (data.error || 'Desconocido'));
+      }
+    } catch (err) {
+      alert('Error de conexión: ' + err.message);
+    }
+  };
+
+  if (btnOpenNewMacroModal) btnOpenNewMacroModal.addEventListener('click', openNewCannedModal);
+  if (btnCloseCannedModal) btnCloseCannedModal.addEventListener('click', closeCannedModal);
+  if (btnCancelCannedModal) btnCancelCannedModal.addEventListener('click', closeCannedModal);
+
+  if (cannedResponseForm) {
+    cannedResponseForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const id = (cannedMacroId.value || '').trim();
+      const payload = {
+        title: (cannedMacroTitle.value || '').trim(),
+        shortcut: (cannedMacroShortcut.value || '').trim(),
+        message: (cannedMacroMessage.value || '').trim(),
+        category: cannedMacroCategory ? cannedMacroCategory.value : 'general'
+      };
+      const token = localStorage.getItem('udea_auth_token');
+      const headers = {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      };
+
+      try {
+        let res;
+        if (id) {
+          res = await fetch(`/api/canned-responses/${encodeURIComponent(id)}`, {
+            method: 'PUT',
+            headers,
+            body: JSON.stringify(payload)
+          });
+        } else {
+          res = await fetch('/api/canned-responses', {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(payload)
+          });
+        }
+        const data = await res.json();
+        if (data.success) {
+          closeCannedModal();
+          await loadCannedResponses();
+          loadSystemAdminMetrics();
+        } else {
+          alert('Error al guardar respuesta rápida: ' + (data.error || 'Desconocido'));
+        }
+      } catch (err) {
+        alert('Error de conexión: ' + err.message);
       }
     });
-  });
+  }
 
   // Toggle de IA Apolo (Pausar / Reanudar bot por conversación)
   if (inboxAiToggleCheck) {
@@ -2067,6 +2315,7 @@ document.addEventListener('DOMContentLoaded', () => {
       loadTelemetry();
       fetchLeads();
       fetchPortfolio();
+      loadCannedResponses();
     } else {
       if (dashboardAppView) dashboardAppView.style.display = 'none';
       if (loginLandingView) loginLandingView.style.display = 'flex';
@@ -2080,6 +2329,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (localStorage.getItem('udea_auth_token')) {
       loadTelemetry();
       fetchLeads();
+      loadCannedResponses();
     }
   }, 7000);
 });

@@ -364,7 +364,7 @@
               <div class="inbox-triage-pills">
                 <button class="triage-pill active" data-filter="all">Todos</button>
                 <button class="triage-pill" data-filter="mine">Mis Casos</button>
-                <button class="triage-pill" data-filter="hot">🔥 Calientes</button>
+                <button class="triage-pill" data-filter="hot">Prioridad Alta</button>
                 <button class="triage-pill" data-filter="needs_human">🚨 Piden Asesor</button>
               </div>
             </div>
@@ -387,7 +387,7 @@
                 <div class="chat-user-meta">
                   <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
                     <h4 id="inboxActiveName" style="margin:0; font-size:1.02rem; font-weight:800; color:var(--udea-dark);">Nombre del Prospecto</h4>
-                    <span id="inboxActiveTempBadge" class="temp-badge hot">🔥 Caliente</span>
+                    <span id="inboxActiveTempBadge" class="temp-badge hot">Prioridad Alta</span>
                   </div>
                   <div style="display:flex; align-items:center; gap:0.5rem; font-size:0.75rem; color:var(--text-muted); margin-top:2px;">
                     <span id="inboxActivePhone">+57 300 000 0000</span>
@@ -430,23 +430,22 @@
 
             <!-- Caja de Redacción / Composer del Asesor -->
             <div class="workspace-composer" id="inboxComposer" style="display:none;">
-              <!-- Barra de Respuestas Rápidas (Macros / Canned Responses en 1 clic) -->
+              <!-- Barra de Respuestas Rápidas (Cargadas dinámicamente desde API) -->
               <div class="macros-bar">
                 <span class="macros-label">⚡ Respuestas Rápidas:</span>
-                <div class="macros-chips-container">
-                  <button class="macro-chip" data-macro="saludo" title="Insertar saludo oficial de Extensión UdeA">👋 Saludo</button>
-                  <button class="macro-chip" data-macro="pago" title="Insertar link oficial de pago AsOne">💳 Pago AsOne</button>
-                  <button class="macro-chip" data-macro="requisitos" title="Insertar requisitos de inscripción">📋 Requisitos</button>
-                  <button class="macro-chip" data-macro="horarios" title="Insertar horarios y modalidades">⏰ Horarios</button>
-                  <button class="macro-chip" data-macro="despedida" title="Insertar despedida cordial">🎓 Despedida</button>
+                <div class="macros-chips-container" id="inboxMacrosContainer">
+                  <button class="macro-chip" data-macro="macro_saludo" title="Insertar saludo oficial de Extensión UdeA">👋 Saludo</button>
+                  <button class="macro-chip" data-macro="macro_requisitos" title="Insertar requisitos de inscripción">📋 Requisitos</button>
+                  <button class="macro-chip" data-macro="macro_horarios" title="Insertar horarios y modalidades">⏰ Horarios</button>
+                  <button class="macro-chip" data-macro="macro_despedida" title="Insertar despedida cordial">🎓 Despedida</button>
                 </div>
               </div>
 
               <!-- Input y Barra de Acciones del Composer -->
               <div class="composer-container-card">
-                <textarea id="inboxMessageInput" class="composer-textarea" rows="2" placeholder="Escribe un mensaje de WhatsApp como asesor... (o haz clic en una respuesta rápida arriba)"></textarea>
+                <textarea id="inboxMessageInput" class="composer-textarea" rows="3" placeholder="Escribe un mensaje de WhatsApp como asesor... (o usa las respuestas rápidas arriba)"></textarea>
                 <div class="composer-action-footer">
-                  <span class="composer-shortcut-hint"><kbd>Enter</kbd> para enviar • <kbd>Shift + Enter</kbd> salto de línea</span>
+                  <span class="composer-shortcut-hint"><kbd>Enter</kbd> enviar • <kbd>Shift + Enter</kbd> salto de línea</span>
                   <button class="btn btn-primary btn-send-wa" id="btnInboxSendMessage" title="Enviar respuesta por WhatsApp">
                     <span>Enviar</span>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
@@ -535,11 +534,11 @@
                 </div>
 
                 <div>
-                  <label class="cust-prop-label" style="display:block; margin-bottom:0.25rem;">Temperatura:</label>
+                  <label class="cust-prop-label" style="display:block; margin-bottom:0.25rem;">Nivel de Prioridad / Interés:</label>
                   <select id="inboxCustTempSelect" class="form-select form-select-sm">
-                    <option value="hot">🔥 Caliente (Alta intención de compra)</option>
-                    <option value="warm">🟡 Tibio (En evaluación de fechas)</option>
-                    <option value="cold">❄️ Frío (Consulta genérica)</option>
+                    <option value="hot">Prioridad Alta (Decisión Inmediata)</option>
+                    <option value="warm">Prioridad Media (En Evaluación)</option>
+                    <option value="cold">Prioridad Estándar (Consulta Informativa)</option>
                   </select>
                 </div>
               </div>
@@ -587,12 +586,12 @@
             </select>
           </div>
           <div class="filter-group">
-            <label>Temperatura:</label>
+            <label>Nivel de Prioridad:</label>
             <select id="crmTempFilter" class="form-select">
               <option value="">Todas las prioridades</option>
-              <option value="hot">Alta</option>
-              <option value="warm">Media</option>
-              <option value="cold">Baja</option>
+              <option value="hot">Prioridad Alta</option>
+              <option value="warm">Prioridad Media</option>
+              <option value="cold">Prioridad Estándar</option>
             </select>
           </div>
           <div class="search-group">
@@ -705,11 +704,11 @@
 
           <div class="analytics-card flex-1">
             <div class="card-head">
-              <h3><svg class="mini-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--udea-emerald); margin-right:4px;"><circle cx="12" cy="12" r="10"/><path d="m4.93 4.93 4.24 4.24"/><path d="m14.83 9.17 4.24-4.24"/><path d="m14.83 14.83 4.24 4.24"/><path d="m9.17 14.83-4.24 4.24"/></svg> Temperatura de Interés</h3>
+              <h3><svg class="mini-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--udea-emerald); margin-right:4px;"><circle cx="12" cy="12" r="10"/><path d="m4.93 4.93 4.24 4.24"/><path d="m14.83 9.17 4.24-4.24"/><path d="m14.83 14.83 4.24 4.24"/><path d="m9.17 14.83-4.24 4.24"/></svg> Nivel de Prioridad / Interés</h3>
               <span class="badge-sub">Intención de Conversión</span>
             </div>
             <div class="chart-bars" id="segTemperatureBars">
-              <div class="bar-row"><span class="bar-label">Cargando temperaturas...</span></div>
+              <div class="bar-row"><span class="bar-label">Cargando prioridades...</span></div>
             </div>
           </div>
         </div>
@@ -731,9 +730,9 @@
               </select>
               <select id="segFilterTempSelect" class="form-select form-select-sm">
                 <option value="">Todas las prioridades</option>
-                <option value="hot">Alta</option>
-                <option value="warm">Media</option>
-                <option value="cold">Baja</option>
+                <option value="hot">Prioridad Alta</option>
+                <option value="warm">Prioridad Media</option>
+                <option value="cold">Prioridad Estándar</option>
               </select>
             </div>
           </div>
@@ -1184,29 +1183,67 @@
 
         </div>
 
-        <!-- Tabla en vivo de Auditoría del Sistema -->
+        <!-- SECCIÓN: GESTIÓN DE RESPUESTAS RÁPIDAS & MACROS DE ASESOR (TIEMPO REAL) -->
+        <div class="card" style="margin-top:1.5rem;">
+          <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
+            <div style="display:flex; align-items:center; gap:0.6rem;">
+              <div class="metric-card-icon-wrap icon-purple" style="width:34px; height:34px;">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+              </div>
+              <div>
+                <h3 style="font-size:1.05rem; font-weight:800; color:var(--udea-dark); margin:0;">Respuestas Rápidas & Plantillas del Asesor</h3>
+                <span style="font-size:0.78rem; color:var(--text-muted);">Sincronizadas en tiempo real en la Bandeja de Entrada de todos los asesores y sesiones</span>
+              </div>
+            </div>
+            <button class="btn btn-primary btn-sm" id="btnOpenNewMacroModal">
+              <svg class="mini-svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              + Nueva Plantilla
+            </button>
+          </div>
+          <div class="card-body" style="padding:0;">
+            <div class="table-responsive">
+              <table class="data-table" id="cannedResponsesTable">
+                <thead>
+                  <tr>
+                    <th style="width:140px;">Atajo / Botón</th>
+                    <th style="width:180px;">Título Oficial</th>
+                    <th>Mensaje Predeterminado</th>
+                    <th style="width:130px; text-align:center;">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="cannedResponsesTableBody">
+                  <tr>
+                    <td colspan="4" style="text-align:center; padding:1.5rem; color:var(--text-muted);">Cargando respuestas rápidas...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- SECCIÓN: BITÁCORA DE AUDITORÍA & TRAZABILIDAD DEL SISTEMA (PROFESIONAL) -->
         <div class="card audit-log-card" style="margin-top:1.5rem;">
           <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
             <div style="display:flex; align-items:center; gap:0.6rem;">
-              <div class="metric-card-icon-wrap icon-green" style="width:32px; height:32px;">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+              <div class="metric-card-icon-wrap icon-green" style="width:34px; height:34px;">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
               </div>
               <div>
-                <h3 style="font-size:1.05rem; font-weight:800; color:var(--udea-dark); margin:0;">Bitácora de Auditoría y Eventos del Sistema</h3>
-                <span style="font-size:0.78rem; color:var(--text-muted);">Monitoreo de seguridad, asignaciones y persistencia en tiempo real</span>
+                <h3 style="font-size:1.05rem; font-weight:800; color:var(--udea-dark); margin:0;">Bitácora de Auditoría & Trazabilidad</h3>
+                <span style="font-size:0.78rem; color:var(--text-muted);">Registro inmutable de seguridad, asignación de casos y persistencia en tiempo real</span>
               </div>
             </div>
             <span class="badge" style="background:#e0f2fe; color:#0369a1; font-weight:700;" id="sysAuditBadgeCount">0 Registros</span>
           </div>
           <div class="card-body" style="padding:0;">
             <div class="table-responsive">
-              <table class="data-table" id="sysAuditTable">
+              <table class="data-table audit-table-styled" id="sysAuditTable">
                 <thead>
                   <tr>
-                    <th style="width:70px;">ID</th>
-                    <th style="width:170px;">Fecha & Hora</th>
-                    <th style="width:200px;">Evento</th>
-                    <th>Detalles Técnicos</th>
+                    <th style="width:65px;">Registro</th>
+                    <th style="width:190px;">Fecha & Hora</th>
+                    <th style="width:210px;">Evento</th>
+                    <th>Detalles & Trazabilidad</th>
                   </tr>
                 </thead>
                 <tbody id="sysAuditTableBody">
@@ -1345,6 +1382,48 @@
             <textarea id="courseDesc" class="form-textarea" rows="3" required placeholder="Contenido temático..."></textarea>
           </div>
           <button type="submit" class="btn btn-primary" style="width: 100%;">Guardar Programa</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal para Agregar/Editar Respuesta Rápida / Macro -->
+  <div class="modal-backdrop" id="cannedResponseModal" style="display: none;">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 id="cannedModalTitle">Nueva Respuesta Rápida</h3>
+        <button class="close-btn" id="btnCloseCannedModal">✕</button>
+      </div>
+      <div class="modal-body">
+        <form id="cannedResponseForm">
+          <input type="hidden" id="cannedMacroId" value="">
+          <div class="form-group">
+            <label>Título Oficial de la Plantilla:</label>
+            <input type="text" id="cannedMacroTitle" class="form-input" required placeholder="Ej: Información de Descuentos">
+          </div>
+          <div class="form-group">
+            <label>Atajo / Texto en el Botón (Chip):</label>
+            <input type="text" id="cannedMacroShortcut" class="form-input" required placeholder="Ej: 🏷️ Descuentos">
+            <small style="color:var(--text-muted); font-size:0.75rem;">Aparecerá en la barra de respuestas rápidas de los asesores.</small>
+          </div>
+          <div class="form-group">
+            <label>Mensaje Predeterminado de WhatsApp:</label>
+            <textarea id="cannedMacroMessage" class="form-textarea" rows="5" required placeholder="Escribe el texto oficial que se insertará en el chat..."></textarea>
+          </div>
+          <div class="form-group">
+            <label>Categoría:</label>
+            <select id="cannedMacroCategory" class="form-select">
+              <option value="general">General</option>
+              <option value="saludos">Saludos & Presentación</option>
+              <option value="inscripcion">Inscripción & Requisitos</option>
+              <option value="academico">Académico & Horarios</option>
+              <option value="cierre">Cierre & Despedida</option>
+            </select>
+          </div>
+          <div style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1.2rem;">
+            <button type="button" class="btn btn-secondary" id="btnCancelCannedModal">Cancelar</button>
+            <button type="submit" class="btn btn-primary" id="btnSaveCannedMacro">Guardar Plantilla</button>
+          </div>
         </form>
       </div>
     </div>
