@@ -1817,6 +1817,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   let currentInboxPhone = null;
+  let currentInboxLead = null;
   let currentInboxFilter = 'all'; // 'all', 'mine', 'hot', 'needs_human'
   let currentInboxSearch = '';
 
@@ -2018,6 +2019,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const data = await res.json();
       const messages = data.messages || [];
       const lead = data.lead || {};
+      currentInboxLead = lead;
 
       // Actualizar Header del Chat (Columna 2)
       const initials = getInitials(lead.name || 'Interesado UdeA');
@@ -2499,25 +2501,72 @@ document.addEventListener('DOMContentLoaded', () => {
   // Copiar link oficial de inscripción y pago del programa de interés con feedback
   if (btnInboxCopyPaymentLink) {
     btnInboxCopyPaymentLink.addEventListener('click', async () => {
-      const activeLead = allLeads.find(l => String(l.id) === String(selectedLeadId));
       let link = 'https://extension.medicinaudea.co/oferta-academica/';
-      if (activeLead && activeLead.program_interest) {
-        const found = allPortfolioItems.find(p => p.title.toLowerCase().includes(activeLead.program_interest.toLowerCase()));
-        if (found && (found.registration_url || found.payment_link)) {
-          link = found.registration_url || found.payment_link;
+
+      // 1. Priorizar enlace ya resuelto en la ficha de cliente
+      if (inboxCustInfoLink && inboxCustInfoLink.href && !inboxCustInfoLink.href.endsWith('#') && inboxCustInfoLink.href !== window.location.href) {
+        link = inboxCustInfoLink.href;
+      } else {
+        // 2. Si no, buscar por el lead activo o por el teléfono actual
+        const lead = currentInboxLead || allLoadedLeads.find(l => l.phone_number === currentInboxPhone);
+        if (lead && lead.program_interest) {
+          const prog = lead.program_interest.toLowerCase();
+          const found = allPortfolioItems.find(p => p.title && p.title.toLowerCase().includes(prog));
+          if (found && (found.registration_url || found.payment_link)) {
+            link = found.registration_url || found.payment_link;
+          }
         }
       }
-      try {
-        await navigator.clipboard.writeText(link);
-        const originalText = btnInboxCopyPaymentLink.textContent;
-        btnInboxCopyPaymentLink.textContent = '✓ ¡Copiado!';
-        btnInboxCopyPaymentLink.style.background = '#059669';
-        setTimeout(() => {
-          btnInboxCopyPaymentLink.textContent = originalText;
-          btnInboxCopyPaymentLink.style.background = '';
-        }, 2000);
-      } catch (e) {
-        prompt('Copia el enlace oficial de matrícula y pago UdeA:', link);
+
+      // Asegurar que nunca sea AsOne
+      if (link.includes('asone')) {
+        link = 'https://extension.medicinaudea.co/oferta-academica/';
+      }
+
+      // Copiado en portapapeles con fallback seguro
+      let copied = false;
+      if (navigator.clipboard && window.isSecureContext) {
+        try {
+          await navigator.clipboard.writeText(link);
+          copied = true;
+        } catch (clipErr) {
+          console.warn('Fallo navigator.clipboard, usando fallback textarea:', clipErr);
+        }
+      }
+
+      if (!copied) {
+        try {
+          const textArea = document.createElement('textarea');
+          textArea.value = link;
+          textArea.style.position = 'fixed';
+          textArea.style.left = '-9999px';
+          textArea.style.top = '-9999px';
+          document.body.appendChild(textArea);
+          textArea.focus();
+          textArea.select();
+          copied = document.execCommand('copy');
+          document.body.removeChild(textArea);
+        } catch (errFallback) {
+          console.warn('Fallo execCommand:', errFallback);
+        }
+      }
+
+      // Feedback visual interactivo en el botón
+      const originalHtml = btnInboxCopyPaymentLink.innerHTML;
+      btnInboxCopyPaymentLink.innerHTML = '✓ ¡Copiado!';
+      btnInboxCopyPaymentLink.style.backgroundColor = '#059669';
+      btnInboxCopyPaymentLink.style.borderColor = '#059669';
+      btnInboxCopyPaymentLink.style.color = '#ffffff';
+
+      setTimeout(() => {
+        btnInboxCopyPaymentLink.innerHTML = originalHtml;
+        btnInboxCopyPaymentLink.style.backgroundColor = '';
+        btnInboxCopyPaymentLink.style.borderColor = '';
+        btnInboxCopyPaymentLink.style.color = '';
+      }, 2500);
+
+      if (!copied) {
+        prompt('Copia el enlace oficial de matrícula y pago de la Facultad de Medicina UdeA:', link);
       }
     });
   }

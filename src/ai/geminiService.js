@@ -291,11 +291,49 @@ ${knowledgeContext}
     const knownEmail = currentLead.email || null;
     const hasData = Boolean(knownName || knownDoc || knownEmail);
 
-    // Detección de intención de pago / inscripción directa
+    // Detección de intenciones específicas de comunicación
     const isPaymentIntent = [
-      'pago', 'pagar', 'inscribir', 'inscribirme', 'inscripcion', 'inscripción',
-      'matricular', 'matricularme', 'matricula', 'matrícula', 'separar cupo',
-      'link de pago', 'enlace de pago', 'link de inscripcion', 'donde pago', 'dónde pago'
+      'como pago', 'donde pago', 'link de pago', 'enlace de pago', 'link de inscripcion', 
+      'como me inscribo', 'inscripcion', 'inscribirme', 'inscribir', 'matricularme', 
+      'matricular', 'matricula', 'separar cupo', 'separar mi cupo', 'pagar', 'pago',
+      'pse', 'tarjeta', 'medios de pago', 'medio de pago', 'forma de pago', 'formas de pago',
+      'metodo de pago', 'metodos de pago', 'transferencia', 'bancolombia', 'efectivo', 'banco',
+      'donde consigno', 'como cancelo'
+    ].some(k => q.includes(k));
+
+    const isDiscountIntent = [
+      'descuento', 'descuentos', 'tarifa especial', 'tarifa diferencial', 'rebaja', 
+      'promocion', 'promociones', 'beca', 'becas', 'convenio', 'convenios'
+    ].some(k => q.includes(k));
+
+    const isPriceIntent = [
+      'cuanto vale', 'cuanto cuesta', 'cual es el costo', 'cual es el valor', 'precio', 
+      'costo', 'inversion', 'tarifa', 'cuanto hay que pagar', 'valor de la matricula'
+    ].some(k => q.includes(k)) && !isDiscountIntent;
+
+    const isSyllabusIntent = [
+      'temario', 'temas', 'contenido', 'que voy a aprender', 'que temas ven', 'modulos', 
+      'modulo', 'pensum', 'materias', 'de que trata', 'descripcion del curso', 'contenido academico'
+    ].some(k => q.includes(k));
+
+    const isScheduleIntent = [
+      'cuando inicia', 'cuando empieza', 'que fecha', 'fechas', 'horario', 'horarios', 
+      'cronograma', 'que dias', 'dias son', 'a que hora', 'duracion', 'cuantas horas', 'cuando es'
+    ].some(k => q.includes(k));
+
+    const isRequirementsIntent = [
+      'requisitos', 'documentos', 'que papeles', 'quienes pueden', 'dirigido a', 
+      'perfil', 'puedo si soy estudiante', 'para quien es', 'exigencias'
+    ].some(k => q.includes(k));
+
+    const isCertIntent = [
+      'certificado', 'certificacion', 'certifican', 'dan certificado', 'validez', 
+      'aval', 'quien certifica', 'titulo', 'horas certificadas'
+    ].some(k => q.includes(k));
+
+    const isThanksIntent = [
+      'gracias', 'muchas gracias', 'mil gracias', 'agradecido', 'listo gracias', 
+      'perfecto gracias', 'vale gracias', 'excelente gracias', 'muchas gracias apolo'
     ].some(k => q.includes(k));
 
     // Detección de solicitud de más información o interés sin especificar curso
@@ -303,22 +341,49 @@ ${knowledgeContext}
       'mas informacion', 'mas info', 'informacion', 'detalles', 'me interesa', 'interesa', 'quiero saber mas'
     ].some(k => q.includes(k));
 
-    // 1. Detectar si el usuario pregunta por un programa específico
+    // 1. Detectar si el usuario pregunta por un programa específico (directo o por contexto previo)
     let detectedProgramTitle = await this.detectProgramFromText(query);
-    if (!detectedProgramTitle && (isMoreInfoIntent || isPaymentIntent)) {
-      // Revisar si en el historial reciente o en la ficha del lead ya había un curso mencionado
-      if (currentLead.program_interest) {
-        detectedProgramTitle = currentLead.program_interest;
-      } else if (currentLead.event_interests) {
-        const lastInterest = currentLead.event_interests.split(',').pop().trim();
-        if (lastInterest) detectedProgramTitle = lastInterest;
-      } else if (Array.isArray(conversationHistory)) {
+    if (!detectedProgramTitle && (isMoreInfoIntent || isPaymentIntent || isPriceIntent || isDiscountIntent || isSyllabusIntent || isScheduleIntent || isRequirementsIntent || isCertIntent)) {
+      // 1.1 Priorizar mensajes previos explícitos del usuario en el historial
+      if (Array.isArray(conversationHistory)) {
         for (let i = conversationHistory.length - 1; i >= 0; i--) {
-          const pastMsg = conversationHistory[i]?.content || '';
-          const detected = await this.detectProgramFromText(pastMsg);
-          if (detected) {
-            detectedProgramTitle = detected;
-            break;
+          const m = conversationHistory[i];
+          if (m && m.sender === 'user' && m.content) {
+            const detected = await this.detectProgramFromText(m.content);
+            if (detected) {
+              detectedProgramTitle = detected;
+              break;
+            }
+          }
+        }
+      }
+
+      // 1.2 Si no se encontró en mensajes previos del usuario, revisar ficha del lead
+      if (!detectedProgramTitle) {
+        if (currentLead.program_interest && 
+            currentLead.program_interest !== 'Por definir' && 
+            currentLead.program_interest !== 'Oferta Institucional General') {
+          detectedProgramTitle = currentLead.program_interest;
+        } else if (currentLead.event_interests) {
+          const validInterests = currentLead.event_interests.split(',')
+            .map(s => s.trim())
+            .filter(s => s && s !== 'Por definir' && s !== 'Oferta Institucional General');
+          if (validInterests.length > 0) {
+            detectedProgramTitle = validInterests[validInterests.length - 1];
+          }
+        }
+      }
+
+      // 1.3 Como fallback, revisar mensajes del bot hacia atrás
+      if (!detectedProgramTitle && Array.isArray(conversationHistory)) {
+        for (let i = conversationHistory.length - 1; i >= 0; i--) {
+          const m = conversationHistory[i];
+          if (m && m.content) {
+            const detected = await this.detectProgramFromText(m.content);
+            if (detected) {
+              detectedProgramTitle = detected;
+              break;
+            }
           }
         }
       }
@@ -333,31 +398,162 @@ ${knowledgeContext}
       ) || items.find(i => 
         detectedProgramTitle.toLowerCase().includes(i.title.toLowerCase())
       );
+
       if (match) {
         const directPaymentLink = (match.payment_link && !match.payment_link.includes('asone'))
           ? match.payment_link
           : (match.registration_link || 'https://extension.medicinaudea.co/oferta-academica/');
+        const salutation = knownName ? ` ${knownName}` : '';
 
-        let reply = `*${match.title}* 🩺✨\n\n`;
-        reply += `📅 *Inicio:* ${match.start_date || 'Inscripciones abiertas'}\n`;
-        reply += `⏰ *Horario:* ${match.schedule || 'Consultar programación oficial'}\n`;
-        reply += `💻 *Modalidad:* ${match.modality}\n`;
-        reply += `💰 *Inversión:* ${match.investment}\n`;
-        reply += `💳 *Enlace directo de inscripción y pago:* ${directPaymentLink}\n`;
-        reply += `✉️ *Contacto:* ${match.contact_email}\n\n`;
-
+        // INTENCIÓN 1: PAGO / MATRÍCULA / CÓMO PAGAR
         if (isPaymentIntent) {
-          reply += `👉 Haz clic directamente en el enlace de inscripción y pago para formalizar tu matrícula en la plataforma oficial UdeA. ¡Te esperamos! 🎓✨`;
-        } else {
-          reply += `👉 Puedes ingresar al enlace oficial para completar tu inscripción y pago en línea. ¿Deseas información adicional sobre los contenidos o requisitos? 💡✨`;
+          return {
+            replyText: `¡Con gusto te oriento con el proceso de pago${salutation}! 💳✨\n\n` +
+              `Para formalizar tu matrícula en *${match.title}*, el proceso es 100% virtual a través del portal oficial de la Universidad de Antioquia:\n\n` +
+              `1️⃣ Ingresa al enlace oficial de pago:\n` +
+              `👉 ${directPaymentLink}\n\n` +
+              `2️⃣ Diligencia el formulario de inscripción con tus datos personales.\n` +
+              `3️⃣ Selecciona tu medio de pago preferido:\n` +
+              `   • 💳 *PSE:* Débito en línea desde cuentas de ahorros/corriente en Colombia.\n` +
+              `   • 💳 *Tarjeta de Crédito / Débito:* Visa, Mastercard, American Express.\n` +
+              `   • 🏦 *Factura bancaria:* Con código de barras para pago en ventanillas autorizadas.\n\n` +
+              `💰 *Inversión oficial:* ${match.investment}\n` +
+              `📅 *Fecha de inicio:* ${match.start_date || 'Inscripciones abiertas'}\n\n` +
+              `¿Tienes alguna duda con la documentación requerida o necesitas apoyo adicional con la facturación? 🩺💡`,
+            detectedProgram: match.title,
+            requestAdvisor: false
+          };
         }
 
+        // INTENCIÓN 2: PRECIO / COSTO / INVERSIÓN
+        if (isPriceIntent) {
+          return {
+            replyText: `¡Hola${salutation}! 💰🩺 La inversión oficial para *${match.title}* es de *${match.investment}*.\n\n` +
+              `🎓 *Tu matrícula incluye:*\n` +
+              `• Acceso a las sesiones académicas y plataforma virtual UdeA.\n` +
+              `• Materiales de estudio y memorias en video.\n` +
+              `• Certificado oficial expedido por la *Facultad de Medicina UdeA* (${match.duration_hours} horas).\n\n` +
+              `💳 *Enlace directo de inscripción y pago:* ${directPaymentLink}\n\n` +
+              `¿Te gustaría conocer los medios de pago disponibles (PSE, tarjetas) o el cronograma de fechas? 💡✨`,
+            detectedProgram: match.title,
+            requestAdvisor: false
+          };
+        }
+
+        // INTENCIÓN 2.5: DESCUENTOS / TARIFAS DIFERENCIALES
+        if (isDiscountIntent) {
+          return {
+            replyText: `¡Hola${salutation}! 🎓✨ En la Facultad de Medicina UdeA contamos con tarifas diferenciales y beneficios en programas seleccionados para:\n\n` +
+              `• 🎓 *Egresados UdeA:* Tarifa preferencial institucional.\n` +
+              `• 👨‍⚕️ *Comunidad Universitaria (Estudiantes y Docentes UdeA):* Descuento aplicable en programas autorizados.\n` +
+              `• 🏥 *Grupos Institucionales e IPS:* A partir de 3 o más participantes de una misma entidad.\n\n` +
+              `💰 *Inversión oficial estándar:* ${match.investment}\n` +
+              `💳 *Enlace directo de inscripción y pago:* ${directPaymentLink}\n\n` +
+              `Para aplicar tu beneficio antes de generar el pago, indícanos a cuál grupo perteneces o escribe a *aprendizajes.med@udea.edu.co* con tu soporte. ¿A cuál de estos perfiles aplicas? 🩺💡`,
+            detectedProgram: match.title,
+            requestAdvisor: false
+          };
+        }
+
+        // INTENCIÓN 3: TEMARIO / CONTENIDOS / QUÉ APRENDERÁ
+        if (isSyllabusIntent) {
+          return {
+            replyText: `¡Excelente elección${salutation}! 📚🩺 En *${match.title}* profundizarás en:\n\n` +
+              `📖 *Ejes temáticos principales:*\n${match.description}\n\n` +
+              `💻 *Modalidad:* ${match.modality}\n` +
+              `⏳ *Intensidad horaria:* ${match.duration_hours} horas académicas certificadas.\n\n` +
+              `💳 *Enlace directo de inscripción y pago:* ${directPaymentLink}\n\n` +
+              `¿Deseas conocer los horarios específicos de las clases o cómo asegurar tu lugar? 💡✨`,
+            detectedProgram: match.title,
+            requestAdvisor: false
+          };
+        }
+
+        // INTENCIÓN 4: FECHAS / HORARIOS / CRONOGRAMA
+        if (isScheduleIntent) {
+          return {
+            replyText: `¡Claro que sí${salutation}! 📅🩺 Esta es la programación oficial para *${match.title}*:\n\n` +
+              `📅 *Fecha de inicio:* ${match.start_date || 'Inscripciones abiertas'}\n` +
+              `⏰ *Horario de clases:* ${match.schedule || 'Consultar programación oficial'}\n` +
+              `💻 *Modalidad:* ${match.modality}\n` +
+              `⏳ *Duración:* ${match.duration_hours} horas académicas certificadas\n\n` +
+              `💳 *Enlace directo de inscripción y pago:* ${directPaymentLink}\n\n` +
+              `Los cupos son limitados para garantizar calidad académica. ¿Deseas asegurar tu cupo antes del cierre? 💡✨`,
+            detectedProgram: match.title,
+            requestAdvisor: false
+          };
+        }
+
+        // INTENCIÓN 5: REQUISITOS / DIRIGIDO A / DOCUMENTOS
+        if (isRequirementsIntent) {
+          return {
+            replyText: `¡Hola${salutation}! 📋✨ Estos son los requisitos y el perfil para *${match.title}*:\n\n` +
+              `👥 *Dirigido a:* ${match.target_audience}\n\n` +
+              `📄 *Documentos requeridos:*\n` +
+              `1. Documento de identidad al 150%.\n` +
+              `2. Copia de acta de grado, tarjeta profesional o constancia académica según aplique.\n` +
+              `3. Comprobante de pago generado por la plataforma oficial UdeA.\n\n` +
+              `💳 *Enlace directo de inscripción y pago:* ${directPaymentLink}\n\n` +
+              `¿Cuentas con la documentación o requieres apoyo para radicarla? 🩺💡`,
+            detectedProgram: match.title,
+            requestAdvisor: false
+          };
+        }
+
+        // INTENCIÓN 6: CERTIFICACIÓN / AVAL UDEA
+        if (isCertIntent) {
+          return {
+            replyText: `¡Totalmente${salutation}! 🎓📜 Al culminar satisfactoriamente *${match.title}*, recibirás:\n\n` +
+              `✨ *Certificado oficial* emitido por la *Facultad de Medicina de la Universidad de Antioquia*.\n` +
+              `⏱️ Certificación por *${match.duration_hours} horas académicas* de educación continua en salud.\n\n` +
+              `💰 *Inversión:* ${match.investment}\n` +
+              `💳 *Enlace directo de inscripción y pago:* ${directPaymentLink}\n\n` +
+              `¿Deseas completar tu matrícula para asegurar tu cupo en esta cohorte? 🩺✨`,
+            detectedProgram: match.title,
+            requestAdvisor: false
+          };
+        }
+
+        // INTENCIÓN 7: PRESENTACIÓN COMPLETA INICIAL DEL CURSO
         return {
-          replyText: reply,
+          replyText: `¡Con mucho gusto${salutation}! Te comparto los detalles oficiales de *${match.title}* 🩺✨:\n\n` +
+            `📅 *Inicio:* ${match.start_date || 'Inscripciones abiertas'}\n` +
+            `⏰ *Horario:* ${match.schedule || 'Consultar programación oficial'}\n` +
+            `💻 *Modalidad:* ${match.modality}\n` +
+            `💰 *Inversión:* ${match.investment}\n` +
+            `💳 *Enlace directo de inscripción y pago:* ${directPaymentLink}\n` +
+            `✉️ *Contacto:* ${match.contact_email}\n\n` +
+            `👉 Puedes ingresar al enlace para asegurar tu cupo y realizar el pago en línea. ¿Deseas información puntual sobre el temario o los requisitos de inscripción? 💡✨`,
           detectedProgram: match.title,
           requestAdvisor: false
         };
       }
+    }
+
+    // Si manifestó intención de agradecimiento
+    if (isThanksIntent) {
+      const salutation = knownName ? ` ${knownName}` : '';
+      return {
+        replyText: `¡Con el mayor de los gustos${salutation}! 🩺✨ En el Centro de Extensión de la Facultad de Medicina UdeA estamos para acompañarte en tu crecimiento profesional. Si tienes alguna otra duda o requieres asistencia con tu matrícula, ¡aquí estaré para ayudarte! ¡Muchos éxitos! 🎓👋`,
+        detectedProgram: null,
+        requestAdvisor: false
+      };
+    }
+
+    // Si preguntó cómo pagar pero no se ha identificado ningún curso
+    if (isPaymentIntent) {
+      const salutation = knownName ? ` ${knownName}` : '';
+      return {
+        replyText: `¡Con el mayor gusto te oriento con el pago${salutation}! 💳✨\n\n` +
+          `Para darte el enlace directo oficial y el valor exacto de la matrícula, ¿en cuál de nuestros programas de la Facultad de Medicina UdeA te gustaría inscribirte hoy?\n\n` +
+          `• 🎓 *Curso de Actualización en Anestesiología 2026*\n` +
+          `• 🎓 *Diplomado en Medicina del Sueño*\n` +
+          `• 🎓 *VIII Curso de Actualización en Ortopedia 2026*\n` +
+          `• 🎓 *Tópicos selectos de infectología*\n\n` +
+          `Indícame cuál es de tu interés y de inmediato te comparto el enlace de pago directo y el paso a paso. 🩺💡`,
+        detectedProgram: null,
+        requestAdvisor: false
+      };
     }
 
     // 2. Si pregunta por programas no ofertados en extensión UdeA
