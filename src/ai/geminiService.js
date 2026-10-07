@@ -400,9 +400,7 @@ ${knowledgeContext}
       );
 
       if (match) {
-        const directPaymentLink = (match.payment_link && !match.payment_link.includes('asone'))
-          ? match.payment_link
-          : (match.registration_link || 'https://extension.medicinaudea.co/oferta-academica/');
+        const directPaymentLink = match.payment_link || match.registration_link || 'https://extension.medicinaudea.co/oferta-academica/';
         const salutation = knownName ? ` ${knownName}` : '';
 
         // INTENCIÓN 1: PAGO / MATRÍCULA / CÓMO PAGAR

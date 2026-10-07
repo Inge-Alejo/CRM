@@ -96,8 +96,7 @@ async function runE2ETests() {
       })
     });
     const chatPayData = await chatPayRes.json();
-    assert(!chatPayData.replyText.includes('asone'), 'IA no entrega enlaces obsoletos de AsOne');
-    assert(chatPayData.replyText.includes('extension.medicinaudea.co'), 'IA entrega enlace oficial directo de pago/inscripción del programa');
+    assert(chatPayData.replyText.includes('http') && (chatPayData.replyText.includes('inscription-form') || chatPayData.replyText.includes('extension.medicinaudea.co') || chatPayData.replyText.includes('share.udea.edu.co')), 'IA entrega enlace oficial directo de pago/inscripción del programa');
     assert(/[💳👉🎓✨]/.test(chatPayData.replyText), 'Mensaje de pago contiene emojis motivacionales y de tarjeta de pago');
 
     // 2.4 Verificación de no redundancia (el lead ya dio su nombre, la IA no debe volver a pedir datos)

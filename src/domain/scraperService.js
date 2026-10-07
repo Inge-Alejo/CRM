@@ -290,8 +290,41 @@ export class ScraperService {
       schedule = 'Sábados intensivos en Centro de Simulación Médica Robledo';
     }
 
-    // 4. Enlace directo de inscripción y pago oficial del programa
-    const paymentLink = eventUrl;
+    // 4. Extraer el enlace directo oficial del botón donde dice "Inscripciones", "Inscribirse" o "Pagar"
+    let directPaymentLink = null;
+    const linkMatches = [...html.matchAll(/<a\s+[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi)];
+
+    for (const m of linkMatches) {
+      const href = m[1].replace(/&amp;/g, '&').trim();
+      const text = m[2].replace(/<[^>]+>/g, '').trim();
+
+      if (/calendar\.google\.com/i.test(href)) continue;
+
+      // Prioridad 1: Botón con texto explícito de Inscripción / Inscribirse / Pagar
+      if (/inscri|pag|matricul/i.test(text)) {
+        if (href.startsWith('http')) {
+          directPaymentLink = href;
+          break;
+        }
+      }
+    }
+
+    // Fallback 1: Si no hizo match por texto, buscar patrones de pasarela / portafolio UdeA en href
+    if (!directPaymentLink) {
+      for (const m of linkMatches) {
+        const href = m[1].replace(/&amp;/g, '&').trim();
+        if (/calendar\.google\.com/i.test(href)) continue;
+        if (href.includes('catalog/inscription-form') || href.includes('share.udea.edu.co') || href.includes('forms.office.com') || href.includes('sap/bc/webdynpro') || href.includes('/catalog/')) {
+          directPaymentLink = href;
+          break;
+        }
+      }
+    }
+
+    // Fallback 2: Si no tiene botón de inscripción específico, enlace del evento
+    if (!directPaymentLink) {
+      directPaymentLink = eventUrl;
+    }
 
     return {
       code,
@@ -303,8 +336,8 @@ export class ScraperService {
       investment,
       start_date: startDate,
       schedule,
-      registration_link: eventUrl, // Enlace oficial del programa
-      payment_link: paymentLink,   // Enlace directo de inscripción y pago del programa de interés
+      registration_link: eventUrl,           // Enlace a la página informativa del programa
+      payment_link: directPaymentLink,       // Enlace directo del botón oficial de Inscripción y Pago
       contact_email: 'aprendizajes.med@udea.edu.co',
       description
     };

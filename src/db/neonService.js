@@ -319,7 +319,20 @@ export class NeonService {
         ${data.modality || ''}, ${data.duration_hours || 0}, ${data.investment || ''},
         ${data.registration_link || ''}, ${data.payment_link || ''}, ${data.contact_email || ''},
         ${data.description || ''}, ${data.start_date || ''}, ${data.schedule || ''}, 1
-      ) ON CONFLICT (code) DO NOTHING;
+      ) ON CONFLICT (code) DO UPDATE SET
+        title = EXCLUDED.title,
+        category = EXCLUDED.category,
+        target_audience = EXCLUDED.target_audience,
+        modality = EXCLUDED.modality,
+        duration_hours = EXCLUDED.duration_hours,
+        investment = EXCLUDED.investment,
+        registration_link = EXCLUDED.registration_link,
+        payment_link = EXCLUDED.payment_link,
+        contact_email = EXCLUDED.contact_email,
+        description = EXCLUDED.description,
+        start_date = EXCLUDED.start_date,
+        schedule = EXCLUDED.schedule,
+        is_active = 1;
     `;
   }
 

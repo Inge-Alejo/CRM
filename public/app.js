@@ -1855,6 +1855,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const inboxCustArea = document.getElementById('inboxCustArea');
   const inboxCustProgram = document.getElementById('inboxCustProgram');
   const btnInboxCopyPaymentLink = document.getElementById('btnInboxCopyPaymentLink');
+  const inboxCustPaymentDirectLink = document.getElementById('inboxCustPaymentDirectLink');
   const inboxCustInfoLink = document.getElementById('inboxCustInfoLink');
   const inboxCustStatusSelect = document.getElementById('inboxCustStatusSelect');
   const inboxCustAdvisorSelect = document.getElementById('inboxCustAdvisorSelect');
@@ -2104,11 +2105,25 @@ document.addEventListener('DOMContentLoaded', () => {
       if (inboxCustArea) inboxCustArea.textContent = lead.thematic_area || 'Clínica General';
       if (inboxCustProgram) inboxCustProgram.textContent = lead.program_interest || 'Oferta Institucional General';
 
-      // Enlace directo de inscripción y pago del programa de interés
+      // Enlaces oficiales: Pago directo (formulario de inscripción) e Info general del programa
+      const foundCourse = allPortfolioItems.find(p => p.title.toLowerCase().includes((lead.program_interest || '').toLowerCase()));
+
+      if (inboxCustPaymentDirectLink) {
+        if (foundCourse && (foundCourse.payment_link || foundCourse.registration_url)) {
+          inboxCustPaymentDirectLink.href = foundCourse.payment_link || foundCourse.registration_url;
+          inboxCustPaymentDirectLink.style.display = 'inline-flex';
+        } else {
+          inboxCustPaymentDirectLink.href = 'https://extension.medicinaudea.co/oferta-academica/';
+          inboxCustPaymentDirectLink.style.display = 'inline-flex';
+        }
+      }
+
       if (inboxCustInfoLink) {
-        const foundCourse = allPortfolioItems.find(p => p.title.toLowerCase().includes((lead.program_interest || '').toLowerCase()));
-        if (foundCourse && (foundCourse.registration_url || foundCourse.payment_link)) {
-          inboxCustInfoLink.href = foundCourse.registration_url || foundCourse.payment_link;
+        if (foundCourse && (foundCourse.registration_link || foundCourse.specific_url)) {
+          inboxCustInfoLink.href = foundCourse.registration_link || foundCourse.specific_url;
+          inboxCustInfoLink.style.display = 'inline-flex';
+        } else if (foundCourse && foundCourse.registration_url) {
+          inboxCustInfoLink.href = foundCourse.registration_url;
           inboxCustInfoLink.style.display = 'inline-flex';
         } else {
           inboxCustInfoLink.href = 'https://extension.medicinaudea.co/oferta-academica/';
@@ -2501,25 +2516,31 @@ document.addEventListener('DOMContentLoaded', () => {
   // Copiar link oficial de inscripción y pago del programa de interés con feedback
   if (btnInboxCopyPaymentLink) {
     btnInboxCopyPaymentLink.addEventListener('click', async () => {
-      let link = 'https://extension.medicinaudea.co/oferta-academica/';
+      let link = null;
 
-      // 1. Priorizar enlace ya resuelto en la ficha de cliente
-      if (inboxCustInfoLink && inboxCustInfoLink.href && !inboxCustInfoLink.href.endsWith('#') && inboxCustInfoLink.href !== window.location.href) {
-        link = inboxCustInfoLink.href;
-      } else {
-        // 2. Si no, buscar por el lead activo o por el teléfono actual
-        const lead = currentInboxLead || allLoadedLeads.find(l => l.phone_number === currentInboxPhone);
-        if (lead && lead.program_interest) {
-          const prog = lead.program_interest.toLowerCase();
-          const found = allPortfolioItems.find(p => p.title && p.title.toLowerCase().includes(prog));
-          if (found && (found.registration_url || found.payment_link)) {
-            link = found.registration_url || found.payment_link;
-          }
+      // 1. Priorizar el enlace directo oficial del formulario de inscripción y pago del curso
+      const lead = currentInboxLead || allLoadedLeads.find(l => l.phone_number === currentInboxPhone);
+      if (lead && lead.program_interest) {
+        const prog = lead.program_interest.toLowerCase();
+        const found = allPortfolioItems.find(p => p.title && p.title.toLowerCase().includes(prog));
+        if (found && found.payment_link) {
+          link = found.payment_link;
+        } else if (found && (found.registration_url || found.registration_link)) {
+          link = found.registration_url || found.registration_link;
         }
       }
 
-      // Asegurar que nunca sea AsOne
-      if (link.includes('asone')) {
+      // 2. Si no, tomar del botón directo de pago en Customer 360
+      if (!link && inboxCustPaymentDirectLink && inboxCustPaymentDirectLink.href && !inboxCustPaymentDirectLink.href.endsWith('#') && inboxCustPaymentDirectLink.href !== window.location.href) {
+        link = inboxCustPaymentDirectLink.href;
+      }
+
+      // 3. Fallback al enlace informativo del curso
+      if (!link && inboxCustInfoLink && inboxCustInfoLink.href && !inboxCustInfoLink.href.endsWith('#') && inboxCustInfoLink.href !== window.location.href) {
+        link = inboxCustInfoLink.href;
+      }
+
+      if (!link) {
         link = 'https://extension.medicinaudea.co/oferta-academica/';
       }
 
