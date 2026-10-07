@@ -1355,7 +1355,7 @@ document.addEventListener('DOMContentLoaded', () => {
         schedule: document.getElementById('courseSchedule').value.trim(),
         description: document.getElementById('courseDesc').value.trim(),
         registration_link: (document.getElementById('courseRegLink') && document.getElementById('courseRegLink').value.trim()) || 'https://extension.medicinaudea.co',
-        payment_link: (document.getElementById('coursePaymentLink') && document.getElementById('coursePaymentLink').value.trim()) || 'https://asone.udea.edu.co/portafolio/',
+        payment_link: (document.getElementById('coursePaymentLink') && document.getElementById('coursePaymentLink').value.trim()) || (document.getElementById('courseRegLink') && document.getElementById('courseRegLink').value.trim()) || 'https://extension.medicinaudea.co/oferta-academica/',
         contact_email: 'aprendizajes.med@udea.edu.co'
       };
 
@@ -2102,14 +2102,14 @@ document.addEventListener('DOMContentLoaded', () => {
       if (inboxCustArea) inboxCustArea.textContent = lead.thematic_area || 'Clínica General';
       if (inboxCustProgram) inboxCustProgram.textContent = lead.program_interest || 'Oferta Institucional General';
 
-      // Enlace de ficha informativa si coincide con el portafolio
+      // Enlace directo de inscripción y pago del programa de interés
       if (inboxCustInfoLink) {
         const foundCourse = allPortfolioItems.find(p => p.title.toLowerCase().includes((lead.program_interest || '').toLowerCase()));
-        if (foundCourse && foundCourse.registration_url) {
-          inboxCustInfoLink.href = foundCourse.registration_url;
+        if (foundCourse && (foundCourse.registration_url || foundCourse.payment_link)) {
+          inboxCustInfoLink.href = foundCourse.registration_url || foundCourse.payment_link;
           inboxCustInfoLink.style.display = 'inline-flex';
         } else {
-          inboxCustInfoLink.href = 'https://asone.udea.edu.co/';
+          inboxCustInfoLink.href = 'https://extension.medicinaudea.co/oferta-academica/';
           inboxCustInfoLink.style.display = 'inline-flex';
         }
       }
@@ -2496,10 +2496,17 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Copiar link oficial de pago AsOne UdeA con feedback
+  // Copiar link oficial de inscripción y pago del programa de interés con feedback
   if (btnInboxCopyPaymentLink) {
     btnInboxCopyPaymentLink.addEventListener('click', async () => {
-      const link = 'https://asone.udea.edu.co/';
+      const activeLead = allLeads.find(l => String(l.id) === String(selectedLeadId));
+      let link = 'https://extension.medicinaudea.co/oferta-academica/';
+      if (activeLead && activeLead.program_interest) {
+        const found = allPortfolioItems.find(p => p.title.toLowerCase().includes(activeLead.program_interest.toLowerCase()));
+        if (found && (found.registration_url || found.payment_link)) {
+          link = found.registration_url || found.payment_link;
+        }
+      }
       try {
         await navigator.clipboard.writeText(link);
         const originalText = btnInboxCopyPaymentLink.textContent;
@@ -2510,7 +2517,7 @@ document.addEventListener('DOMContentLoaded', () => {
           btnInboxCopyPaymentLink.style.background = '';
         }, 2000);
       } catch (e) {
-        prompt('Copia el enlace de pago oficial de AsOne:', link);
+        prompt('Copia el enlace oficial de matrícula y pago UdeA:', link);
       }
     });
   }

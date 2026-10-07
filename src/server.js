@@ -574,7 +574,7 @@ app.post('/api/knowledge', requireAdmin, async (req, res) => {
       start_date: SecurityGuardrails.sanitizeInput(start_date || 'Inicia: Noviembre 2026'),
       schedule: SecurityGuardrails.sanitizeInput(schedule || 'Encuentros sincrónicos virtuales'),
       registration_link: SecurityGuardrails.sanitizeInput(registration_link),
-      payment_link: SecurityGuardrails.sanitizeInput(payment_link || 'https://asone.udea.edu.co/portafolio/'),
+      payment_link: SecurityGuardrails.sanitizeInput(payment_link || registration_link || 'https://extension.medicinaudea.co/oferta-academica/'),
       contact_email: SecurityGuardrails.sanitizeInput(contact_email),
       description: SecurityGuardrails.sanitizeInput(description)
     });

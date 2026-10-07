@@ -79,8 +79,8 @@ export class GeminiService {
     // 6. Detección de solicitud de asesor humano
     const advisorKeywords = [
       'asesor', 'humano', 'persona', 'comunícame', 'comunicame', 
-      'llámame', 'llamame', 'teléfono', 'telefono', 'hablar con alguien', 
-      'reclamo', 'problema con el pago', 'queja', 'matricularme ya'
+      'llámame', 'llamame', 'hablar con alguien', 
+      'reclamo', 'problema con el pago', 'queja'
     ];
     const isRequestingAdvisor = advisorKeywords.some(keyword => 
       sanitizedMsg.toLowerCase().includes(keyword)
@@ -162,10 +162,11 @@ ESTADO DEL PROSPECTO EN EL CRM (DATOS YA REGISTRADOS):
 
 REGLAS CRÍTICAS DE COMUNICACIÓN Y EFICIENCIA DE TOKENS:
 1. EXTREMA CONCISIÓN Y DIRECTO AL GRANO: Tus respuestas deben tener MÁXIMO entre 60 y 90 palabras. Ahorra tokens al máximo. Evita saludos redundantes, explicaciones extensas, rodeos y despedidas largas.
-2. INTEGRIDAD DE RESPUESTAS Y ENLACES: NUNCA dejes oraciones incompletas ni enlaces cortados a la mitad. Escribe siempre la URL completa (ej: https://extension.medicinaudea.co o https://asone.udea.edu.co/portafolio/#/catalog/...).
-3. DIFERENCIACIÓN INTELIGENTE DE ENLACES (INFORMACIÓN VS. PAGO DIRECTO):
-   - Si el usuario solicita detalles, información general, temario o características del programa: Comparte el 'ENLACE DE INFORMACIÓN (EXTENSIÓN)' (ej: https://extension.medicinaudea.co/eventos/...).
-   - Si el usuario manifiesta intención de PAGAR, MATRICULARSE, INSCRIBIRSE o SEPARAR CUPO (ej: "quiero pagar", "dónde me inscribo", "cómo pago", "link de inscripción", "quiero matricularme"): Comparte DIRECTAMENTE el 'ENLACE DE PAGO / INSCRIPCIÓN DIRECTA' correspondiente (extraído del botón oficial de inscripciones en asone.udea.edu.co).
+2. INTEGRIDAD DE RESPUESTAS Y ENLACES: NUNCA dejes oraciones incompletas ni enlaces cortados a la mitad. Escribe siempre la URL completa oficial (ej: https://extension.medicinaudea.co/eventos/anestesiologia/).
+3. ENLACE DIRECTO DE INSCRIPCIÓN Y PAGO DEL PROGRAMA:
+   - Comparte SIEMPRE el enlace del programa de interés consultado (ej: https://extension.medicinaudea.co/eventos/anestesiologia/).
+   - ESTÁ TOTALMENTE PROHIBIDO generar o enviar enlaces que contengan 'asone.udea.edu.co' o mencionar AsOne (dicho portal no está en funcionamiento).
+   - NUNCA pongas el enlace como un simple link de información; preséntalo DIRECTAMENTE como el enlace oficial para realizar la inscripción y pago del curso o diplomado (ej: 💳 *Enlace directo de inscripción y pago:* https://extension.medicinaudea.co/eventos/...).
 4. REGLA ESTRICTA DE CAPTURA DE DATOS (NUNCA DUPLICAR TRABAJO AL USUARIO):
    - ${hasFullIdentity || knownName ? `ATENCIÓN: El usuario YA SUMINISTRÓ sus datos (${knownName || 'Usuario'}${knownDoc ? ', ' + knownDoc : ''}${knownEmail ? ', ' + knownEmail : ''}). ESTÁ TOTALMENTE PROHIBIDO volver a pedirle nombre, documento, correo o perfil. Trátalo respetuosamente por su nombre y responde directo a su inquietud.` : `Si el usuario NO ha dado sus datos, NO los pidas de inmediato en el saludo inicial. Pídelos amablemente SOLO cuando demuestre interés puntual o solicite inscribirse en un programa, solicitando únicamente los que falten.`}
    - Si el usuario dice "me interesa más información", "más info" o similar tras haberle listado cursos o diplomados:
@@ -304,13 +305,22 @@ ${knowledgeContext}
 
     // 1. Detectar si el usuario pregunta por un programa específico
     let detectedProgramTitle = await this.detectProgramFromText(query);
-    if (!detectedProgramTitle && isMoreInfoIntent) {
+    if (!detectedProgramTitle && (isMoreInfoIntent || isPaymentIntent)) {
       // Revisar si en el historial reciente o en la ficha del lead ya había un curso mencionado
       if (currentLead.program_interest) {
         detectedProgramTitle = currentLead.program_interest;
       } else if (currentLead.event_interests) {
         const lastInterest = currentLead.event_interests.split(',').pop().trim();
         if (lastInterest) detectedProgramTitle = lastInterest;
+      } else if (Array.isArray(conversationHistory)) {
+        for (let i = conversationHistory.length - 1; i >= 0; i--) {
+          const pastMsg = conversationHistory[i]?.content || '';
+          const detected = await this.detectProgramFromText(pastMsg);
+          if (detected) {
+            detectedProgramTitle = detected;
+            break;
+          }
+        }
       }
     }
 
@@ -324,24 +334,22 @@ ${knowledgeContext}
         detectedProgramTitle.toLowerCase().includes(i.title.toLowerCase())
       );
       if (match) {
+        const directPaymentLink = (match.payment_link && !match.payment_link.includes('asone'))
+          ? match.payment_link
+          : (match.registration_link || 'https://extension.medicinaudea.co/oferta-academica/');
+
         let reply = `*${match.title}* 🩺✨\n\n`;
         reply += `📅 *Inicio:* ${match.start_date || 'Inscripciones abiertas'}\n`;
         reply += `⏰ *Horario:* ${match.schedule || 'Consultar programación oficial'}\n`;
         reply += `💻 *Modalidad:* ${match.modality}\n`;
         reply += `💰 *Inversión:* ${match.investment}\n`;
-        
-        if (isPaymentIntent) {
-          reply += `💳 *Enlace de Pago e Inscripción:* ${match.payment_link || match.registration_link}\n`;
-        } else {
-          reply += `🔗 *Más Información:* ${match.registration_link}\n`;
-        }
-        
+        reply += `💳 *Enlace directo de inscripción y pago:* ${directPaymentLink}\n`;
         reply += `✉️ *Contacto:* ${match.contact_email}\n\n`;
-        
+
         if (isPaymentIntent) {
-          reply += `👉 Haz clic en el enlace de pago para formalizar tu matrícula en la plataforma oficial UdeA. ¡Te esperamos! 🎓✨`;
+          reply += `👉 Haz clic directamente en el enlace de inscripción y pago para formalizar tu matrícula en la plataforma oficial UdeA. ¡Te esperamos! 🎓✨`;
         } else {
-          reply += `¿Deseas el enlace directo de inscripción y pago para formalizar tu matrícula? 💳✨`;
+          reply += `👉 Puedes ingresar al enlace oficial para completar tu inscripción y pago en línea. ¿Deseas información adicional sobre los contenidos o requisitos? 💡✨`;
         }
 
         return {

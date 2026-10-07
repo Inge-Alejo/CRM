@@ -28,7 +28,7 @@ const DEFAULT_RESPONSES = [
     id: 'macro_requisitos',
     title: 'Requisitos de Inscripción',
     shortcut: '📋 Requisitos',
-    message: '📋 Requisitos de Inscripción:\n1. Copia de documento de identidad al 150%.\n2. Acta de grado o tarjeta profesional (según el perfil requerido del curso).\n3. Comprobante de pago emitido por AsOne UdeA.\n\n¿Tienes alguna duda sobre la documentación?',
+    message: '📋 Requisitos de Inscripción:\n1. Copia de documento de identidad al 150%.\n2. Acta de grado o tarjeta profesional (según el perfil requerido del curso).\n3. Comprobante de pago oficial emitido por la UdeA.\n\n¿Tienes alguna duda sobre la documentación?',
     category: 'inscripcion',
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString()

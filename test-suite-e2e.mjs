@@ -86,7 +86,7 @@ async function runE2ETests() {
     assert(chatInfoData.replyText.includes('extension.medicinaudea.co') || chatInfoData.replyText.includes('http'), 'IA proporciona enlace informativo oficial');
     assert(/[🩺📅⏰💻💰💳✨🎓]/.test(chatInfoData.replyText), 'Ficha de programa enriquecida con emojis de fechas, horarios e inversión');
 
-    // 2.3 Intención explícita de pago / matrícula (debe dar enlace de pago directo AsOne)
+    // 2.3 Intención explícita de pago / matrícula (debe dar enlace directo del programa sin AsOne)
     const chatPayRes = await fetch(`${BASE_URL}/api/simulator/send`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -96,8 +96,8 @@ async function runE2ETests() {
       })
     });
     const chatPayData = await chatPayRes.json();
-    const hasPaymentLink = chatPayData.replyText.includes('asone.udea.edu.co') || chatPayData.replyText.includes('extension.medicinaudea.co');
-    assert(hasPaymentLink, 'IA entrega enlace directo de pago/inscripción para separar cupo');
+    assert(!chatPayData.replyText.includes('asone'), 'IA no entrega enlaces obsoletos de AsOne');
+    assert(chatPayData.replyText.includes('extension.medicinaudea.co'), 'IA entrega enlace oficial directo de pago/inscripción del programa');
     assert(/[💳👉🎓✨]/.test(chatPayData.replyText), 'Mensaje de pago contiene emojis motivacionales y de tarjeta de pago');
 
     // 2.4 Verificación de no redundancia (el lead ya dio su nombre, la IA no debe volver a pedir datos)

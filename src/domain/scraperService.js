@@ -290,26 +290,8 @@ export class ScraperService {
       schedule = 'Sábados intensivos en Centro de Simulación Médica Robledo';
     }
 
-    // 4. Extraer enlace exacto de inscripción / pago desde el botón de inscripción oficial (ej: asone.udea.edu.co)
-    let paymentLink = null;
-    const asoneMatch = html.match(/href=["'](https?:\/\/asone\.udea\.edu\.co\/portafolio\/[^"']+)["']/i);
-    if (asoneMatch) {
-      paymentLink = asoneMatch[1].replace(/&amp;/g, '&').trim();
-    } else {
-      // Buscar etiquetas <a> con texto de Inscripciones, Matrícula o Pagar
-      const inscriptionBtnMatch = html.match(/<a[^>]*href=["']([^"']+)["'][^>]*>[\s\S]*?(?:Inscripciones|Inscribirme|Inscribirse|Pagar|Matr[ií]cula)[\s\S]*?<\/a>/i);
-      if (inscriptionBtnMatch && inscriptionBtnMatch[1]) {
-        const candidateUrl = inscriptionBtnMatch[1].replace(/&amp;/g, '&').trim();
-        if (candidateUrl.includes('asone.udea.edu.co') || candidateUrl.includes('udea.edu.co') || candidateUrl.startsWith('http')) {
-          paymentLink = candidateUrl;
-        }
-      }
-    }
-
-    if (!paymentLink) {
-      // Fallback institucional oficial del portal de extension y portafolio de la Universidad de Antioquia
-      paymentLink = 'https://asone.udea.edu.co/portafolio/';
-    }
+    // 4. Enlace directo de inscripción y pago oficial del programa
+    const paymentLink = eventUrl;
 
     return {
       code,
@@ -321,8 +303,8 @@ export class ScraperService {
       investment,
       start_date: startDate,
       schedule,
-      registration_link: eventUrl, // <-- Enlace de Extensión con información general detallada
-      payment_link: paymentLink,   // <-- Enlace directo del botón de Inscripciones / Pago
+      registration_link: eventUrl, // Enlace oficial del programa
+      payment_link: paymentLink,   // Enlace directo de inscripción y pago del programa de interés
       contact_email: 'aprendizajes.med@udea.edu.co',
       description
     };

@@ -35,8 +35,7 @@ export class KnowledgeBaseService {
       prompt += `MODALIDAD: ${item.modality || 'Virtual'}\n`;
       prompt += `DURACIÓN: ${item.duration_hours} horas\n`;
       prompt += `INVERSIÓN: ${item.investment || 'Consultar'}\n`;
-      prompt += `ENLACE DE INFORMACIÓN (EXTENSIÓN): ${item.registration_link || 'https://extension.medicinaudea.co'}\n`;
-      prompt += `ENLACE DE PAGO / INSCRIPCIÓN DIRECTA: ${item.payment_link || item.registration_link || 'https://asone.udea.edu.co/portafolio/'}\n`;
+      prompt += `ENLACE DIRECTO DE INSCRIPCIÓN Y PAGO: ${item.payment_link || item.registration_link || 'https://extension.medicinaudea.co/oferta-academica/'}\n`;
       prompt += `CORREO DE CONTACTO: ${item.contact_email || 'extensionmedicina@udea.edu.co'}\n`;
       prompt += `DESCRIPCIÓN Y CONTENIDO: ${item.description}\n`;
       prompt += `====================================================\n\n`;
@@ -70,7 +69,7 @@ export class KnowledgeBaseService {
       return stmt.run({
         start_date: data.start_date || 'Inicia: Noviembre 2026',
         schedule: data.schedule || 'Encuentros sincrónicos virtuales',
-        payment_link: data.payment_link || 'https://asone.udea.edu.co/portafolio/',
+        payment_link: data.payment_link || data.registration_link || 'https://extension.medicinaudea.co/oferta-academica/',
         ...data
       });
     } catch (e) {}
@@ -101,7 +100,7 @@ export class KnowledgeBaseService {
         id,
         start_date: data.start_date || 'Inicia: Noviembre 2026',
         schedule: data.schedule || 'Encuentros sincrónicos',
-        payment_link: data.payment_link || 'https://asone.udea.edu.co/portafolio/',
+        payment_link: data.payment_link || data.registration_link || 'https://extension.medicinaudea.co/oferta-academica/',
         ...data
       });
     } catch (e) {}
