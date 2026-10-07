@@ -247,18 +247,61 @@ export class LeadService {
 
   /**
    * Limpia el historial de mensajes de un lead y restablece su estado al modo de IA
+   * Resetea todos los campos residuales de pruebas previas (identidad, segmentación, notas)
    */
   static async clearLeadConversation(phoneNumber) {
+    if (NeonService.isAvailable()) {
+      try {
+        await NeonService.clearLeadConversation(phoneNumber);
+      } catch (err) {
+        console.warn('Error en NeonService.clearLeadConversation:', err.message);
+      }
+    }
+
     try {
-      db.prepare('DELETE FROM messages WHERE phone_number = ?').run(phoneNumber);
+      const clean = (phoneNumber || '').trim();
+      const noPlus = clean.replace(/^\+/, '');
+      const withPlus = `+${noPlus}`;
+
+      // 1. Borrar todos los mensajes asociados al número (ambos formatos)
+      db.prepare(`
+        DELETE FROM messages 
+        WHERE phone_number = ? OR phone_number = ? OR phone_number = ?
+      `).run(clean, noPlus, withPlus);
+
+      // 2. Limpiar completamente los datos del lead para iniciar una prueba fresca
+      const nowIso = new Date().toISOString();
       db.prepare(`
         UPDATE leads 
-        SET status = 'ai_handling', last_message = '', updated_at = ?
-        WHERE phone_number = ?
-      `).run(new Date().toISOString(), phoneNumber);
+        SET name = 'Interesado UdeA',
+            doc_type = 'CC',
+            doc_number = '',
+            email = '',
+            program_interest = 'Por definir',
+            status = 'ai_handling',
+            last_message = '',
+            assigned_advisor = 'Sin Asignar',
+            attended_by = NULL,
+            attended_at = NULL,
+            segment_profession = 'Por Definir',
+            interest_temperature = 'cold',
+            thematic_area = 'General',
+            event_interests = '',
+            notes = '',
+            updated_at = ?
+        WHERE phone_number = ? OR phone_number = ? OR phone_number = ?
+      `).run(nowIso, clean, noPlus, withPlus);
+
+      // 3. Resetear ventana activa para que el simulador empiece sin restricciones
+      db.prepare(`
+        DELETE FROM conversations 
+        WHERE phone_number = ? OR phone_number = ? OR phone_number = ?
+      `).run(clean, noPlus, withPlus);
+
     } catch (e) {
       console.warn('Error en clearLeadConversation:', e.message);
     }
   }
 }
+
 

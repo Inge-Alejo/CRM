@@ -315,9 +315,16 @@ ${knowledgeContext}
     }
 
     if (detectedProgramTitle) {
-      const match = items.find(i => i.title.toLowerCase().includes(detectedProgramTitle.toLowerCase().slice(0, 15)));
+      const targetNorm = detectedProgramTitle.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+      const match = items.find(i => 
+        i.title.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim() === targetNorm
+      ) || items.find(i => 
+        i.title.toLowerCase().includes(detectedProgramTitle.toLowerCase())
+      ) || items.find(i => 
+        detectedProgramTitle.toLowerCase().includes(i.title.toLowerCase())
+      );
       if (match) {
-        let reply = `*${match.title}* 🩺\n\n`;
+        let reply = `*${match.title}* 🩺✨\n\n`;
         reply += `📅 *Inicio:* ${match.start_date || 'Inscripciones abiertas'}\n`;
         reply += `⏰ *Horario:* ${match.schedule || 'Consultar programación oficial'}\n`;
         reply += `💻 *Modalidad:* ${match.modality}\n`;
@@ -345,14 +352,14 @@ ${knowledgeContext}
       }
     }
 
-    // 2. Si pregunta por programas no ofertados (ej: paliativa, estetica, plastica, forense, etc.)
+    // 2. Si pregunta por programas no ofertados en extensión UdeA
     const unsupportedTopics = [
-      'paliativ', 'dolor', 'estetic', 'plastic', 'forense', 'toxicolog', 'salud ocupacional', 
-      'radiolog', 'dermatolog', 'oftalmolog', 'oncolog', 'otorrino', 'urolog'
+      'paliativ', 'dolor', 'estetic', 'plastic', 'forense', 'toxicolog', 
+      'salud ocupacional', 'oftalmolog', 'oncolog', 'otorrino', 'urolog'
     ];
     if (unsupportedTopics.some(t => q.includes(t))) {
       return {
-        replyText: `Actualmente la Facultad de Medicina de la UdeA no tiene una cohorte abierta para esa área específica en su oferta de extensión. 🩺\n\nPuedes escribirnos a *aprendizajes.med@udea.edu.co* para consultar futuras aperturas o revisar los diplomados y cursos que tenemos vigentes en sueño, soporte vital (ACLS), ciencias ómicas, parto seguro y código fucsia.`,
+        replyText: `Actualmente la Facultad de Medicina de la UdeA no tiene una cohorte abierta para esa área específica en su oferta de extensión. 🩺\n\nPuedes escribirnos a *aprendizajes.med@udea.edu.co* para consultar futuras aperturas o revisar nuestros programas vigentes en anestesiología, neurocirugía, infectología, ortopedia, dermatología, medicina del sueño, soporte vital (ACLS) y ciencias ómicas.`,
         detectedProgram: null,
         requestAdvisor: false
       };
@@ -362,7 +369,7 @@ ${knowledgeContext}
     if (isMoreInfoIntent) {
       const greetingName = knownName ? ` ${knownName}` : '';
       return {
-        replyText: `¡Con el mayor gusto${greetingName}! 🩺\n\n¿Sobre cuál de los diplomados o cursos de nuestro portafolio (como *Ciencias Ómicas*, *Endocrinología Ginecológica* o *Medicina del Sueño*) te gustaría conocer el temario detallado, horarios e inversión?`,
+        replyText: `¡Con el mayor gusto${greetingName}! 🩺✨\n\n¿Sobre cuál de los diplomados o cursos de nuestro portafolio (como *Actualización en Anestesiología*, *Neurocirugía*, *Medicina del Sueño* o *Infectología*) te gustaría conocer el temario detallado, horarios e inversión?`,
         detectedProgram: null,
         requestAdvisor: false
       };
@@ -403,7 +410,7 @@ ${knowledgeContext}
       };
     }
 
-    // 5. Respuesta concisa orientadora con programas activos
+    // 5. Respuesta orientadora si no especificó programa puntual
     const samplePrograms = items.filter(i => i.category !== 'Información General').slice(0, 3);
     let sampleList = '';
     samplePrograms.forEach((p, idx) => {
@@ -441,52 +448,65 @@ ${knowledgeContext}
 
   /**
    * Detecta con precisión semántica el programa de interés
-   * Filtra stopwords universales y previene alucinaciones o asignaciones erróneas
+   * Mapeo exhaustivo de los 25 programas oficiales de Medicina UdeA con lematización y búsqueda difusa
    */
   static async detectProgramFromText(text) {
     if (!text || typeof text !== 'string') return null;
     const t = text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
     const items = await KnowledgeBaseService.getActiveItems();
 
-    // Palabras genéricas del dominio médico/académico que NUNCA identifican un programa
+    // Palabras genéricas del dominio médico/académico que NUNCA por sí solas identifican un programa
     const STOPWORDS = new Set([
       'diplomado', 'diplomados', 'curso', 'cursos', 'simposio', 'simposios', 'taller', 'talleres',
       'programa', 'programas', 'medicina', 'medico', 'medica', 'medicos', 'salud', 'facultad',
       'udea', 'universidad', 'antioquia', 'virtual', 'presencial', 'hibrido', 'actualizacion',
       'atencion', 'manejo', 'clinica', 'clinico', 'basico', 'avanzado', 'informacion', 'datos',
       'interes', 'saber', 'tienen', 'oferta', 'extension', 'hola', 'buenas', 'tardes', 'dias',
-      'noches', 'quiero', 'quisiera', 'precio', 'costo', 'inscripcion', 'matricula', 'fechas'
+      'noches', 'quiero', 'quisiera', 'precio', 'costo', 'inscripcion', 'matricula', 'fechas',
+      'gustaria', 'gustaria', 'sobre', 'para', 'como', 'cuando', 'donde'
     ]);
 
-    // Reglas semánticas deterministas de programas oficiales
+    // Reglas semánticas prioritarias basadas en el catálogo oficial de 25 programas UdeA
     const SPECIFIC_RULES = [
-      { key: 'sueno', regex: /\b(sueno|apnea|insomnio|polisomno|somnolencia)\b/, title: 'Diplomado en Medicina del Sueño' },
-      { key: 'omicas', regex: /\b(omica|omicas|genomica|transcriptomica|bioinformatica|ngs|secuenciacion)\b/, title: 'Diplomado en Ciencias Ómicas y Medicina de Precisión' },
-      { key: 'parto', regex: /\b(parto|materno|perinatal|obstetr|codigo rojo|preeclampsia|neonatal)\b/, title: 'Diplomado en Buenas Prácticas de Atención al Parto Seguro' },
-      { key: 'acls', regex: /\b(acls|bls|soporte vital|reanimacion|rcp|aha|arritmias)\b/, title: 'Curso Soporte Vital Básico y Avanzado (ACLS / BLS - AHA)' },
-      { key: 'fucsia', regex: /\b(fucsia|violencia sexual|resolucion 459|victimas)\b/, title: 'Curso Código Fucsia: Atención a Víctimas de Violencia Sexual' },
-      { key: 'powerbi', regex: /\b(power\s*bi|powerbi|excel\s+avanzado)\b/, title: 'Diplomado en Análisis de datos en medicina con Power BI y Excel' },
-      { key: 'endocrino', regex: /\b(endocrino|endocrinologia|ginecologica|sop|ovario poliquistico|menopausia)\b/, title: 'Curso Tópicos Selectos en Endocrinología Ginecológica' },
-      { key: 'pediatria', regex: /\b(pediatria|pediatrico|ninos|lactante)\b/, title: 'Simposio Actualización en Pediatría' },
-      { key: 'anestesia', regex: /\b(anestesia|anestesiologia|sedacion)\b/, title: 'Simposio de Anestesiología' },
-      { key: 'neuro', regex: /\b(neurocirugia|craneo|neurologico)\b/, title: 'Simposio de Neurocirugía' },
-      { key: 'trasplantes', regex: /\b(trasplante|trasplantes|injerto|donante|inmunogenetica|hla)\b/, title: 'Curso de Inmunogenética y Trasplantes' },
-      { key: 'esterilizacion', regex: /\b(esterilizacion|esterilizar|reproceso|instrumentacion quirurgica)\b/, title: 'Curso Buenas Prácticas en Central de Esterilización' },
-      { key: 'yoga', regex: /\b(yoga|meditacion|asanas|pranayama)\b/, title: 'Curso Yoga Terapéutico en Salud' },
-      { key: 'china', regex: /\b(medicina tradicional china|medicina china|acupuntura|meridianos|moxibustion)\b/, title: 'Curso Introducción a la Medicina Tradicional China' }
+      { regex: /(anestesi|anestesia|anestesiolog|sedacion)/, code: 'UDEA-ANESTESIOLOGIA', fallbackWord: 'anestesiologia' },
+      { regex: /(neurocirug|craneo|neurolog)/, code: 'UDEA-NEUROCIRUGIA', fallbackWord: 'neurocirugia' },
+      { regex: /(infectolog|infeccion|infecciosas|antimicrobi)/, code: 'UDEA-INFECTOLOGIA', fallbackWord: 'infectologia' },
+      { regex: /(ortoped|traumatolog|huesos)/, code: 'UDEA-VIII-CURSO-DE-ACTUAL', fallbackWord: 'ortopedia' },
+      { regex: /(dermatolog|piel|cutane)/, code: 'UDEA-DERMATOLOGIA-CIUDAD-', fallbackWord: 'dermatologia' },
+      { regex: /(sueno|apnea|insomnio|polisomno|somnolencia)/, code: 'UDEA-MEDICINA-DEL-SUENO', fallbackWord: 'sueno' },
+      { regex: /(pediatr|lactante|ninos)/, code: 'UDEA-CURSO-DE-ACTUALIZACI', fallbackWord: 'pediatria' },
+      { regex: /(endocrinolog|ginecolog|sop|ovario poliquistico|menopausia)/, code: 'UDEA-ENDOCRINOLOGIA-GINEC', fallbackWord: 'endocrinologia' },
+      { regex: /(parto|materno|perinatal|obstetr|codigo rojo|preeclampsia)/, code: 'UDEA-PARTO-SEGURO', fallbackWord: 'parto seguro' },
+      { regex: /(omica|omicas|genomica|transcriptomica|bioinformatica|ngs)/, code: 'UDEA-CIENCIAS-OMICAS-APLI', fallbackWord: 'ciencias omicas' },
+      { regex: /(soporte vital|acls|bls|reanimacion|rcp|aha)/, code: 'UDEA-SOPORTE-VITAL-BASICO', fallbackWord: 'soporte vital' },
+      { regex: /(fucsia|violencia sexual|resolucion 459)/, code: 'UDEA-CODIGO-FUCSIA', fallbackWord: 'codigo fucsia' },
+      { regex: /(power\s*bi|powerbi|excel)/, code: 'UDEA-ANALISIS-DE-DATOS-EN', fallbackWord: 'power bi' },
+      { regex: /(rehabilitacion|cardiovascular|higado graso)/, code: 'UDEA-REHABILITACION-CARDI', fallbackWord: 'rehabilitacion' },
+      { regex: /(diagnosticando|miscelanea)/, code: 'UDEA-DIAGNOSTICANDO-MISCE', fallbackWord: 'diagnosticando' },
+      { regex: /(buenas practicas|practicas clinicas)/, code: 'UDEA-BUENAS-PRACTICAS-CLI', fallbackWord: 'buenas practicas' },
+      { regex: /(acido|acidos|agentes quimicos)/, code: 'UDEA-ATENCION-INTEGRAL-EN', fallbackWord: 'acidos' },
+      { regex: /(donante|organos|tejidos)/, code: 'UDEA-DETECCION-Y-CUIDADO-', fallbackWord: 'donante' },
+      { regex: /(papsivi|conflicto armado)/, code: 'UDEA-PAPSIVI', fallbackWord: 'papsivi' },
+      { regex: /(artroscopia|hombro|cadera|rodilla)/, code: 'UDEA-ARTROSCOPIA-DE-HOMBR', fallbackWord: 'artroscopia' },
+      { regex: /(resonancia|imagenologia|pelvis)/, code: 'UDEA-ENTRENAMIENTO-AVANZA', fallbackWord: 'resonancia' },
+      { regex: /(anticoncepcion|anticonceptiv)/, code: 'UDEA-ANTICONCEPCION-CONDI', fallbackWord: 'anticoncepcion' },
+      { regex: /(grand rounds|ia quirurgica|formacion quirurgica)/, code: 'UDEA-LA-IA-Y-LA-FORMACION', fallbackWord: 'ia quirurgica' },
+      { regex: /(10 cursos|tarifa diferencial)/, code: 'UDEA-10-CURSOS-DE-ACTUALI', fallbackWord: '10 cursos' }
     ];
 
-    // 1. Probar reglas específicas
+    // 1. Probar reglas específicas por código y lematización
     for (const rule of SPECIFIC_RULES) {
       if (rule.regex.test(t)) {
-        const found = items.find(i => i.title.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').includes(rule.key));
-        if (found) return found.title;
-        const matchTitle = items.find(i => i.title.toLowerCase().includes(rule.title.toLowerCase().slice(0, 15)));
-        if (matchTitle) return matchTitle.title;
+        if (rule.code) {
+          const byCode = items.find(i => i.code === rule.code);
+          if (byCode) return byCode.title;
+        }
+        const byWord = items.find(i => i.title.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').includes(rule.fallbackWord));
+        if (byWord) return byWord.title;
       }
     }
 
-    // 2. Si no cayó en una regla específica, buscar en el catálogo con tokenización filtrada y umbral estricto
+    // 2. Búsqueda difusa por palabras clave significativas del título
     let bestItem = null;
     let highestScore = 0;
 
@@ -500,21 +520,23 @@ ${knowledgeContext}
       let score = 0;
       for (const w of titleWords) {
         if (t.includes(w)) {
-          score += 3;
+          score += 5; // Coincidencia exacta de término médico distintivo
+        } else if (w.length >= 5 && t.includes(w.slice(0, w.length - 2))) {
+          score += 3; // Coincidencia por raíz lematizada
         }
       }
 
-      // Requerir al menos 2 palabras distintivas o término relevante
-      if (score >= 6 && score > highestScore) {
+      if (score >= 4 && score > highestScore) {
         highestScore = score;
         bestItem = item;
       }
     }
 
-    if (bestItem && highestScore >= 6) {
+    if (bestItem && highestScore >= 4) {
       return bestItem.title;
     }
 
     return null;
   }
 }
+

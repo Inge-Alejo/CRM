@@ -993,19 +993,33 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // 7. Simulador WhatsApp (Modo Sandbox con respuesta autónoma garantizada)
+  window.triggerSimulatorReset = async function() {
+    const phone = simPhoneInput ? simPhoneInput.value : '+573001234567';
+    await loadSimulatorChat(phone, true);
+  };
+
   async function loadSimulatorChat(phone, forceReset = false) {
     if (!chatWindow) return;
     const cleanPhone = (phone || (simPhoneInput ? simPhoneInput.value : '') || '+573001234567').trim();
 
+    // Feedback visual inmediato en el botón de reinicio
+    if (btnSimResetChat && forceReset) {
+      btnSimResetChat.innerHTML = `
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="spin-icon"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
+        <span>Reiniciando...</span>
+      `;
+    }
+
     chatWindow.innerHTML = `
       <div style="text-align: center; padding: 2.5rem 1rem; color: #64748b; font-size: 0.85rem;">
         <span class="status-dot" style="background:#10b981; display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:6px; animation: pulse 1.5s infinite;"></span>
-        <em>${forceReset ? 'Iniciando conversación limpia con Apolo...' : 'Cargando conversación del simulador...'}</em>
+        <em>${forceReset ? '🔄 Reiniciando chat con Apolo y limpiando datos previos...' : 'Cargando conversación del simulador...'}</em>
       </div>
     `;
 
     try {
-      const res = await fetch('/api/simulator/init', {
+      const endpoint = forceReset ? '/api/simulator/reset' : '/api/simulator/init';
+      const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phoneNumber: cleanPhone, reset: forceReset })
@@ -1023,19 +1037,30 @@ document.addEventListener('DOMContentLoaded', () => {
         appendBubble(data.replyText, 'bot');
       }
 
+      if (simMessageInput) simMessageInput.value = '';
+
       if (simFeedback) {
         simFeedback.innerHTML = `
           <span style="color: #059669; font-weight: 600; display: inline-flex; align-items: center; gap: 0.35rem;">
             <svg class="mini-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-            Asistente IA Apolo en línea y listo para responder autónomamente.
+            ${forceReset ? 'Chat reiniciado exitosamente. Asistente Apolo listo para pruebas.' : 'Asistente IA Apolo en línea y listo para responder autónomamente.'}
           </span>
         `;
       }
 
       chatWindow.scrollTop = chatWindow.scrollHeight;
+      fetchLeads();
+      loadTelemetry();
     } catch (err) {
       chatWindow.innerHTML = '';
       appendBubble(`¡Hola! 👋 Te damos la bienvenida al *Centro de Extensión de la Facultad de Medicina UdeA* 🩺✨.\n\n¿En cuál de nuestros programas te gustaría conocer fechas oficiales e inversión?`, 'bot');
+    } finally {
+      if (btnSimResetChat) {
+        btnSimResetChat.innerHTML = `
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
+          <span>Reiniciar</span>
+        `;
+      }
     }
   }
 

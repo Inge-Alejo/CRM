@@ -86,8 +86,16 @@ app.use('/api', (req, res, next) => {
   next();
 });
 
-// 6. Servir archivos estáticos del CRM Dashboard
-app.use(express.static(path.join(__dirname, '../public')));
+// 6. Servir archivos estáticos del CRM Dashboard sin caché para asegurar frescura de UI
+app.use(express.static(path.join(__dirname, '../public'), {
+  etag: false,
+  maxAge: 0,
+  setHeaders: (res) => {
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+  }
+}));
 
 // ==========================================
 // RUTAS WEBHOOK OFICIAL DE META WHATSAPP
@@ -629,6 +637,16 @@ app.get('/api/simulator/history/:phone', async (req, res) => {
     const messages = await LeadService.getLeadConversation(cleanPhone);
     const lead = await LeadService.getLeadByPhone(cleanPhone);
     res.json({ success: true, messages, lead });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/simulator/reset', async (req, res) => {
+  try {
+    const { phoneNumber } = req.body;
+    const result = await SimulatorAdapter.initConversation(phoneNumber, true);
+    res.json(result);
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }

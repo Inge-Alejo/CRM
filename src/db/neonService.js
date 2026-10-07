@@ -137,6 +137,48 @@ export class NeonService {
     return rows;
   }
 
+  static async clearLeadConversation(phoneNumber) {
+    const sql = getSql();
+    if (!sql) return;
+    const clean = (phoneNumber || '').trim();
+    const noPlus = clean.replace(/^\+/, '');
+    const withPlus = `+${noPlus}`;
+    const nowIso = new Date().toISOString();
+
+    await sql`
+      DELETE FROM messages 
+      WHERE phone_number = ${clean} OR phone_number = ${noPlus} OR phone_number = ${withPlus};
+    `;
+
+    await sql`
+      UPDATE leads 
+      SET name = 'Interesado UdeA',
+          doc_type = 'CC',
+          doc_number = '',
+          email = '',
+          program_interest = 'Por definir',
+          status = 'ai_handling',
+          last_message = '',
+          assigned_advisor = 'Sin Asignar',
+          attended_by = NULL,
+          attended_at = NULL,
+          segment_profession = 'Por Definir',
+          interest_temperature = 'cold',
+          thematic_area = 'General',
+          event_interests = '',
+          notes = '',
+          updated_at = ${nowIso}
+      WHERE phone_number = ${clean} OR phone_number = ${noPlus} OR phone_number = ${withPlus};
+    `;
+
+    try {
+      await sql`
+        DELETE FROM conversations 
+        WHERE phone_number = ${clean} OR phone_number = ${noPlus} OR phone_number = ${withPlus};
+      `;
+    } catch (e) {}
+  }
+
   static async recordLeadMessage(phoneNumber, messageContent, sender = 'user') {
     const sql = getSql();
     const nowIso = new Date().toISOString();

@@ -945,6 +945,16 @@ body.dashboard-body {
   background: rgba(16, 185, 129, 0.16) !important;
 }
 
+@keyframes spinIconAnim {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.spin-icon {
+  animation: spinIconAnim 0.75s linear infinite;
+}
+
+
 .wa-chat-window {
   flex: 1;
   padding: 1rem;
