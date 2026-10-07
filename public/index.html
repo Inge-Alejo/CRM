@@ -364,8 +364,9 @@
               <div class="inbox-triage-pills">
                 <button class="triage-pill active" data-filter="all">Todos</button>
                 <button class="triage-pill" data-filter="mine">Mis Casos</button>
-                <button class="triage-pill" data-filter="hot">Prioridad Alta</button>
                 <button class="triage-pill" data-filter="needs_human">🚨 Piden Asesor</button>
+                <button class="triage-pill" data-filter="attended">✓ Atendidos</button>
+                <button class="triage-pill" data-filter="hot">Prioridad Alta</button>
               </div>
             </div>
 
@@ -544,14 +545,15 @@
               </div>
 
               <!-- Sección: Bitácora de Notas Internas Privadas -->
-              <div class="cust-card-section">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.35rem;">
+              <div class="cust-card-section" style="padding:0.75rem;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.4rem;">
                   <span class="cust-section-title" style="margin:0;">Notas Internas (Privadas)</span>
                   <span id="inboxNotesSavedStatus" style="font-size:0.72rem; font-weight:700; color:#10b981;"></span>
                 </div>
-                <textarea id="inboxCustNotesTextarea" class="form-input" rows="3" placeholder="Escribe notas privadas del caso (ej: solicitó 10% descuento por egresado, llamar el jueves)..." style="font-size:0.8rem;"></textarea>
-                <button class="btn btn-secondary btn-xs" id="btnInboxSaveNotes" style="margin-top:0.4rem; width:100%;">
-                  Guardar Nota en Neon Cloud
+                <textarea id="inboxCustNotesTextarea" class="form-input" rows="3" placeholder="Escribe notas privadas del caso (ej: solicitó 10% descuento por egresado, llamar el jueves)..." style="font-size:0.8rem; line-height:1.4; resize:vertical;"></textarea>
+                <button class="btn btn-secondary btn-xs" id="btnInboxSaveNotes" style="margin-top:0.45rem; width:100%;">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                  <span>Guardar Nota en Neon Cloud</span>
                 </button>
               </div>
 
@@ -568,10 +570,12 @@
             <label>Estado:</label>
             <select id="crmFilterSelect" class="form-select">
               <option value="">Todos los estados</option>
-              <option value="advisor_requested">Requiere Asesor</option>
-              <option value="ai_handling">En atención por IA</option>
-              <option value="contacted">Asesor Contactado</option>
-              <option value="closed">Cerrado / Matriculado</option>
+              <option value="advisor_requested">🚨 Requiere Asesor</option>
+              <option value="attended">✓ Atendido / En Seguimiento</option>
+              <option value="ai_handling">🤖 En atención por IA</option>
+              <option value="contacted">👨‍⚕️ Asesor Contactado</option>
+              <option value="enrolled">🎓 Matriculado Oficialmente</option>
+              <option value="closed">Cerrado / No Interesado</option>
             </select>
           </div>
           <div class="filter-group">
@@ -1392,30 +1396,30 @@
 
   <!-- Modal para Agregar/Editar Respuesta Rápida / Macro -->
   <div class="modal-backdrop" id="cannedResponseModal" style="display: none;">
-    <div class="modal-dialog">
+    <div class="modal-dialog" style="max-width:560px; width:92%;">
       <div class="modal-header">
-        <h3 id="cannedModalTitle">Nueva Respuesta Rápida</h3>
-        <button class="close-btn" id="btnCloseCannedModal">✕</button>
+        <h3 id="cannedModalTitle" style="font-size:1.1rem; font-weight:800; color:var(--udea-dark); margin:0;">Nueva Respuesta Rápida</h3>
+        <button class="close-btn" id="btnCloseCannedModal" style="font-size:1.1rem; cursor:pointer;">✕</button>
       </div>
-      <div class="modal-body">
+      <div class="modal-body" style="padding:1.4rem;">
         <form id="cannedResponseForm">
           <input type="hidden" id="cannedMacroId" value="">
-          <div class="form-group">
-            <label>Título Oficial de la Plantilla:</label>
-            <input type="text" id="cannedMacroTitle" class="form-input" required placeholder="Ej: Información de Descuentos">
+          <div class="form-group" style="margin-bottom:1rem;">
+            <label style="display:block; font-size:0.82rem; font-weight:700; color:var(--udea-dark); margin-bottom:0.35rem;">Título Oficial de la Plantilla:</label>
+            <input type="text" id="cannedMacroTitle" class="form-input" required placeholder="Ej: Saludo Oficial" style="width:100%; box-sizing:border-box;">
           </div>
-          <div class="form-group">
-            <label>Atajo / Texto en el Botón (Chip):</label>
-            <input type="text" id="cannedMacroShortcut" class="form-input" required placeholder="Ej: 🏷️ Descuentos">
-            <small style="color:var(--text-muted); font-size:0.75rem;">Aparecerá en la barra de respuestas rápidas de los asesores.</small>
+          <div class="form-group" style="margin-bottom:1rem;">
+            <label style="display:block; font-size:0.82rem; font-weight:700; color:var(--udea-dark); margin-bottom:0.35rem;">Atajo / Texto en el Botón (Chip):</label>
+            <input type="text" id="cannedMacroShortcut" class="form-input" required placeholder="Ej: 👋 Saludo" style="width:100%; box-sizing:border-box;">
+            <small style="display:block; margin-top:0.35rem; color:var(--text-muted); font-size:0.75rem;">Aparecerá en la barra de respuestas rápidas de los asesores.</small>
           </div>
-          <div class="form-group">
-            <label>Mensaje Predeterminado de WhatsApp:</label>
-            <textarea id="cannedMacroMessage" class="form-textarea" rows="5" required placeholder="Escribe el texto oficial que se insertará en el chat..."></textarea>
+          <div class="form-group" style="margin-bottom:1rem;">
+            <label style="display:block; font-size:0.82rem; font-weight:700; color:var(--udea-dark); margin-bottom:0.35rem;">Mensaje Predeterminado de WhatsApp:</label>
+            <textarea id="cannedMacroMessage" class="form-textarea" rows="5" required placeholder="Escribe el texto oficial que se insertará en el chat..." style="width:100%; min-height:120px; box-sizing:border-box; resize:vertical;"></textarea>
           </div>
-          <div class="form-group">
-            <label>Categoría:</label>
-            <select id="cannedMacroCategory" class="form-select">
+          <div class="form-group" style="margin-bottom:1.25rem;">
+            <label style="display:block; font-size:0.82rem; font-weight:700; color:var(--udea-dark); margin-bottom:0.35rem;">Categoría:</label>
+            <select id="cannedMacroCategory" class="form-select" style="width:100%; box-sizing:border-box;">
               <option value="general">General</option>
               <option value="saludos">Saludos & Presentación</option>
               <option value="inscripcion">Inscripción & Requisitos</option>
@@ -1423,7 +1427,7 @@
               <option value="cierre">Cierre & Despedida</option>
             </select>
           </div>
-          <div style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1.2rem;">
+          <div style="display:flex; justify-content:flex-end; gap:0.6rem; margin-top:1.2rem; border-top:1px solid #f1f5f9; padding-top:1rem;">
             <button type="button" class="btn btn-secondary" id="btnCancelCannedModal">Cancelar</button>
             <button type="submit" class="btn btn-primary" id="btnSaveCannedMacro">Guardar Plantilla</button>
           </div>

@@ -559,7 +559,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function getStatusPill(status) {
     if (status === 'advisor_requested') return '<span class="status-pill advisor_requested"><span class="status-dot"></span>Requiere Asesor</span>';
+    if (status === 'attended') return '<span class="status-pill attended"><span class="status-dot"></span>✓ Atendido</span>';
     if (status === 'contacted') return '<span class="status-pill contacted"><span class="status-dot"></span>Contactado</span>';
+    if (status === 'enrolled') return '<span class="status-pill enrolled"><span class="status-dot"></span>🎓 Matriculado</span>';
     if (status === 'closed') return '<span class="status-pill closed"><span class="status-dot"></span>Cerrado</span>';
     return '<span class="status-pill ai_handling"><span class="status-dot"></span>Atendido por IA</span>';
   }
@@ -1776,6 +1778,8 @@ document.addEventListener('DOMContentLoaded', () => {
       list = list.filter(l => l.interest_temperature === 'hot');
     } else if (currentInboxFilter === 'needs_human') {
       list = list.filter(l => l.status === 'advisor_requested');
+    } else if (currentInboxFilter === 'attended') {
+      list = list.filter(l => l.status === 'attended' || !!l.attended_by);
     }
 
     // Aplicar búsqueda por texto
@@ -1817,6 +1821,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const safePhone = escapeHtml(lead.phone_number || '');
       const timeStr = lead.updated_at ? new Date(lead.updated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
       const isUrgent = lead.status === 'advisor_requested';
+      const isAttended = lead.status === 'attended' || !!lead.attended_by;
 
       return `
         <div class="inbox-conv-item ${isSelected ? 'active' : ''} ${isUrgent ? 'unread' : ''}" onclick="window.selectInboxLead('${safePhone}')">
@@ -1830,6 +1835,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="conv-tags">
               <span class="conv-tag temp ${tempClass}">${tempLabel}</span>
               ${isUrgent ? `<span class="conv-tag req">🚨 Requiere Asesor</span>` : ''}
+              ${isAttended ? `<span class="conv-tag attended">✓ Atendido</span>` : ''}
               ${lead.assigned_advisor && lead.assigned_advisor !== 'Sin Asignar' ? `<span class="conv-tag" style="background:#f1f5f9; color:#475569;">👤 ${escapeHtml(lead.assigned_advisor)}</span>` : ''}
             </div>
           </div>

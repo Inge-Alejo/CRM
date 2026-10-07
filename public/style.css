@@ -700,6 +700,17 @@ body.dashboard-body {
   background-color: #10b981;
 }
 
+.status-pill.attended {
+  background-color: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #10b981;
+  font-weight: 700;
+}
+.status-pill.attended .status-dot {
+  background-color: #059669;
+  box-shadow: 0 0 6px rgba(5, 150, 105, 0.45);
+}
+
 .status-pill.contacted {
   background-color: #ecfdf5;
   color: #047857;
@@ -707,6 +718,16 @@ body.dashboard-body {
 }
 .status-pill.contacted .status-dot {
   background-color: #059669;
+}
+
+.status-pill.enrolled {
+  background-color: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #93c5fd;
+  font-weight: 700;
+}
+.status-pill.enrolled .status-dot {
+  background-color: #2563eb;
 }
 
 .status-pill.closed {
@@ -804,17 +825,28 @@ body.dashboard-body {
 }
 
 .form-select, .form-input, .form-textarea {
-  padding: 0.5rem 0.75rem;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.55rem 0.8rem;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border);
   font-family: inherit;
-  font-size: 0.88rem;
+  font-size: 0.85rem;
+  background-color: #ffffff;
+  color: var(--text-dark);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.form-textarea {
+  min-height: 110px;
+  resize: vertical;
+  line-height: 1.45;
 }
 
 .form-select:focus, .form-input:focus, .form-textarea:focus {
   outline: none;
-  border-color: var(--border-focus);
-  box-shadow: 0 0 0 3px rgba(21, 128, 61, 0.15);
+  border-color: var(--udea-emerald);
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
 }
 
 /* ================= SIMULADOR WHATSAPP ================= */
@@ -3636,4 +3668,105 @@ input:checked + .slider:before {
   background: #fee2e2;
   border-color: #fca5a5;
   color: #b91c1c;
+}
+
+/* ==============================================================
+   RESPONSIVIDAD NOTAS INTERNAS & MODAL DE PLANTILLAS
+   ============================================================== */
+.customer-details-scroll {
+  padding-bottom: 2.8rem !important;
+}
+
+#inboxCustNotesTextarea {
+  width: 100% !important;
+  box-sizing: border-box !important;
+  min-height: 85px !important;
+  max-height: 180px !important;
+  resize: vertical !important;
+  padding: 0.55rem 0.65rem !important;
+  font-size: 0.8rem !important;
+  line-height: 1.4 !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 8px !important;
+  background: #ffffff !important;
+  outline: none;
+  font-family: inherit;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+#inboxCustNotesTextarea:focus {
+  border-color: var(--udea-emerald) !important;
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.15) !important;
+}
+
+#btnInboxSaveNotes {
+  width: 100% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0.35rem !important;
+  padding: 0.45rem 0.75rem !important;
+  font-size: 0.76rem !important;
+  font-weight: 700 !important;
+  border-radius: 6px !important;
+  background: #f8fafc !important;
+  border: 1px solid #cbd5e1 !important;
+  color: #1e293b !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+}
+
+#btnInboxSaveNotes:hover {
+  background: #f0fdf4 !important;
+  border-color: #86efac !important;
+  color: #166534 !important;
+}
+
+/* Modal de Respuestas Rápidas 100% Responsivo */
+#cannedResponseModal .modal-dialog {
+  max-width: 560px !important;
+  width: 92% !important;
+  border-radius: 12px !important;
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.22) !important;
+}
+
+#cannedResponseModal .form-group {
+  margin-bottom: 1rem !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+#cannedResponseModal .form-group label {
+  display: block !important;
+  font-size: 0.82rem !important;
+  font-weight: 700 !important;
+  color: var(--udea-dark) !important;
+  margin-bottom: 0.35rem !important;
+}
+
+#cannedResponseModal .form-group small {
+  display: block !important;
+  margin-top: 0.35rem !important;
+  font-size: 0.75rem !important;
+  color: var(--text-muted) !important;
+}
+
+#cannedResponseModal .form-input,
+#cannedResponseModal .form-textarea,
+#cannedResponseModal .form-select {
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+#cannedResponseModal #cannedMacroMessage {
+  min-height: 120px !important;
+  max-height: 280px !important;
+  resize: vertical !important;
+}
+
+.conv-tag.attended {
+  background: #ecfdf5 !important;
+  color: #047857 !important;
+  border: 1px solid #a7f3d0 !important;
+  font-weight: 700 !important;
 }
