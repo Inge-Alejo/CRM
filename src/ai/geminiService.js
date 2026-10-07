@@ -419,6 +419,27 @@ ${knowledgeContext}
   }
 
   /**
+   * Genera el saludo inicial autónomo del asistente oficial Apolo para inicio de chats
+   */
+  static async generateInitialGreeting(currentLead = {}) {
+    const items = await KnowledgeBaseService.getActiveItems();
+    const activePrograms = items.filter(item => item.category !== 'Información General').slice(0, 4);
+    let sampleList = '';
+    activePrograms.forEach(p => {
+      sampleList += `• 🎓 *${p.title}*\n`;
+    });
+
+    const knownName = (currentLead && currentLead.name && currentLead.name !== 'Interesado UdeA') 
+      ? ` ${currentLead.name}` 
+      : '';
+
+    return `¡Hola${knownName}! 👋 Te damos la bienvenida al *Centro de Extensión de la Facultad de Medicina UdeA* 🩺✨.\n\n` +
+      `Contamos con una amplia oferta académica de educación médica continua con inscripciones abiertas: 📚\n\n` +
+      sampleList +
+      `\nPuedes consultar información detallada de cualquiera de ellos o de nuestra oferta completa. ¿Sobre cuál de nuestros programas te gustaría conocer fechas oficiales e inversión? ¡Con gusto te oriento! 💡✨`;
+  }
+
+  /**
    * Detecta con precisión semántica el programa de interés
    * Filtra stopwords universales y previene alucinaciones o asignaciones erróneas
    */

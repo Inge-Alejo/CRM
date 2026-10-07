@@ -613,11 +613,37 @@ app.get('/api/alerts', (req, res) => {
 });
 
 // Simulador interactivo de WhatsApp (Sandbox)
-app.post('/api/simulator/send', async (req, res) => {
-  const { phoneNumber, message } = req.body;
-  const result = await SimulatorAdapter.simulateMessage(phoneNumber, message);
-  res.json(result);
+app.post('/api/simulator/init', async (req, res) => {
+  try {
+    const { phoneNumber, reset } = req.body;
+    const result = await SimulatorAdapter.initConversation(phoneNumber, Boolean(reset));
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
+
+app.get('/api/simulator/history/:phone', async (req, res) => {
+  try {
+    const cleanPhone = SecurityGuardrails.sanitizePhone(req.params.phone) || '+573001234567';
+    const messages = await LeadService.getLeadConversation(cleanPhone);
+    const lead = await LeadService.getLeadByPhone(cleanPhone);
+    res.json({ success: true, messages, lead });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/simulator/send', async (req, res) => {
+  try {
+    const { phoneNumber, message } = req.body;
+    const result = await SimulatorAdapter.simulateMessage(phoneNumber, message);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 
 // Guardar temporalmente la Gemini API Key desde la UI para pruebas
 app.post('/api/settings/gemini-key', (req, res) => {

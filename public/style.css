@@ -916,6 +916,35 @@ body.dashboard-body {
 .wa-name { font-size: 0.92rem; font-weight: 700; }
 .wa-status { font-size: 0.7rem; color: #d1fae5; }
 
+.wa-action-btn {
+  margin-left: auto;
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  color: #ffffff;
+  border-radius: 6px;
+  padding: 0.25rem 0.55rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.wa-action-btn:hover {
+  background: rgba(255, 255, 255, 0.35);
+  transform: scale(1.02);
+}
+.prompt-init-btn {
+  border: 1.5px solid var(--udea-emerald) !important;
+  background: rgba(16, 185, 129, 0.08) !important;
+  color: var(--udea-emerald) !important;
+  font-weight: 600 !important;
+}
+.prompt-init-btn:hover {
+  background: rgba(16, 185, 129, 0.16) !important;
+}
+
 .wa-chat-window {
   flex: 1;
   padding: 1rem;

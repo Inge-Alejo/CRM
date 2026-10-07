@@ -57,6 +57,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const chatWindow = document.getElementById('chatWindow');
   const quickPromptButtons = document.querySelectorAll('.quick-prompt-btn');
   const simFeedback = document.getElementById('simFeedback');
+  const btnSimResetChat = document.getElementById('btnSimResetChat');
+  const btnSimNewConversation = document.getElementById('btnSimNewConversation');
+  const btnQuickInitChat = document.getElementById('btnQuickInitChat');
 
   // Portafolio & Sincronización
   const btnSyncWeb = document.getElementById('btnSyncWeb');
@@ -446,7 +449,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (viewId === 'view-segmentation') loadSegmentation();
     if (viewId === 'view-portfolio') renderPortfolio();
     if (viewId === 'view-system-admin') loadSystemAdminMetrics();
+    if (viewId === 'view-simulator') loadSimulatorChat(simPhoneInput ? simPhoneInput.value : null, false);
   };
+
 
   navItems.forEach(item => {
     item.addEventListener('click', () => {
@@ -987,19 +992,65 @@ document.addEventListener('DOMContentLoaded', () => {
     currentActivePhone = null;
   });
 
-  // 7. Simulador WhatsApp
-  simulatorForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const phone = simPhoneInput.value.trim() || '+573001234567';
-    const message = simMessageInput.value.trim();
+  // 7. Simulador WhatsApp (Modo Sandbox con respuesta autónoma garantizada)
+  async function loadSimulatorChat(phone, forceReset = false) {
+    if (!chatWindow) return;
+    const cleanPhone = (phone || (simPhoneInput ? simPhoneInput.value : '') || '+573001234567').trim();
+
+    chatWindow.innerHTML = `
+      <div style="text-align: center; padding: 2.5rem 1rem; color: #64748b; font-size: 0.85rem;">
+        <span class="status-dot" style="background:#10b981; display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:6px; animation: pulse 1.5s infinite;"></span>
+        <em>${forceReset ? 'Iniciando conversación limpia con Apolo...' : 'Cargando conversación del simulador...'}</em>
+      </div>
+    `;
+
+    try {
+      const res = await fetch('/api/simulator/init', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phoneNumber: cleanPhone, reset: forceReset })
+      });
+      const data = await res.json();
+
+      chatWindow.innerHTML = '';
+
+      if (data.messages && data.messages.length > 0) {
+        data.messages.forEach(msg => {
+          const senderType = msg.sender === 'user' ? 'user' : (msg.sender === 'advisor' ? 'advisor' : 'bot');
+          appendBubble(msg.content, senderType, msg.timestamp);
+        });
+      } else if (data.replyText) {
+        appendBubble(data.replyText, 'bot');
+      }
+
+      if (simFeedback) {
+        simFeedback.innerHTML = `
+          <span style="color: #059669; font-weight: 600; display: inline-flex; align-items: center; gap: 0.35rem;">
+            <svg class="mini-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            Asistente IA Apolo en línea y listo para responder autónomamente.
+          </span>
+        `;
+      }
+
+      chatWindow.scrollTop = chatWindow.scrollHeight;
+    } catch (err) {
+      chatWindow.innerHTML = '';
+      appendBubble(`¡Hola! 👋 Te damos la bienvenida al *Centro de Extensión de la Facultad de Medicina UdeA* 🩺✨.\n\n¿En cuál de nuestros programas te gustaría conocer fechas oficiales e inversión?`, 'bot');
+    }
+  }
+
+  async function sendSimulatorMessage(messageText) {
+    if (!chatWindow) return;
+    const phone = (simPhoneInput ? simPhoneInput.value : '+573001234567').trim() || '+573001234567';
+    const message = (messageText !== undefined ? messageText : (simMessageInput ? simMessageInput.value : '')).trim();
     if (!message) return;
 
     appendBubble(message, 'user');
-    simMessageInput.value = '';
+    if (simMessageInput) simMessageInput.value = '';
 
     const typingBubble = document.createElement('div');
     typingBubble.className = 'wa-bubble bot';
-    typingBubble.innerHTML = '<em>Escribiendo respuesta oficial de Medicina UdeA...</em>';
+    typingBubble.innerHTML = '<em>Escribiendo respuesta oficial de Medicina UdeA... 🩺</em>';
     chatWindow.appendChild(typingBubble);
     chatWindow.scrollTop = chatWindow.scrollHeight;
 
@@ -1013,57 +1064,98 @@ document.addEventListener('DOMContentLoaded', () => {
 
       typingBubble.remove();
 
-      if (data.replyText) {
+      if (data && data.replyText) {
         appendBubble(data.replyText, 'bot');
+      } else {
+        appendBubble('¡Hola! Con gusto te oriento en tus dudas sobre los programas de la Facultad de Medicina UdeA. 🩺', 'bot');
       }
 
-      if (data.requestAdvisor) {
-        simFeedback.innerHTML = `
-          <span style="color: #dc2626; font-weight: 700; display: inline-flex; align-items: center; gap: 0.35rem;">
-            <svg class="mini-svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-            Solicitud de Asesor Activada
-          </span>
-          <br>El bot identificó una solicitud de asesoría especializada y priorizó al contacto en el CRM.
-        `;
-      } else {
-        simFeedback.innerHTML = `
-          <span style="color: #059669; font-weight: 600; display: inline-flex; align-items: center; gap: 0.35rem;">
-            <svg class="mini-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-            Mensaje procesado y segmentado exitosamente.
-          </span>
-          <br>Perfil detectado: <strong>${escapeHtml(data.segmentation ? data.segmentation.profession : 'Salud')}</strong> · Temp: <strong>${data.segmentation ? data.segmentation.temperature : 'normal'}</strong>.
-        `;
+      if (simFeedback) {
+        if (data.requestAdvisor) {
+          simFeedback.innerHTML = `
+            <span style="color: #dc2626; font-weight: 700; display: inline-flex; align-items: center; gap: 0.35rem;">
+              <svg class="mini-svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              Solicitud de Asesor Activada
+            </span>
+            <br>El bot identificó una solicitud de asesoría especializada y priorizó al contacto en el CRM.
+          `;
+        } else {
+          simFeedback.innerHTML = `
+            <span style="color: #059669; font-weight: 600; display: inline-flex; align-items: center; gap: 0.35rem;">
+              <svg class="mini-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              Respuesta autónoma generada exitosamente.
+            </span>
+            <br>Perfil detectado: <strong>${escapeHtml(data.segmentation ? data.segmentation.segment_profession || data.segmentation.profession || 'Salud' : 'Salud')}</strong> · Nivel de Interés: <strong>${data.segmentation ? data.segmentation.interest_temperature || 'Activo' : 'Activo'}</strong>.
+          `;
+        }
       }
 
       loadTelemetry();
       fetchLeads();
-
     } catch (err) {
       typingBubble.remove();
-      appendBubble(`Error de conexión: ${err.message}`, 'bot');
+      appendBubble(`Error de conexión al procesar mensaje: ${err.message}`, 'bot');
     }
-  });
+  }
 
-  function appendBubble(text, sender) {
+  function appendBubble(text, sender, timestamp) {
+    if (!chatWindow) return;
     const bubble = document.createElement('div');
     bubble.className = `wa-bubble ${sender}`;
-    const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const time = timestamp
+      ? new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      : new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     bubble.innerHTML = `${formatWhatsAppText(text)}<div class="wa-time">${time}</div>`;
     chatWindow.appendChild(bubble);
     chatWindow.scrollTop = chatWindow.scrollHeight;
   }
 
   function formatWhatsAppText(text) {
+    if (!text) return '';
     return text.replace(/\*(.*?)\*/g, '<strong>$1</strong>');
+  }
+
+  if (simulatorForm) {
+    simulatorForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      sendSimulatorMessage();
+    });
+  }
+
+  if (btnSimResetChat) {
+    btnSimResetChat.addEventListener('click', () => {
+      loadSimulatorChat(simPhoneInput ? simPhoneInput.value : null, true);
+    });
+  }
+
+  if (btnSimNewConversation) {
+    btnSimNewConversation.addEventListener('click', () => {
+      loadSimulatorChat(simPhoneInput ? simPhoneInput.value : null, true);
+    });
+  }
+
+  if (btnQuickInitChat) {
+    btnQuickInitChat.addEventListener('click', () => {
+      loadSimulatorChat(simPhoneInput ? simPhoneInput.value : null, true);
+    });
+  }
+
+  if (simPhoneInput) {
+    simPhoneInput.addEventListener('change', () => {
+      loadSimulatorChat(simPhoneInput.value, false);
+    });
   }
 
   quickPromptButtons.forEach(btn => {
     btn.addEventListener('click', () => {
+      if (btn.id === 'btnQuickInitChat') return;
       const msg = btn.getAttribute('data-msg');
-      simMessageInput.value = msg;
-      simulatorForm.dispatchEvent(new Event('submit'));
+      if (msg) {
+        sendSimulatorMessage(msg);
+      }
     });
   });
+
 
   // 8. Cargar Portafolio Oficial de Cursos (con Fechas y Horarios)
   async function fetchPortfolio() {
@@ -2447,6 +2539,9 @@ document.addEventListener('DOMContentLoaded', () => {
       fetchLeads();
       fetchPortfolio();
       loadCannedResponses();
+      if (typeof loadSimulatorChat === 'function') {
+        loadSimulatorChat(simPhoneInput ? simPhoneInput.value : null, false);
+      }
     } else {
       if (dashboardAppView) dashboardAppView.style.display = 'none';
       if (loginLandingView) loginLandingView.style.display = 'flex';

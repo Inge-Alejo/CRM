@@ -244,4 +244,21 @@ export class LeadService {
     `);
     return stmt.all(phoneNumber);
   }
+
+  /**
+   * Limpia el historial de mensajes de un lead y restablece su estado al modo de IA
+   */
+  static async clearLeadConversation(phoneNumber) {
+    try {
+      db.prepare('DELETE FROM messages WHERE phone_number = ?').run(phoneNumber);
+      db.prepare(`
+        UPDATE leads 
+        SET status = 'ai_handling', last_message = '', updated_at = ?
+        WHERE phone_number = ?
+      `).run(new Date().toISOString(), phoneNumber);
+    } catch (e) {
+      console.warn('Error en clearLeadConversation:', e.message);
+    }
+  }
 }
+
