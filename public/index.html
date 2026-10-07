@@ -525,17 +525,17 @@
 
                 <div style="margin-bottom:0.6rem;">
                   <label class="cust-prop-label" style="display:block; margin-bottom:0.25rem;">Asesor Asignado:</label>
-                  <div style="display:flex; gap:0.3rem;">
-                    <select id="inboxCustAdvisorSelect" class="form-select form-select-sm" style="flex:1;">
+                  <div style="display:flex; gap:0.35rem; align-items:center;">
+                    <select id="inboxCustAdvisorSelect" class="form-select form-select-sm" style="flex:1; min-width:0; width:0; box-sizing:border-box;">
                       <option value="Sin Asignar">Sin Asignar</option>
                     </select>
-                    <button class="btn btn-secondary btn-xs" id="btnInboxAssignToMe" title="Asignarme este caso inmediatamente">Tomar</button>
+                    <button class="btn btn-secondary btn-xs" id="btnInboxAssignToMe" style="flex-shrink:0; white-space:nowrap; padding:0.35rem 0.6rem;" title="Asignarme este caso inmediatamente">Tomar</button>
                   </div>
                 </div>
 
                 <div>
                   <label class="cust-prop-label" style="display:block; margin-bottom:0.25rem;">Nivel de Prioridad / Interés:</label>
-                  <select id="inboxCustTempSelect" class="form-select form-select-sm">
+                  <select id="inboxCustTempSelect" class="form-select form-select-sm" style="width:100%; box-sizing:border-box;">
                     <option value="hot">Prioridad Alta (Decisión Inmediata)</option>
                     <option value="warm">Prioridad Media (En Evaluación)</option>
                     <option value="cold">Prioridad Estándar (Consulta Informativa)</option>
@@ -1195,20 +1195,23 @@
                 <span style="font-size:0.78rem; color:var(--text-muted);">Sincronizadas en tiempo real en la Bandeja de Entrada de todos los asesores y sesiones</span>
               </div>
             </div>
-            <button class="btn btn-primary btn-sm" id="btnOpenNewMacroModal">
-              <svg class="mini-svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-              + Nueva Plantilla
-            </button>
+            <div style="display:flex; align-items:center; gap:0.55rem;">
+              <span class="badge" id="cannedCountBadge" style="background:#e0f2fe; color:#0369a1; font-weight:700;">0 Plantillas</span>
+              <button class="btn btn-primary btn-sm" id="btnOpenNewMacroModal">
+                <svg class="mini-svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                + Nueva Plantilla
+              </button>
+            </div>
           </div>
           <div class="card-body" style="padding:0;">
             <div class="table-responsive">
-              <table class="data-table" id="cannedResponsesTable">
+              <table class="data-table canned-table-styled" id="cannedResponsesTable">
                 <thead>
                   <tr>
-                    <th style="width:140px;">Atajo / Botón</th>
-                    <th style="width:180px;">Título Oficial</th>
-                    <th>Mensaje Predeterminado</th>
-                    <th style="width:130px; text-align:center;">Acciones</th>
+                    <th style="width:16%;">Atajo / Botón</th>
+                    <th style="width:24%;">Título & Categoría</th>
+                    <th style="width:48%;">Mensaje Predeterminado (WhatsApp)</th>
+                    <th style="width:12%; text-align:right;">Acciones</th>
                   </tr>
                 </thead>
                 <tbody id="cannedResponsesTableBody">

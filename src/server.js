@@ -382,10 +382,15 @@ app.patch('/api/leads/:phone/advisor', async (req, res) => {
 
 // Marcar que un asesor atendió al lead
 app.patch('/api/leads/:phone/attend', async (req, res) => {
-  const phone = req.params.phone;
-  const { advisor } = req.body;
-  await LeadService.markAttended(phone, advisor || 'Asesor UdeA');
-  res.json({ success: true, advisor: advisor || 'Asesor UdeA' });
+  try {
+    const phone = req.params.phone;
+    const { advisor } = req.body;
+    await LeadService.markAttended(phone, advisor || 'Asesor UdeA');
+    const leadData = await LeadService.getLeadByPhone(phone);
+    res.json({ success: true, advisor: advisor || 'Asesor UdeA', lead: leadData });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 
 // Guardar notas internas de un lead

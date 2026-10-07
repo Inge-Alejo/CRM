@@ -1647,21 +1647,49 @@ document.addEventListener('DOMContentLoaded', () => {
   // Renderizar tabla administrativa de respuestas rápidas en el Panel TIC
   function renderCannedResponsesTable() {
     const tbody = document.getElementById('cannedResponsesTableBody');
+    const countBadge = document.getElementById('cannedCountBadge');
+    if (countBadge) {
+      countBadge.textContent = `${allCannedResponses.length} Plantillas`;
+    }
     if (!tbody) return;
     if (allCannedResponses.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:1.5rem; color:var(--text-muted);">No hay plantillas creadas. Agrega una con el botón "+ Nueva Plantilla".</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:2rem; color:var(--text-muted);">No hay plantillas creadas. Agrega una con el botón "+ Nueva Plantilla".</td></tr>';
       return;
     }
     tbody.innerHTML = allCannedResponses.map(m => {
+      const categoryLabel = m.category ? escapeHtml(m.category) : 'General';
+      const cleanShortcut = escapeHtml(m.shortcut || m.title);
+      const cleanTitle = escapeHtml(m.title);
+      const cleanMessage = escapeHtml(m.message);
+
       return `
         <tr>
-          <td><span class="macro-shortcut-tag">${escapeHtml(m.shortcut || m.title)}</span></td>
-          <td><strong>${escapeHtml(m.title)}</strong></td>
-          <td><div class="macro-msg-preview" title="${escapeHtml(m.message)}">${escapeHtml(m.message)}</div></td>
-          <td style="text-align:center;">
-            <div style="display:flex; justify-content:center; gap:0.35rem;">
-              <button class="btn btn-secondary btn-sm" onclick="window.editCannedResponse('${m.id}')" title="Editar plantilla">✏️ Editar</button>
-              <button class="btn btn-secondary btn-sm" onclick="window.deleteCannedResponse('${m.id}')" title="Eliminar plantilla" style="color:#dc2626;">🗑️</button>
+          <td>
+            <span class="macro-shortcut-tag" title="Atajo para el asesor">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+              ${cleanShortcut}
+            </span>
+          </td>
+          <td>
+            <div class="macro-title-cell">
+              <span class="macro-title-text">${cleanTitle}</span>
+              <span class="macro-cat-pill">${categoryLabel}</span>
+            </div>
+          </td>
+          <td>
+            <div class="macro-msg-bubble" title="${cleanMessage}">
+              ${cleanMessage}
+            </div>
+          </td>
+          <td>
+            <div class="macro-action-btns">
+              <button class="btn-macro-edit" onclick="window.editCannedResponse('${m.id}')" title="Editar plantilla">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                Editar
+              </button>
+              <button class="btn-macro-delete" onclick="window.deleteCannedResponse('${m.id}')" title="Eliminar plantilla">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+              </button>
             </div>
           </td>
         </tr>
@@ -1873,7 +1901,18 @@ document.addEventListener('DOMContentLoaded', () => {
       if (inboxActiveAvatar) inboxActiveAvatar.textContent = initials;
       if (inboxActiveName) inboxActiveName.textContent = lead.name || 'Interesado UdeA';
       if (inboxActivePhone) inboxActivePhone.textContent = lead.phone_number || '';
-      if (inboxActiveStatus) inboxActiveStatus.textContent = lead.status === 'advisor_requested' ? '🚨 Espera asesor' : (lead.status === 'advisor_handling' ? '👨‍⚕️ Asesor al mando' : '🤖 IA Apolo');
+      if (inboxActiveStatus) {
+        if (lead.status === 'attended' || lead.attended_by) {
+          inboxActiveStatus.textContent = `✓ Atendido (${lead.attended_by || 'Asesor'})`;
+        } else if (lead.status === 'advisor_requested') {
+          inboxActiveStatus.textContent = '🚨 Espera asesor';
+        } else if (lead.status === 'advisor_handling') {
+          inboxActiveStatus.textContent = '👨‍⚕️ Asesor al mando';
+        } else {
+          inboxActiveStatus.textContent = '🤖 IA Apolo';
+        }
+      }
+      updateInboxAttendedButtonState(lead);
 
       if (inboxActiveTempBadge) {
         const temp = lead.interest_temperature || 'cold';
@@ -2174,12 +2213,96 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Marcar como atendido desde el header del chat
+  // Estado visual reactivo del botón de atendido
+  function updateInboxAttendedButtonState(lead) {
+    if (!btnInboxMarkAttended) return;
+    const isAttended = lead && (lead.status === 'attended' || !!lead.attended_by);
+    if (isAttended) {
+      btnInboxMarkAttended.classList.add('btn-inbox-attended-active');
+      btnInboxMarkAttended.innerHTML = `
+        <svg class="mini-svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        <span>✓ Atendido</span>
+      `;
+      const advisorText = lead.attended_by || lead.assigned_advisor || 'Asesor';
+      const timeStr = lead.attended_at ? new Date(lead.attended_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+      btnInboxMarkAttended.title = `Atendido por ${advisorText} ${timeStr ? '(' + timeStr + ')' : ''}`;
+    } else {
+      btnInboxMarkAttended.classList.remove('btn-inbox-attended-active');
+      btnInboxMarkAttended.innerHTML = `
+        <svg class="mini-svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        <span>Atendido</span>
+      `;
+      btnInboxMarkAttended.title = 'Marcar que atendiste a este usuario';
+    }
+  }
+
+  // Marcar prospecto como atendido por el asesor activo en tiempo real
+  window.markAttendedByActiveAdvisor = async function(phone) {
+    if (!phone) return;
+    const advisor = getActiveAdvisor() || 'Asesor UdeA';
+    
+    // Feedback visual optimista inmediato
+    if (btnInboxMarkAttended && currentInboxPhone === phone) {
+      btnInboxMarkAttended.classList.add('btn-inbox-attended-active');
+      btnInboxMarkAttended.innerHTML = `
+        <svg class="mini-svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        <span>✓ Atendido</span>
+      `;
+    }
+
+    try {
+      const res = await fetch(`/api/leads/${encodeURIComponent(phone)}/attend`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ advisor })
+      });
+      const data = await res.json();
+      if (data.success) {
+        if (inboxCustStatusSelect && currentInboxPhone === phone) {
+          inboxCustStatusSelect.value = 'attended';
+        }
+        if (inboxActiveStatus && currentInboxPhone === phone) {
+          inboxActiveStatus.textContent = `✓ Atendido por ${advisor}`;
+        }
+        if (currentInboxPhone === phone) {
+          updateInboxAttendedButtonState(data.lead || { status: 'attended', attended_by: advisor, attended_at: new Date().toISOString() });
+        }
+        fetchLeads();
+      }
+    } catch (err) {
+      console.error('Error al marcar atendido:', err);
+    }
+  };
+
+  // Asignar o reasignar asesor
+  window.reassignAdvisor = async function(phone, advisor) {
+    if (!phone || !advisor) return;
+    try {
+      const res = await fetch(`/api/leads/${encodeURIComponent(phone)}/advisor`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ advisor })
+      });
+      const data = await res.json();
+      if (data.success) {
+        fetchLeads();
+      }
+    } catch (err) {
+      console.error('Error reasignando asesor:', err);
+    }
+  };
+
+  // Asignarme el caso inmediatamente
+  window.assignToMe = async function(phone) {
+    const advisor = getActiveAdvisor();
+    await window.reassignAdvisor(phone, advisor);
+  };
+
+  // Botón de atendido en la cabecera del chat
   if (btnInboxMarkAttended) {
     btnInboxMarkAttended.addEventListener('click', async () => {
       if (!currentInboxPhone) return;
       await window.markAttendedByActiveAdvisor(currentInboxPhone);
-      await window.selectInboxLead(currentInboxPhone);
     });
   }
 
@@ -2235,12 +2358,14 @@ document.addEventListener('DOMContentLoaded', () => {
   if (inboxCustStatusSelect) {
     inboxCustStatusSelect.addEventListener('change', async () => {
       if (!currentInboxPhone) return;
+      const newStatus = inboxCustStatusSelect.value;
       try {
         await fetch(`/api/leads/${encodeURIComponent(currentInboxPhone)}/status`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ status: inboxCustStatusSelect.value })
+          body: JSON.stringify({ status: newStatus })
         });
+        updateInboxAttendedButtonState({ status: newStatus });
         fetchLeads();
       } catch (err) {
         console.warn('Error actualizando estado:', err.message);
@@ -2274,7 +2399,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (btnToggleCustomerPanel) {
     btnToggleCustomerPanel.addEventListener('click', () => {
-      if (window.innerWidth <= 1100) {
+      if (window.innerWidth <= 1180) {
         if (inboxCustomerPanel) {
           inboxCustomerPanel.classList.toggle('open-drawer');
         }

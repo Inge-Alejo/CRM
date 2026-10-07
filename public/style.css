@@ -3168,13 +3168,60 @@ input:checked + .slider:before {
 /* ==============================================================
    RESPONSIVIDAD AVANZADA (ADAPTACIÓN A LAPTOPS, TABLETS Y MÓVILES)
    ============================================================== */
-@media (max-width: 1280px) {
+.customer-details-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+  overflow-x: hidden;
+  box-sizing: border-box;
+}
+
+.customer-details-scroll::-webkit-scrollbar {
+  width: 5px;
+}
+
+.customer-details-scroll::-webkit-scrollbar-thumb {
+  background-color: #cbd5e1;
+  border-radius: 4px;
+}
+
+.cust-card-section {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+}
+
+.cust-card-section select,
+.cust-card-section input,
+.cust-card-section textarea {
+  box-sizing: border-box;
+  max-width: 100%;
+  min-width: 0;
+}
+
+@keyframes slideInDrawer {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+@media (max-width: 1366px) {
   .agent-workspace-container {
-    grid-template-columns: 250px minmax(0, 1fr) 280px;
+    grid-template-columns: 240px minmax(0, 1fr) 275px;
+  }
+  .customer-details-scroll {
+    padding: 0.6rem 0.5rem;
+  }
+  .cust-card-section {
+    padding: 0.55rem;
+  }
+  .chat-header-controls {
+    gap: 0.35rem;
+  }
+  .btn-toggle-360 .btn-text {
+    display: inline;
   }
 }
 
-@media (max-width: 1100px) {
+@media (max-width: 1180px) {
   .agent-workspace-container {
     grid-template-columns: 240px minmax(0, 1fr);
   }
@@ -3184,15 +3231,17 @@ input:checked + .slider:before {
     top: 0;
     right: 0;
     bottom: 0;
-    width: 300px;
-    z-index: 50;
-    box-shadow: -4px 0 20px rgba(0, 0, 0, 0.12);
+    width: 320px;
+    z-index: 60;
+    background: #ffffff;
+    box-shadow: -6px 0 24px rgba(0, 0, 0, 0.15);
   }
   .workspace-customer-panel.open-drawer {
     display: flex !important;
+    animation: slideInDrawer 0.22s cubic-bezier(0.16, 1, 0.3, 1);
   }
   .btn-close-360-panel {
-    display: flex;
+    display: flex !important;
   }
 }
 
@@ -3208,14 +3257,18 @@ input:checked + .slider:before {
   }
   .workspace-sidebar {
     height: 220px;
+    min-height: 220px;
+    max-height: 220px;
     border-right: none;
     border-bottom: 1px solid var(--border);
   }
   .workspace-chat-main {
     flex: 1;
+    min-height: 0;
   }
   .workspace-customer-panel {
     width: 100%;
+    max-width: 100%;
   }
 }
 
@@ -3428,26 +3481,159 @@ input:checked + .slider:before {
 }
 
 /* ==============================================================
-   TABLA DE RESPUESTAS RÁPIDAS (ADMINISTRADOR TIC)
+   BOTÓN DE ATENDIDO ACTIVO & ESTADOS
    ============================================================== */
-.macro-msg-preview {
-  font-size: 0.78rem;
+.btn-inbox-attended-active {
+  background: #059669 !important;
+  color: #ffffff !important;
+  border-color: #047857 !important;
+  box-shadow: 0 2px 8px rgba(5, 150, 105, 0.35) !important;
+  font-weight: 700 !important;
+}
+
+.btn-inbox-attended-active:hover {
+  background: #047857 !important;
+  color: #ffffff !important;
+}
+
+.btn-inbox-attended-active svg {
+  stroke: #ffffff !important;
+}
+
+/* ==============================================================
+   TABLA DE RESPUESTAS RÁPIDAS & PLANTILLAS (ADMINISTRADOR TIC)
+   ============================================================== */
+.canned-table-styled {
+  width: 100% !important;
+  table-layout: fixed;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.canned-table-styled th {
+  background: #f8fafc;
   color: #475569;
-  max-width: 480px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  line-height: 1.4;
+  font-size: 0.76rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.85rem 1rem;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.canned-table-styled td {
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid #f1f5f9;
+  vertical-align: middle;
+}
+
+.canned-table-styled tbody tr:hover td {
+  background: #f8fafc;
 }
 
 .macro-shortcut-tag {
   display: inline-flex;
   align-items: center;
-  background: #f1f5f9;
-  border: 1px solid #cbd5e1;
-  padding: 0.15rem 0.5rem;
+  gap: 0.3rem;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  padding: 0.25rem 0.65rem;
   border-radius: 999px;
-  font-size: 0.73rem;
+  font-size: 0.74rem;
+  font-weight: 800;
+  color: #166534;
+  white-space: nowrap;
+}
+
+.macro-title-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.macro-title-text {
+  font-size: 0.84rem;
   font-weight: 700;
-  color: #1e293b;
+  color: var(--udea-dark);
+  line-height: 1.3;
+}
+
+.macro-cat-pill {
+  display: inline-block;
+  align-self: flex-start;
+  font-size: 0.66rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 0.1rem 0.45rem;
+  border-radius: 4px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #dbeafe;
+}
+
+.macro-msg-bubble {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 0.55rem 0.85rem;
+  font-size: 0.8rem;
+  color: #334155;
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+  box-sizing: border-box;
+  word-break: break-word;
+}
+
+.macro-action-btns {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.45rem;
+}
+
+.btn-macro-edit {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.35rem 0.7rem;
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: #0369a1;
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-macro-edit:hover {
+  background: #e0f2fe;
+  border-color: #7dd3fc;
+  color: #0284c7;
+}
+
+.btn-macro-delete {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.35rem 0.55rem;
+  font-size: 0.74rem;
+  color: #dc2626;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-macro-delete:hover {
+  background: #fee2e2;
+  border-color: #fca5a5;
+  color: #b91c1c;
 }

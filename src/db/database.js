@@ -644,7 +644,7 @@ export function markLeadAttendedByAdvisor(phoneNumber, advisorName) {
   const nowIso = new Date().toISOString();
   const stmt = db.prepare(`
     UPDATE leads
-    SET status = 'contacted', attended_by = ?, attended_at = ?, updated_at = ?
+    SET status = 'attended', attended_by = ?, attended_at = ?, updated_at = ?
     WHERE phone_number = ?
   `);
   stmt.run(advisorName, nowIso, nowIso, phoneNumber);
