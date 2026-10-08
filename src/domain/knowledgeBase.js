@@ -35,6 +35,7 @@ export class KnowledgeBaseService {
       prompt += `MODALIDAD: ${item.modality || 'Virtual'}\n`;
       prompt += `DURACIÓN: ${item.duration_hours} horas\n`;
       prompt += `INVERSIÓN: ${item.investment || 'Consultar'}\n`;
+      prompt += `ENLACE DE INFORMACIÓN OFICIAL (PORTAL Y TEMARIO): ${item.registration_link || item.payment_link || 'https://extension.medicinaudea.co/oferta-academica/'}\n`;
       prompt += `ENLACE DIRECTO DE INSCRIPCIÓN Y PAGO: ${item.payment_link || item.registration_link || 'https://extension.medicinaudea.co/oferta-academica/'}\n`;
       prompt += `CORREO DE CONTACTO: ${item.contact_email || 'extensionmedicina@udea.edu.co'}\n`;
       prompt += `DESCRIPCIÓN Y CONTENIDO: ${item.description}\n`;

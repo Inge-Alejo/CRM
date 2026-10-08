@@ -163,10 +163,11 @@ ESTADO DEL PROSPECTO EN EL CRM (DATOS YA REGISTRADOS):
 REGLAS CRÍTICAS DE COMUNICACIÓN Y EFICIENCIA DE TOKENS:
 1. EXTREMA CONCISIÓN Y DIRECTO AL GRANO: Tus respuestas deben tener MÁXIMO entre 60 y 90 palabras. Ahorra tokens al máximo. Evita saludos redundantes, explicaciones extensas, rodeos y despedidas largas.
 2. INTEGRIDAD DE RESPUESTAS Y ENLACES: NUNCA dejes oraciones incompletas ni enlaces cortados a la mitad. Escribe siempre la URL completa oficial (ej: https://extension.medicinaudea.co/eventos/anestesiologia/).
-3. ENLACE DIRECTO DE INSCRIPCIÓN Y PAGO DEL PROGRAMA:
-   - Comparte SIEMPRE el enlace del programa de interés consultado (ej: https://extension.medicinaudea.co/eventos/anestesiologia/).
-   - ESTÁ TOTALMENTE PROHIBIDO generar o enviar enlaces que contengan 'asone.udea.edu.co' o mencionar AsOne (dicho portal no está en funcionamiento).
-   - NUNCA pongas el enlace como un simple link de información; preséntalo DIRECTAMENTE como el enlace oficial para realizar la inscripción y pago del curso o diplomado (ej: 💳 *Enlace directo de inscripción y pago:* https://extension.medicinaudea.co/eventos/...).
+3. ENLACES OFICIALES DEL PROGRAMA (INFORMACIÓN Y PAGO):
+   - Al detallar o presentar un curso o diplomado, incluye SIEMPRE tanto el enlace de información oficial (donde el usuario puede consultar el temario y detalles académicos) como el enlace directo de inscripción y pago:
+     * ℹ️ *Enlace de información:* <URL_DE_INFORMACION_OFICIAL>
+     * 💳 *Enlace directo de inscripción y pago:* <URL_DE_INSCRIPCION_Y_PAGO>
+   - Escribe siempre las URLs completas oficiales registradas en la BASE DE CONOCIMIENTO OFICIAL VIGENTE sin recortarlas.
 4. REGLA ESTRICTA DE CAPTURA DE DATOS (NUNCA DUPLICAR TRABAJO AL USUARIO):
    - ${hasFullIdentity || knownName ? `ATENCIÓN: El usuario YA SUMINISTRÓ sus datos (${knownName || 'Usuario'}${knownDoc ? ', ' + knownDoc : ''}${knownEmail ? ', ' + knownEmail : ''}). ESTÁ TOTALMENTE PROHIBIDO volver a pedirle nombre, documento, correo o perfil. Trátalo respetuosamente por su nombre y responde directo a su inquietud.` : `Si el usuario NO ha dado sus datos, NO los pidas de inmediato en el saludo inicial. Pídelos amablemente SOLO cuando demuestre interés puntual o solicite inscribirse en un programa, solicitando únicamente los que falten.`}
    - Si el usuario dice "me interesa más información", "más info" o similar tras haberle listado cursos o diplomados:
@@ -400,8 +401,10 @@ ${knowledgeContext}
       );
 
       if (match) {
+        const infoLink = match.registration_link || (match.payment_link && !match.payment_link.includes('asone') ? match.payment_link : 'https://extension.medicinaudea.co/oferta-academica/');
         const directPaymentLink = match.payment_link || match.registration_link || 'https://extension.medicinaudea.co/oferta-academica/';
         const salutation = knownName ? ` ${knownName}` : '';
+        const infoLine = infoLink ? `ℹ️ *Enlace de información:* ${infoLink}\n` : '';
 
         // INTENCIÓN 1: PAGO / MATRÍCULA / CÓMO PAGAR
         if (isPaymentIntent) {
@@ -409,7 +412,8 @@ ${knowledgeContext}
             replyText: `¡Con gusto te oriento con el proceso de pago${salutation}! 💳✨\n\n` +
               `Para formalizar tu matrícula en *${match.title}*, el proceso es 100% virtual a través del portal oficial de la Universidad de Antioquia:\n\n` +
               `1️⃣ Ingresa al enlace oficial de pago:\n` +
-              `👉 ${directPaymentLink}\n\n` +
+              `👉 💳 *Enlace directo de inscripción y pago:* ${directPaymentLink}\n` +
+              (infoLink && infoLink !== directPaymentLink ? `ℹ️ *Enlace de información oficial:* ${infoLink}\n\n` : `\n`) +
               `2️⃣ Diligencia el formulario de inscripción con tus datos personales.\n` +
               `3️⃣ Selecciona tu medio de pago preferido:\n` +
               `   • 💳 *PSE:* Débito en línea desde cuentas de ahorros/corriente en Colombia.\n` +
@@ -431,6 +435,7 @@ ${knowledgeContext}
               `• Acceso a las sesiones académicas y plataforma virtual UdeA.\n` +
               `• Materiales de estudio y memorias en video.\n` +
               `• Certificado oficial expedido por la *Facultad de Medicina UdeA* (${match.duration_hours} horas).\n\n` +
+              `${infoLine}` +
               `💳 *Enlace directo de inscripción y pago:* ${directPaymentLink}\n\n` +
               `¿Te gustaría conocer los medios de pago disponibles (PSE, tarjetas) o el cronograma de fechas? 💡✨`,
             detectedProgram: match.title,
@@ -446,6 +451,7 @@ ${knowledgeContext}
               `• 👨‍⚕️ *Comunidad Universitaria (Estudiantes y Docentes UdeA):* Descuento aplicable en programas autorizados.\n` +
               `• 🏥 *Grupos Institucionales e IPS:* A partir de 3 o más participantes de una misma entidad.\n\n` +
               `💰 *Inversión oficial estándar:* ${match.investment}\n` +
+              `${infoLine}` +
               `💳 *Enlace directo de inscripción y pago:* ${directPaymentLink}\n\n` +
               `Para aplicar tu beneficio antes de generar el pago, indícanos a cuál grupo perteneces o escribe a *aprendizajes.med@udea.edu.co* con tu soporte. ¿A cuál de estos perfiles aplicas? 🩺💡`,
             detectedProgram: match.title,
@@ -460,6 +466,7 @@ ${knowledgeContext}
               `📖 *Ejes temáticos principales:*\n${match.description}\n\n` +
               `💻 *Modalidad:* ${match.modality}\n` +
               `⏳ *Intensidad horaria:* ${match.duration_hours} horas académicas certificadas.\n\n` +
+              `${infoLine}` +
               `💳 *Enlace directo de inscripción y pago:* ${directPaymentLink}\n\n` +
               `¿Deseas conocer los horarios específicos de las clases o cómo asegurar tu lugar? 💡✨`,
             detectedProgram: match.title,
@@ -475,6 +482,7 @@ ${knowledgeContext}
               `⏰ *Horario de clases:* ${match.schedule || 'Consultar programación oficial'}\n` +
               `💻 *Modalidad:* ${match.modality}\n` +
               `⏳ *Duración:* ${match.duration_hours} horas académicas certificadas\n\n` +
+              `${infoLine}` +
               `💳 *Enlace directo de inscripción y pago:* ${directPaymentLink}\n\n` +
               `Los cupos son limitados para garantizar calidad académica. ¿Deseas asegurar tu cupo antes del cierre? 💡✨`,
             detectedProgram: match.title,
@@ -491,6 +499,7 @@ ${knowledgeContext}
               `1. Documento de identidad al 150%.\n` +
               `2. Copia de acta de grado, tarjeta profesional o constancia académica según aplique.\n` +
               `3. Comprobante de pago generado por la plataforma oficial UdeA.\n\n` +
+              `${infoLine}` +
               `💳 *Enlace directo de inscripción y pago:* ${directPaymentLink}\n\n` +
               `¿Cuentas con la documentación o requieres apoyo para radicarla? 🩺💡`,
             detectedProgram: match.title,
@@ -505,6 +514,7 @@ ${knowledgeContext}
               `✨ *Certificado oficial* emitido por la *Facultad de Medicina de la Universidad de Antioquia*.\n` +
               `⏱️ Certificación por *${match.duration_hours} horas académicas* de educación continua en salud.\n\n` +
               `💰 *Inversión:* ${match.investment}\n` +
+              `${infoLine}` +
               `💳 *Enlace directo de inscripción y pago:* ${directPaymentLink}\n\n` +
               `¿Deseas completar tu matrícula para asegurar tu cupo en esta cohorte? 🩺✨`,
             detectedProgram: match.title,
@@ -519,9 +529,10 @@ ${knowledgeContext}
             `⏰ *Horario:* ${match.schedule || 'Consultar programación oficial'}\n` +
             `💻 *Modalidad:* ${match.modality}\n` +
             `💰 *Inversión:* ${match.investment}\n` +
+            `${infoLine}` +
             `💳 *Enlace directo de inscripción y pago:* ${directPaymentLink}\n` +
             `✉️ *Contacto:* ${match.contact_email}\n\n` +
-            `👉 Puedes ingresar al enlace para asegurar tu cupo y realizar el pago en línea. ¿Deseas información puntual sobre el temario o los requisitos de inscripción? 💡✨`,
+            `👉 Puedes ingresar al enlace de información para conocer el temario completo o al enlace de pago para asegurar tu cupo en línea. ¿Deseas información puntual sobre el temario o los requisitos de inscripción? 💡✨`,
           detectedProgram: match.title,
           requestAdvisor: false
         };
