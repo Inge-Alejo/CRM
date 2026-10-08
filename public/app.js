@@ -1556,7 +1556,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (auditBadge) auditBadge.textContent = `${data.auditLogs.length} Registros Recientes`;
       if (auditTableBody) {
         if (!data.auditLogs || data.auditLogs.length === 0) {
-          auditTableBody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:1.5rem; color:var(--text-muted);">No hay eventos de auditoría registrados.</td></tr>';
+          auditTableBody.innerHTML = '<tr><td colspan="4" class="table-empty-cell">No hay eventos de auditoría registrados.</td></tr>';
         } else {
           auditTableBody.innerHTML = data.auditLogs.map(log => renderAuditLogRow(log)).join('');
         }
@@ -1772,7 +1772,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (!tbody) return;
     if (allCannedResponses.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:2rem; color:var(--text-muted);">No hay plantillas creadas. Agrega una con el botón "+ Nueva Plantilla".</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="4" class="table-empty-cell">No hay plantillas creadas. Agrega una con el botón "+ Nueva Plantilla".</td></tr>';
       return;
     }
     tbody.innerHTML = allCannedResponses.map(m => {
