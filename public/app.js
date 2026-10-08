@@ -907,7 +907,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div style="align-self: ${isUser ? 'flex-end' : 'flex-start'}; background: ${isUser ? 'var(--wa-bubble-user)' : '#f1f5f9'}; padding: 0.65rem 0.95rem; border-radius: 8px; max-width: 85%; font-size: 0.85rem; white-space: pre-wrap; line-height: 1.45;">
                   <strong>${isUser ? 'Estudiante / Interesado' : 'Asistente Oficial UdeA'}:</strong><br>
                   ${safeContent}
-                  <div style="font-size: 0.65rem; color: #94a3b8; text-align: right; margin-top: 0.3rem;">${time}</div>
+                  <div style="font-size: 0.75rem; color: #64748b; text-align: right; margin-top: 0.3rem;">${time}</div>
                 </div>
               `;
             }).join('')}
@@ -1921,7 +1921,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <div style="padding: 2.5rem 1rem; text-align: center; color: var(--text-muted); font-size: 0.82rem;">
           <div style="font-size: 1.8rem; margin-bottom: 0.5rem; opacity: 0.6;">📭</div>
           <strong>No hay conversaciones</strong>
-          <p style="margin: 0.25rem 0 0; font-size: 0.74rem;">No hay prospectos que coincidan con los filtros seleccionados.</p>
+          <p style="margin: 0.25rem 0 0; font-size: 0.8rem; color: #64748b;">No hay prospectos que coincidan con los filtros seleccionados.</p>
         </div>
       `;
       if (!preserveSelection) {

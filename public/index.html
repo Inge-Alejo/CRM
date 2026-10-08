@@ -14,15 +14,12 @@
 
   <!-- ==================== LANDING PAGE DE ACCESO INSTITUCIONAL (LOGIN GATE) ==================== -->
   <div id="loginLandingView" class="login-landing-wrapper">
-    <div class="landing-bg-decor">
-      <div class="landing-glow-orb orb-1"></div>
-      <div class="landing-glow-orb orb-2"></div>
-    </div>
+    <div class="landing-ambient-layer"></div>
 
     <div class="landing-card">
       <div class="landing-header">
-        <div class="landing-logo-badge">
-          <img src="img/logo-udea-medicina.png" alt="Universidad de Antioquia - Facultad de Medicina">
+        <div class="landing-brand-crest">
+          <img src="img/logo-udea-medicina.png" alt="Universidad de Antioquia - Facultad de Medicina" class="landing-crest-img">
         </div>
         <h1 class="landing-title">Centro de Extensión</h1>
         <p class="landing-subtitle">Facultad de Medicina · Universidad de Antioquia</p>
@@ -37,33 +34,35 @@
 
       <form id="advisorLoginForm" class="landing-form">
         <div class="form-group">
-          <label for="loginEmailInput">Correo Institucional</label>
+          <label for="loginEmailInput" class="landing-label">Correo Institucional</label>
           <div class="input-icon-wrap">
-            <svg class="field-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
-            <input type="email" id="loginEmailInput" class="form-input" required placeholder="correo@udea.edu.co" autocomplete="username">
+            <svg class="field-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+            <input type="email" id="loginEmailInput" class="form-input landing-input" required placeholder="correo@udea.edu.co" autocomplete="username">
           </div>
         </div>
 
         <div class="form-group">
-          <label for="loginPasswordInput">Contraseña Institucional</label>
+          <label for="loginPasswordInput" class="landing-label">Contraseña Institucional</label>
           <div class="input-icon-wrap">
-            <svg class="field-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-            <input type="password" id="loginPasswordInput" class="form-input" required placeholder="••••••••••••" autocomplete="current-password">
+            <svg class="field-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            <input type="password" id="loginPasswordInput" class="form-input landing-input" required placeholder="••••••••••••" autocomplete="current-password">
           </div>
         </div>
 
         <button type="submit" class="btn btn-primary btn-landing-submit" id="btnLoginSubmit">
           <span>Ingresar al CRM</span>
-          <svg class="mini-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+          <span class="btn-icon-circle">
+            <svg class="mini-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+          </span>
         </button>
       </form>
 
       <div class="landing-footer">
         <div class="landing-security-notice">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-          <span>Acceso validado en tiempo real con cuentas registradas en Firebase</span>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          <span>Autenticación segura vinculada a Google Identity & Firebase Auth</span>
         </div>
-        <span>© Universidad de Antioquia · Medellín, Colombia</span>
+        <span class="landing-copyright">© Universidad de Antioquia · Medellín, Colombia</span>
       </div>
     </div>
   </div>
@@ -348,15 +347,15 @@
           <aside class="workspace-sidebar">
             <div class="workspace-sidebar-header">
               <div class="workspace-title-row">
-                <div style="display:flex; align-items:center; gap:0.5rem;">
-                  <span class="status-pulse-dot" style="margin:0;"></span>
-                  <h3 style="margin:0; font-size:0.95rem; font-weight:800; color:var(--udea-dark);">Bandeja de Entrada</h3>
+                <div class="workspace-title-group">
+                  <span class="status-pulse-dot"></span>
+                  <h3 class="workspace-heading">Bandeja de Entrada</h3>
                 </div>
-                <span class="badge" id="inboxTotalCountBadge" style="background:#e0f2fe; color:#0369a1; font-weight:700;">0 chats</span>
+                <span class="badge badge-chats-count" id="inboxTotalCountBadge">0 chats</span>
               </div>
               
               <div class="inbox-search-box">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
                 <input type="text" id="inboxSearchInput" placeholder="Buscar por nombre, teléfono o programa..." />
               </div>
 
@@ -386,15 +385,15 @@
               <div class="chat-header-user">
                 <div class="chat-avatar" id="inboxActiveAvatar">DR</div>
                 <div class="chat-user-meta">
-                  <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
-                    <h4 id="inboxActiveName" style="margin:0; font-size:1.02rem; font-weight:800; color:var(--udea-dark);">Nombre del Prospecto</h4>
+                  <div class="chat-user-row">
+                    <h4 id="inboxActiveName" class="chat-user-fullname">Nombre del Prospecto</h4>
                     <span id="inboxActiveTempBadge" class="temp-badge hot">Prioridad Alta</span>
                   </div>
-                  <div style="display:flex; align-items:center; gap:0.5rem; font-size:0.75rem; color:var(--text-muted); margin-top:2px;">
-                    <span id="inboxActivePhone">+57 300 000 0000</span>
-                    <span>•</span>
-                    <span id="inboxActiveStatus">En atención</span>
-                    <span>•</span>
+                  <div class="chat-user-submeta">
+                    <span id="inboxActivePhone" class="chat-phone-mono">+57 300 000 0000</span>
+                    <span class="submeta-divider">•</span>
+                    <span id="inboxActiveStatus" class="chat-status-text">En atención</span>
+                    <span class="submeta-divider">•</span>
                     <span class="meta-window-tag" title="Ventana oficial de conversación de WhatsApp Cloud API">🟢 Ventana Meta 24h Activa</span>
                   </div>
                 </div>
@@ -403,7 +402,7 @@
               <!-- Controles de acción en la cabecera del chat -->
               <div class="chat-header-controls">
                 <div class="ai-toggle-box" title="Pausar o reanudar el asistente virtual Apolo para este prospecto">
-                  <span id="inboxAiToggleLabel" style="font-size:0.74rem; font-weight:700; color:var(--udea-emerald);">🤖 IA Activa</span>
+                  <span id="inboxAiToggleLabel" class="ai-toggle-caption">🤖 IA Activa</span>
                   <label class="switch">
                     <input type="checkbox" id="inboxAiToggleCheck" checked>
                     <span class="slider round"></span>
@@ -461,11 +460,11 @@
             <div class="customer-panel-header">
               <button class="btn-close-360-panel" id="btnCloseCustomerPanel" title="Cerrar panel">✕</button>
               <div class="customer-avatar-big" id="inboxCustAvatar">DR</div>
-              <h4 id="inboxCustName" style="margin:0; font-size:1.05rem; font-weight:800; color:var(--udea-dark);">Nombre del Prospecto</h4>
-              <span id="inboxCustPhone" style="font-size:0.8rem; color:var(--text-muted); font-family:var(--font-mono);">+57 300 000 0000</span>
+              <h4 id="inboxCustName" class="cust-header-name">Nombre del Prospecto</h4>
+              <span id="inboxCustPhone" class="cust-header-phone">+57 300 000 0000</span>
               <a id="inboxCustWaLink" href="#" target="_blank" class="btn-wa-direct" title="Abrir en WhatsApp Web o Móvil">
                 <span>Abrir en WhatsApp</span>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
               </a>
             </div>
 
@@ -480,11 +479,11 @@
                 </div>
                 <div class="cust-prop-row">
                   <span class="cust-prop-label">Correo:</span>
-                  <strong class="cust-prop-val" id="inboxCustEmail" style="word-break:break-all;">—</strong>
+                  <strong class="cust-prop-val cust-prop-email" id="inboxCustEmail">—</strong>
                 </div>
                 <div class="cust-prop-row">
                   <span class="cust-prop-label">Perfil Clínico:</span>
-                  <span class="badge" id="inboxCustProfession" style="background:#e0e7ff; color:#3730a3; font-weight:700;">Por Definir</span>
+                  <span class="badge badge-profession-pill" id="inboxCustProfession">Por Definir</span>
                 </div>
                 <div class="cust-prop-row">
                   <span class="cust-prop-label">Área Temática:</span>
@@ -494,18 +493,18 @@
 
               <!-- Sección: Programa de Interés & Enlace de Inscripción y Pago UdeA -->
               <div class="cust-card-section highlight-emerald-subtle">
-                <span class="cust-section-title" style="color:var(--udea-emerald);">Programa de Interés</span>
-                <div style="font-weight:800; font-size:0.88rem; color:var(--udea-dark); margin-bottom:0.5rem; line-height:1.3;" id="inboxCustProgram">
+                <span class="cust-section-title cust-title-emerald">Programa de Interés</span>
+                <div class="cust-program-title" id="inboxCustProgram">
                   Diplomado en Ciencias Ómicas
                 </div>
-                <div style="display:flex; gap:0.4rem; flex-wrap:wrap; margin-top:0.4rem;">
-                  <button class="btn btn-primary btn-xs" id="btnInboxCopyPaymentLink" title="Copiar enlace oficial directo de inscripción y pago del programa">
+                <div class="cust-program-actions">
+                  <button class="btn btn-primary btn-xs cust-action-btn" id="btnInboxCopyPaymentLink" title="Copiar enlace oficial directo de inscripción y pago del programa">
                     💳 Copiar Link Pago
                   </button>
-                  <a href="#" target="_blank" id="inboxCustPaymentDirectLink" class="btn btn-success btn-xs" style="background:#047857; border-color:#047857; color:#fff;" title="Abrir formulario oficial de inscripción y pago">
+                  <a href="#" target="_blank" id="inboxCustPaymentDirectLink" class="btn btn-success-pill btn-xs cust-action-btn" title="Abrir formulario oficial de inscripción y pago">
                     ↗️ Ir a Pago
                   </a>
-                  <a href="#" target="_blank" id="inboxCustInfoLink" class="btn btn-secondary btn-xs" title="Ver ficha informativa oficial del programa">
+                  <a href="#" target="_blank" id="inboxCustInfoLink" class="btn btn-secondary btn-xs cust-action-btn" title="Ver ficha informativa oficial del programa">
                     ℹ️ Ver Info
                   </a>
                 </div>
@@ -515,8 +514,8 @@
               <div class="cust-card-section">
                 <span class="cust-section-title">Gestión del Caso</span>
                 
-                <div style="margin-bottom:0.6rem;">
-                  <label class="cust-prop-label" style="display:block; margin-bottom:0.25rem;">Estado en CRM:</label>
+                <div class="cust-field-group">
+                  <label class="cust-prop-label">Estado en CRM:</label>
                   <select id="inboxCustStatusSelect" class="form-select form-select-sm">
                     <option value="ai_handling">En gestión IA</option>
                     <option value="advisor_requested">Requiere Asesor Humano</option>
@@ -527,19 +526,19 @@
                   </select>
                 </div>
 
-                <div style="margin-bottom:0.6rem;">
-                  <label class="cust-prop-label" style="display:block; margin-bottom:0.25rem;">Asesor Asignado:</label>
-                  <div style="display:flex; gap:0.35rem; align-items:center;">
-                    <select id="inboxCustAdvisorSelect" class="form-select form-select-sm" style="flex:1; min-width:0; width:0; box-sizing:border-box;">
+                <div class="cust-field-group">
+                  <label class="cust-prop-label">Asesor Asignado:</label>
+                  <div class="cust-advisor-assign-wrap">
+                    <select id="inboxCustAdvisorSelect" class="form-select form-select-sm cust-advisor-select">
                       <option value="Sin Asignar">Sin Asignar</option>
                     </select>
-                    <button class="btn btn-secondary btn-xs" id="btnInboxAssignToMe" style="flex-shrink:0; white-space:nowrap; padding:0.35rem 0.6rem;" title="Asignarme este caso inmediatamente">Tomar</button>
+                    <button class="btn btn-secondary btn-xs cust-btn-take" id="btnInboxAssignToMe" title="Asignarme este caso inmediatamente">Tomar</button>
                   </div>
                 </div>
 
-                <div>
-                  <label class="cust-prop-label" style="display:block; margin-bottom:0.25rem;">Nivel de Prioridad / Interés:</label>
-                  <select id="inboxCustTempSelect" class="form-select form-select-sm" style="width:100%; box-sizing:border-box;">
+                <div class="cust-field-group">
+                  <label class="cust-prop-label">Nivel de Prioridad / Interés:</label>
+                  <select id="inboxCustTempSelect" class="form-select form-select-sm">
                     <option value="hot">Prioridad Alta (Decisión Inmediata)</option>
                     <option value="warm">Prioridad Media (En Evaluación)</option>
                     <option value="cold">Prioridad Estándar (Consulta Informativa)</option>
@@ -548,14 +547,14 @@
               </div>
 
               <!-- Sección: Bitácora de Notas Internas Privadas -->
-              <div class="cust-card-section" style="padding:0.75rem;">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.4rem;">
-                  <span class="cust-section-title" style="margin:0;">Notas Internas (Privadas)</span>
-                  <span id="inboxNotesSavedStatus" style="font-size:0.72rem; font-weight:700; color:#10b981;"></span>
+              <div class="cust-card-section cust-notes-section">
+                <div class="cust-notes-header">
+                  <span class="cust-section-title">Notas Internas (Privadas)</span>
+                  <span id="inboxNotesSavedStatus" class="cust-notes-status"></span>
                 </div>
-                <textarea id="inboxCustNotesTextarea" class="form-input" rows="3" placeholder="Escribe notas privadas del caso (ej: solicitó 10% descuento por egresado, llamar el jueves)..." style="font-size:0.8rem; line-height:1.4; resize:vertical;"></textarea>
-                <button class="btn btn-secondary btn-xs" id="btnInboxSaveNotes" style="margin-top:0.45rem; width:100%;">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                <textarea id="inboxCustNotesTextarea" class="form-input cust-notes-textarea" rows="3" placeholder="Escribe notas privadas del caso (ej: solicitó 10% descuento por egresado, llamar el jueves)..."></textarea>
+                <button class="btn btn-secondary btn-xs cust-btn-save-notes" id="btnInboxSaveNotes">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
                   <span>Guardar Nota en Neon Cloud</span>
                 </button>
               </div>
