@@ -2117,6 +2117,18 @@ document.addEventListener('DOMContentLoaded', () => {
     if (inboxComposer) inboxComposer.style.display = 'flex';
     if (inboxCustomerPanel) inboxCustomerPanel.style.display = 'flex';
 
+    // Respetar estado guardado de Ficha 360 (abierta o cerrada)
+    const is360Closed = localStorage.getItem('udea_customer_360_open') === 'false';
+    if (workspaceContainer) {
+      if (is360Closed && window.innerWidth > 1080) {
+        workspaceContainer.classList.add('hide-customer-360');
+        if (btnToggleCustomerPanel) btnToggleCustomerPanel.classList.remove('active');
+      } else {
+        workspaceContainer.classList.remove('hide-customer-360');
+        if (btnToggleCustomerPanel) btnToggleCustomerPanel.classList.add('active');
+      }
+    }
+
     if (inboxMessagesFeed) {
       inboxMessagesFeed.innerHTML = `
         <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; color:var(--text-muted); font-size:0.85rem;">
@@ -2475,7 +2487,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Estado visual reactivo del botón de atendido
+  // Estado visual reactivo del botón de atendido (con colores distintivos)
   function updateInboxAttendedButtonState(lead) {
     if (!btnInboxMarkAttended) return;
     const isAttended = lead && (lead.status === 'attended' || !!lead.attended_by);
@@ -2487,54 +2499,81 @@ document.addEventListener('DOMContentLoaded', () => {
       `;
       const advisorText = lead.attended_by || lead.assigned_advisor || 'Asesor';
       const timeStr = lead.attended_at ? new Date(lead.attended_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
-      btnInboxMarkAttended.title = `Atendido por ${advisorText} ${timeStr ? '(' + timeStr + ')' : ''}`;
+      btnInboxMarkAttended.title = `✓ Atendido por ${advisorText} ${timeStr ? '(' + timeStr + ')' : ''} — Clic para quitar atendido`;
     } else {
       btnInboxMarkAttended.classList.remove('btn-inbox-attended-active');
       btnInboxMarkAttended.innerHTML = `
-        <svg class="mini-svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-        <span>Atendido</span>
+        <svg class="mini-svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 14 14"/></svg>
+        <span>Marcar Atendido</span>
       `;
-      btnInboxMarkAttended.title = 'Marcar que atendiste a este usuario';
+      btnInboxMarkAttended.title = 'Marcar como atendido por el asesor activo';
     }
   }
 
-  // Marcar prospecto como atendido por el asesor activo en tiempo real
-  window.markAttendedByActiveAdvisor = async function(phone) {
+  // Alternar (marcar o desmarcar) estado de atendido en tiempo real
+  window.toggleAttendedByActiveAdvisor = async function(phone) {
     if (!phone) return;
     const advisor = getActiveAdvisor() || 'Asesor UdeA';
     
+    // Detectar estado visual actual para respuesta inmediata
+    const wasAttended = btnInboxMarkAttended && btnInboxMarkAttended.classList.contains('btn-inbox-attended-active');
+    const willAttend = !wasAttended;
+
     // Feedback visual optimista inmediato
     if (btnInboxMarkAttended && currentInboxPhone === phone) {
-      btnInboxMarkAttended.classList.add('btn-inbox-attended-active');
-      btnInboxMarkAttended.innerHTML = `
-        <svg class="mini-svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-        <span>✓ Atendido</span>
-      `;
+      if (willAttend) {
+        btnInboxMarkAttended.classList.add('btn-inbox-attended-active');
+        btnInboxMarkAttended.innerHTML = `
+          <svg class="mini-svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          <span>✓ Atendido</span>
+        `;
+        btnInboxMarkAttended.title = `✓ Atendido por ${advisor} — Clic para quitar atendido`;
+        if (inboxActiveStatus) inboxActiveStatus.textContent = `✓ Atendido por ${advisor}`;
+        if (inboxCustStatusSelect) inboxCustStatusSelect.value = 'attended';
+      } else {
+        btnInboxMarkAttended.classList.remove('btn-inbox-attended-active');
+        btnInboxMarkAttended.innerHTML = `
+          <svg class="mini-svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 14 14"/></svg>
+          <span>Marcar Atendido</span>
+        `;
+        btnInboxMarkAttended.title = 'Marcar como atendido por el asesor activo';
+        if (inboxActiveStatus) inboxActiveStatus.textContent = 'En atención';
+        if (inboxCustStatusSelect) inboxCustStatusSelect.value = 'advisor_handling';
+      }
     }
 
     try {
       const res = await fetch(`/api/leads/${encodeURIComponent(phone)}/attend`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ advisor })
+        body: JSON.stringify({ advisor, action: willAttend ? 'attend' : 'unattend' })
       });
       const data = await res.json();
       if (data.success) {
-        if (inboxCustStatusSelect && currentInboxPhone === phone) {
-          inboxCustStatusSelect.value = 'attended';
-        }
-        if (inboxActiveStatus && currentInboxPhone === phone) {
-          inboxActiveStatus.textContent = `✓ Atendido por ${advisor}`;
-        }
+        const lead = data.lead || {};
+        currentInboxLead = lead;
         if (currentInboxPhone === phone) {
-          updateInboxAttendedButtonState(data.lead || { status: 'attended', attended_by: advisor, attended_at: new Date().toISOString() });
+          updateInboxAttendedButtonState(lead);
+          if (inboxActiveStatus) {
+            if (data.attended) {
+              inboxActiveStatus.textContent = `✓ Atendido por ${data.advisor || advisor}`;
+            } else {
+              inboxActiveStatus.textContent = lead.status === 'advisor_requested' ? '🚨 Espera asesor' : 'En atención';
+            }
+          }
+          if (inboxCustStatusSelect) {
+            inboxCustStatusSelect.value = lead.status || (data.attended ? 'attended' : 'advisor_handling');
+          }
         }
         fetchLeads();
       }
     } catch (err) {
-      console.error('Error al marcar atendido:', err);
+      console.error('Error al alternar atención:', err);
     }
   };
+
+  // Mantener compatibilidad con llamadas existentes
+  window.markAttendedByActiveAdvisor = window.toggleAttendedByActiveAdvisor;
 
   // Asignar o reasignar asesor
   window.reassignAdvisor = async function(phone, advisor) {
@@ -2714,34 +2753,68 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Toggle para ocultar / mostrar la Ficha Customer 360 (despejar el chat)
+  // Gestión intuitiva para abrir y cerrar la Ficha Customer 360 (Escritorio + Móvil)
   const btnToggleCustomerPanel = document.getElementById('btnToggleCustomerPanel');
   const btnCloseCustomerPanel = document.getElementById('btnCloseCustomerPanel');
-  const agentWorkspaceContainer = document.querySelector('.agent-workspace-container');
+
+  function closeCustomer360Panel() {
+    const container = document.querySelector('.agent-workspace-container');
+    if (container) {
+      container.classList.add('hide-customer-360');
+    }
+    if (inboxCustomerPanel) {
+      inboxCustomerPanel.classList.remove('open-drawer');
+    }
+    if (btnToggleCustomerPanel) {
+      btnToggleCustomerPanel.classList.remove('active');
+      btnToggleCustomerPanel.title = 'Mostrar Ficha del Prospecto (Customer 360)';
+    }
+    localStorage.setItem('udea_customer_360_open', 'false');
+  }
+
+  function openCustomer360Panel() {
+    const container = document.querySelector('.agent-workspace-container');
+    if (container) {
+      container.classList.remove('hide-customer-360');
+    }
+    if (window.innerWidth <= 1180 && inboxCustomerPanel) {
+      inboxCustomerPanel.classList.add('open-drawer');
+    }
+    if (btnToggleCustomerPanel) {
+      btnToggleCustomerPanel.classList.add('active');
+      btnToggleCustomerPanel.title = 'Ocultar Ficha del Prospecto (Customer 360)';
+    }
+    localStorage.setItem('udea_customer_360_open', 'true');
+  }
+
+  function toggleCustomer360Panel() {
+    const container = document.querySelector('.agent-workspace-container');
+    if (window.innerWidth <= 1180) {
+      if (inboxCustomerPanel && inboxCustomerPanel.classList.contains('open-drawer')) {
+        closeCustomer360Panel();
+      } else {
+        openCustomer360Panel();
+      }
+    } else {
+      const isHidden = container ? container.classList.contains('hide-customer-360') : false;
+      if (isHidden) {
+        openCustomer360Panel();
+      } else {
+        closeCustomer360Panel();
+      }
+    }
+  }
 
   if (btnToggleCustomerPanel) {
-    btnToggleCustomerPanel.addEventListener('click', () => {
-      if (window.innerWidth <= 1180) {
-        if (inboxCustomerPanel) {
-          inboxCustomerPanel.classList.toggle('open-drawer');
-        }
-      } else {
-        if (agentWorkspaceContainer) {
-          agentWorkspaceContainer.classList.toggle('hide-customer-360');
-          const isHidden = agentWorkspaceContainer.classList.contains('hide-customer-360');
-          btnToggleCustomerPanel.classList.toggle('active', !isHidden);
-        }
-      }
-    });
+    btnToggleCustomerPanel.addEventListener('click', toggleCustomer360Panel);
   }
 
   if (btnCloseCustomerPanel) {
-    btnCloseCustomerPanel.addEventListener('click', () => {
-      if (inboxCustomerPanel) {
-        inboxCustomerPanel.classList.remove('open-drawer');
-      }
-    });
+    btnCloseCustomerPanel.addEventListener('click', closeCustomer360Panel);
   }
+
+  window.closeCustomer360Panel = closeCustomer360Panel;
+  window.openCustomer360Panel = openCustomer360Panel;
 
   // Abrir prospecto directamente en la Bandeja del Asesor desde cualquier parte de la app
   window.openLeadInWorkspace = (phone) => {

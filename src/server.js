@@ -430,14 +430,37 @@ app.patch('/api/leads/:phone/advisor', async (req, res) => {
   res.json({ success: true, advisor });
 });
 
-// Marcar que un asesor atendió al lead
+// Marcar o desmarcar que un asesor atendió al lead (toggle / acción)
 app.patch('/api/leads/:phone/attend', async (req, res) => {
   try {
     const phone = req.params.phone;
-    const { advisor } = req.body;
-    await LeadService.markAttended(phone, advisor || 'Asesor UdeA');
+    const { advisor, action } = req.body; // action: 'attend' | 'unattend' | 'toggle'
+    const leadBefore = await LeadService.getLeadByPhone(phone);
+    const isAttended = leadBefore && (leadBefore.status === 'attended' || !!leadBefore.attended_by);
+
+    let willAttend = true;
+    if (action === 'unattend') {
+      willAttend = false;
+    } else if (action === 'attend') {
+      willAttend = true;
+    } else {
+      // Toggle dinámico
+      willAttend = !isAttended;
+    }
+
+    if (willAttend) {
+      await LeadService.markAttended(phone, advisor || 'Asesor UdeA');
+    } else {
+      await LeadService.unmarkAttended(phone);
+    }
+
     const leadData = await LeadService.getLeadByPhone(phone);
-    res.json({ success: true, advisor: advisor || 'Asesor UdeA', lead: leadData });
+    res.json({ 
+      success: true, 
+      attended: willAttend,
+      advisor: willAttend ? (advisor || (leadData ? leadData.attended_by : 'Asesor UdeA')) : null, 
+      lead: leadData 
+    });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }

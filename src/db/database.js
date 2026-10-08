@@ -657,6 +657,25 @@ export function markLeadAttendedByAdvisor(phoneNumber, advisorName) {
 }
 
 /**
+ * Quita la marca de atendido a un lead (revierte el estado)
+ */
+export function unmarkLeadAttendedByAdvisor(phoneNumber) {
+  const nowIso = new Date().toISOString();
+  const stmt = db.prepare(`
+    UPDATE leads
+    SET status = 'advisor_handling', attended_by = NULL, attended_at = NULL, updated_at = ?
+    WHERE phone_number = ?
+  `);
+  stmt.run(nowIso, phoneNumber);
+
+  const audit = db.prepare(`
+    INSERT INTO audit_logs (event, details, timestamp)
+    VALUES ('LEAD_UNATTENDED_BY_ADVISOR', ?, ?)
+  `);
+  audit.run(JSON.stringify({ phoneNumber }), nowIso);
+}
+
+/**
  * Actualiza las notas internas de un asesor para un lead
  */
 export function updateLeadNotes(phoneNumber, notes) {

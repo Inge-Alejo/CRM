@@ -273,6 +273,17 @@ export class NeonService {
     await this.recordSecurityAudit('LEAD_ATTENDED', { phone: phoneNumber, advisor: advisorName });
   }
 
+  static async unmarkAttended(phoneNumber) {
+    const sql = getSql();
+    const nowIso = new Date().toISOString();
+    await sql`
+      UPDATE leads 
+      SET status = 'advisor_handling', attended_by = NULL, attended_at = NULL, updated_at = ${nowIso}
+      WHERE phone_number = ${phoneNumber};
+    `;
+    await this.recordSecurityAudit('LEAD_UNATTENDED', { phone: phoneNumber });
+  }
+
   static async saveNotes(phoneNumber, notes) {
     const sql = getSql();
     const nowIso = new Date().toISOString();

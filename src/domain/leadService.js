@@ -1,4 +1,4 @@
-import { db, assignLeadAdvisor, markLeadAttendedByAdvisor, updateLeadNotes } from '../db/database.js';
+import { db, assignLeadAdvisor, markLeadAttendedByAdvisor, unmarkLeadAttendedByAdvisor, updateLeadNotes } from '../db/database.js';
 import { NeonService } from '../db/neonService.js';
 
 export class LeadService {
@@ -134,6 +134,20 @@ export class LeadService {
       }
     }
     markLeadAttendedByAdvisor(phoneNumber, advisorName);
+  }
+
+  /**
+   * Quita la marca de atendido al lead (revierte el estado)
+   */
+  static async unmarkAttended(phoneNumber) {
+    if (NeonService.isAvailable()) {
+      try {
+        await NeonService.unmarkAttended(phoneNumber);
+      } catch (err) {
+        console.warn('Error quitando atención en Neon:', err.message);
+      }
+    }
+    unmarkLeadAttendedByAdvisor(phoneNumber);
   }
 
   /**
