@@ -261,7 +261,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return false;
       }
 
-      let firebaseVerified = false;
+      let idToken = null;
       let firebaseUid = null;
       let displayName = null;
 
@@ -270,7 +270,7 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
           const userCred = await firebaseSignIn(firebaseAuth, cleanEmail, cleanPassword);
           if (userCred && userCred.user) {
-            firebaseVerified = true;
+            idToken = await userCred.user.getIdToken();
             firebaseUid = userCred.user.uid;
             displayName = userCred.user.displayName;
           }
@@ -285,7 +285,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: cleanEmail, password: cleanPassword, firebaseVerified, displayName, firebaseUid })
+        body: JSON.stringify({ email: cleanEmail, password: cleanPassword, idToken, displayName, firebaseUid })
       });
       const data = await res.json();
       if (!data.success) {
