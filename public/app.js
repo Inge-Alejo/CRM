@@ -444,6 +444,10 @@ document.addEventListener('DOMContentLoaded', () => {
       currentViewSubtitle.textContent = viewMeta[viewId].subtitle;
     }
 
+    if (window.innerWidth <= 900 && typeof window.closeMobileSidebar === 'function') {
+      window.closeMobileSidebar();
+    }
+
     if (viewId === 'view-inbox') renderInbox();
     if (viewId === 'view-leads') renderLeads();
     if (viewId === 'view-segmentation') loadSegmentation();
@@ -452,11 +456,108 @@ document.addEventListener('DOMContentLoaded', () => {
     if (viewId === 'view-simulator') loadSimulatorChat(simPhoneInput ? simPhoneInput.value : null, false);
   };
 
+  // Inicialización de colapso y drawer de la barra lateral (Escritorio + Móvil)
+  function initSidebarToggle() {
+    const dashboardLayout = document.querySelector('.dashboard-layout');
+    const btnToggleSidebar = document.getElementById('btnToggleSidebar');
+    const btnCloseSidebar = document.getElementById('btnCloseSidebar');
+    const sidebarBackdrop = document.getElementById('sidebarBackdrop');
+
+    if (!dashboardLayout) return;
+
+    // Restaurar preferencia en escritorio si el usuario la había colapsado
+    const savedCollapsed = localStorage.getItem('udea_sidebar_collapsed');
+    if (savedCollapsed === 'true' && window.innerWidth > 900) {
+      dashboardLayout.classList.add('sidebar-collapsed');
+    }
+
+    function updateToggleTooltip() {
+      if (!btnToggleSidebar) return;
+      const isMobile = window.innerWidth <= 900;
+      if (isMobile) {
+        const isOpen = dashboardLayout.classList.contains('sidebar-mobile-open');
+        btnToggleSidebar.title = isOpen ? 'Cerrar menú lateral' : 'Abrir menú lateral';
+        btnToggleSidebar.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+      } else {
+        const isCollapsed = dashboardLayout.classList.contains('sidebar-collapsed');
+        btnToggleSidebar.title = isCollapsed ? 'Mostrar menú lateral (Alt+B)' : 'Ocultar menú lateral (Alt+B)';
+        btnToggleSidebar.setAttribute('aria-expanded', isCollapsed ? 'false' : 'true');
+      }
+    }
+
+    function toggleSidebar() {
+      if (window.innerWidth <= 900) {
+        dashboardLayout.classList.toggle('sidebar-mobile-open');
+      } else {
+        const isCollapsed = dashboardLayout.classList.toggle('sidebar-collapsed');
+        localStorage.setItem('udea_sidebar_collapsed', isCollapsed ? 'true' : 'false');
+      }
+      updateToggleTooltip();
+    }
+
+    function closeMobileSidebar() {
+      if (dashboardLayout.classList.contains('sidebar-mobile-open')) {
+        dashboardLayout.classList.remove('sidebar-mobile-open');
+        updateToggleTooltip();
+      }
+    }
+
+    if (btnToggleSidebar) {
+      btnToggleSidebar.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleSidebar();
+      });
+    }
+
+    if (btnCloseSidebar) {
+      btnCloseSidebar.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (window.innerWidth <= 900) {
+          closeMobileSidebar();
+        } else {
+          dashboardLayout.classList.add('sidebar-collapsed');
+          localStorage.setItem('udea_sidebar_collapsed', 'true');
+          updateToggleTooltip();
+        }
+      });
+    }
+
+    if (sidebarBackdrop) {
+      sidebarBackdrop.addEventListener('click', () => {
+        closeMobileSidebar();
+      });
+    }
+
+    // Atajos de teclado: Alt+B para alternar barra, Escape para cerrar drawer en móviles
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        closeMobileSidebar();
+      } else if ((e.altKey && (e.key === 'b' || e.key === 'B')) || (e.ctrlKey && (e.key === 'b' || e.key === 'B') && !e.shiftKey)) {
+        e.preventDefault();
+        toggleSidebar();
+      }
+    });
+
+    window.addEventListener('resize', () => {
+      if (window.innerWidth > 900) {
+        dashboardLayout.classList.remove('sidebar-mobile-open');
+      }
+      updateToggleTooltip();
+    });
+
+    updateToggleTooltip();
+    window.closeMobileSidebar = closeMobileSidebar;
+  }
+
+  initSidebarToggle();
 
   navItems.forEach(item => {
     item.addEventListener('click', () => {
       const targetView = item.getAttribute('data-view');
       window.switchTab(targetView);
+      if (window.innerWidth <= 900 && typeof window.closeMobileSidebar === 'function') {
+        window.closeMobileSidebar();
+      }
     });
   });
 
@@ -1972,6 +2073,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function resetInboxView() {
     currentInboxPhone = null;
+    const workspaceContainer = document.querySelector('.agent-workspace-container');
+    if (workspaceContainer) {
+      workspaceContainer.classList.remove('mobile-chat-active');
+    }
     if (inboxChatHeader) inboxChatHeader.style.display = 'none';
     if (inboxComposer) inboxComposer.style.display = 'none';
     if (inboxCustomerPanel) inboxCustomerPanel.style.display = 'none';
@@ -1996,6 +2101,12 @@ document.addEventListener('DOMContentLoaded', () => {
   // 13. Abrir y Cargar Chat de un Prospecto en el Workspace
   window.selectInboxLead = async (phone) => {
     currentInboxPhone = phone;
+
+    // En pantallas móviles, activar vista del feed de chat
+    const workspaceContainer = document.querySelector('.agent-workspace-container');
+    if (workspaceContainer) {
+      workspaceContainer.classList.add('mobile-chat-active');
+    }
     
     // Destacar en la lista lateral
     document.querySelectorAll('.inbox-conv-item').forEach(el => el.classList.remove('active'));
@@ -2160,6 +2271,17 @@ document.addEventListener('DOMContentLoaded', () => {
       console.error('Error al cargar chat en inbox:', err);
     }
   };
+
+  // Botón Volver a la lista de conversaciones en dispositivos móviles
+  const btnChatBackMobile = document.getElementById('btnChatBackMobile');
+  if (btnChatBackMobile) {
+    btnChatBackMobile.addEventListener('click', () => {
+      const workspaceContainer = document.querySelector('.agent-workspace-container');
+      if (workspaceContainer) {
+        workspaceContainer.classList.remove('mobile-chat-active');
+      }
+    });
+  }
 
   // Enviar mensaje del asesor humano por WhatsApp
   async function sendAdvisorMessageFromInbox() {
