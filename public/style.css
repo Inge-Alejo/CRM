@@ -344,21 +344,27 @@ h1, h2, h3, h4, .landing-title, .section-header h2, .card-head h3, .metric-card-
   background: rgba(255, 255, 255, 0.92);
   backdrop-filter: blur(16px);
   border-bottom: 1px solid var(--border);
-  padding: 0 1.75rem;
-  height: 68px;
+  padding: 0 1.5rem;
+  height: 64px;
+  min-height: 64px;
+  max-height: 64px;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: nowrap;
   flex-shrink: 0;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
   z-index: 10;
+  overflow: hidden;
 }
 
 .topbar-left {
   display: flex;
   align-items: center;
-  gap: 0.85rem;
+  gap: 0.75rem;
   min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
 }
 
 .btn-sidebar-toggle {
@@ -400,26 +406,36 @@ h1, h2, h3, h4, .landing-title, .section-header h2, .card-head h3, .metric-card-
 .topbar-title-group {
   display: flex;
   flex-direction: column;
-  gap: 0.12rem;
+  gap: 0.1rem;
   min-width: 0;
+  overflow: hidden;
 }
 
 .view-title {
-  font-size: 1.25rem;
+  font-size: clamp(0.95rem, 1.8vw, 1.25rem);
   font-weight: 800;
   color: var(--udea-dark);
   letter-spacing: -0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin: 0;
 }
 
 .view-subtitle {
-  font-size: 0.79rem;
+  font-size: 0.78rem;
   color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .topbar-right {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.55rem;
+  flex-shrink: 0;
+  flex-wrap: nowrap;
 }
 
 /* Topbar Advisor Profile (Pill Refinada de 38px) */
@@ -2135,11 +2151,8 @@ h1, h2, h3, h4, .landing-title, .section-header h2, .card-head h3, .metric-card-
 }
 
 @media (max-width: 900px) {
-  .dashboard-layout { flex-direction: column; }
-  .sidebar { width: 100%; height: auto; }
   .simulator-layout { grid-template-columns: 1fr; }
   .quick-advisor-grid { grid-template-columns: 1fr; }
-  .topbar-advisor-profile { margin-top: 0.5rem; }
   .auth-tabs { overflow-x: auto; }
 }
 
@@ -2401,77 +2414,12 @@ h1, h2, h3, h4, .landing-title, .section-header h2, .card-head h3, .metric-card-
    DISEÑO RESPONSIVE MULTI-DISPOSITIVO (TABLETS, MÓVILES, DESKTOP)
    ============================================================== */
 @media (max-width: 1024px) {
-  .topbar {
-    padding: 0.75rem 1.25rem;
-  }
-  .topbar-advisor-profile {
-    padding: 0.25rem 0.5rem;
-  }
   .advisor-name-text {
     max-width: 130px;
   }
 }
 
 @media (max-width: 768px) {
-  .dashboard-layout {
-    flex-direction: column;
-    height: auto;
-    min-height: 100vh;
-    overflow-y: auto;
-  }
-  .sidebar {
-    width: 100%;
-    height: auto;
-    border-right: none;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  }
-  .sidebar-header {
-    padding: 0.75rem 1rem;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
-  .udea-brand-container {
-    margin-bottom: 0;
-    padding: 0.35rem 0.65rem;
-  }
-  .udea-brand-logo {
-    max-height: 32px;
-  }
-  .department-tag {
-    margin-top: 0;
-  }
-  .sidebar-nav {
-    display: flex;
-    overflow-x: auto;
-    padding: 0.5rem;
-    gap: 0.35rem;
-    -webkit-overflow-scrolling: touch;
-  }
-  .nav-item {
-    padding: 0.45rem 0.75rem;
-    white-space: nowrap;
-    border-radius: 8px;
-  }
-  .topbar {
-    flex-direction: column;
-    align-items: stretch;
-    padding: 0.75rem 1rem;
-    gap: 0.65rem;
-  }
-  .topbar-left {
-    text-align: center;
-  }
-  .topbar-right {
-    justify-content: space-between;
-    width: 100%;
-  }
-  .topbar-quota-pill {
-    display: none;
-  }
-  .advisor-name-text, .advisor-role-text {
-    max-width: 140px;
-  }
   .landing-card {
     padding: 1.75rem 1.25rem;
     margin: 0.5rem;
@@ -2486,17 +2434,6 @@ h1, h2, h3, h4, .landing-title, .section-header h2, .card-head h3, .metric-card-
 }
 
 @media (max-width: 480px) {
-  .topbar-right {
-    flex-wrap: wrap;
-    gap: 0.5rem;
-  }
-  .topbar-advisor-profile {
-    width: 100%;
-    justify-content: space-between;
-  }
-  .advisor-name-text {
-    max-width: 160px;
-  }
   .portfolio-grid {
     grid-template-columns: 1fr;
   }
@@ -4067,75 +4004,6 @@ input:checked + .slider:before {
   to { transform: translateX(0); }
 }
 
-@media (max-width: 1366px) {
-  .agent-workspace-container {
-    grid-template-columns: 240px minmax(0, 1fr) 275px;
-  }
-  .customer-details-scroll {
-    padding: 0.6rem 0.5rem;
-  }
-  .cust-card-section {
-    padding: 0.55rem;
-  }
-  .chat-header-controls {
-    gap: 0.35rem;
-  }
-  .btn-toggle-360 .btn-text {
-    display: inline;
-  }
-}
-
-@media (max-width: 1180px) {
-  .agent-workspace-container {
-    grid-template-columns: 240px minmax(0, 1fr);
-  }
-  .workspace-customer-panel {
-    display: none;
-    position: absolute;
-    top: 0;
-    right: 0;
-    bottom: 0;
-    width: 320px;
-    z-index: 60;
-    background: #ffffff;
-    box-shadow: -6px 0 24px rgba(0, 0, 0, 0.15);
-  }
-  .workspace-customer-panel.open-drawer {
-    display: flex !important;
-    animation: slideInDrawer 0.22s cubic-bezier(0.16, 1, 0.3, 1);
-  }
-  .btn-close-360-panel {
-    display: flex !important;
-  }
-}
-
-@media (max-width: 768px) {
-  #view-inbox {
-    height: auto;
-    min-height: calc(100vh - 120px);
-  }
-  .agent-workspace-container {
-    display: flex;
-    flex-direction: column;
-    height: calc(100vh - 130px);
-  }
-  .workspace-sidebar {
-    height: 220px;
-    min-height: 220px;
-    max-height: 220px;
-    border-right: none;
-    border-bottom: 1px solid var(--border);
-  }
-  .workspace-chat-main {
-    flex: 1;
-    min-height: 0;
-  }
-  .workspace-customer-panel {
-    width: 100%;
-    max-width: 100%;
-  }
-}
-
 /* ==============================================================
    BADGES DE PRIORIDAD PROFESIONAL (SIN EMOJIS)
    ============================================================== */
@@ -4902,12 +4770,16 @@ input:checked + .slider:before {
 .chat-header-user {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.65rem;
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
 }
 
 .chat-avatar {
   width: 38px;
   height: 38px;
+  min-width: 38px;
   border-radius: 50%;
   background: linear-gradient(135deg, var(--udea-emerald) 0%, #064e3b 100%);
   color: #ffffff;
@@ -4922,24 +4794,33 @@ input:checked + .slider:before {
 .chat-user-row {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  flex-wrap: wrap;
+  gap: 0.45rem;
+  flex-wrap: nowrap;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .chat-user-fullname {
   margin: 0;
-  font-size: 1.02rem;
+  font-size: 0.98rem;
   font-weight: 800;
   color: var(--udea-dark);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 175px;
 }
 
 .chat-user-submeta {
   display: flex;
   align-items: center;
-  gap: 0.45rem;
-  font-size: 0.76rem;
+  gap: 0.4rem;
+  font-size: 0.74rem;
   color: var(--text-muted);
   margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .chat-phone-mono {
@@ -4953,22 +4834,26 @@ input:checked + .slider:before {
 .chat-status-text {
   font-weight: 600;
   color: #047857;
+  white-space: nowrap;
 }
 
 .meta-window-tag {
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   background: #f0fdf4;
   color: #047857;
   border: 1px solid #bbf7d0;
   padding: 0.1rem 0.5rem;
   border-radius: 9999px;
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .chat-header-controls {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
+  gap: 0.45rem;
+  flex-shrink: 0;
+  flex-wrap: nowrap;
 }
 
 .ai-toggle-box {
@@ -5503,33 +5388,61 @@ input:checked + .slider:before {
    RESPONSIVIDAD INTEGRAL & MOBILE DRAWER (TABLET & SMARTPHONES)
    ============================================================== */
 
+/* Backdrop para la Ficha 360 en vista móvil / tablet */
+.customer-drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(2, 44, 30, 0.48);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 1055;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.customer-drawer-backdrop.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
 /* Botón Volver en Vista de Chat Móvil */
 .btn-chat-back-mobile {
   display: none;
 }
 
-@media (max-width: 1080px) {
+@media (max-width: 1180px) {
   .agent-workspace-container {
-    grid-template-columns: 290px 1fr;
+    grid-template-columns: 280px minmax(0, 1fr) !important;
     position: relative;
   }
   .workspace-customer-panel {
-    display: none;
-    position: fixed;
-    top: 60px;
-    right: 0;
-    bottom: 0;
-    width: min(340px, 92vw);
-    z-index: 1030;
-    box-shadow: -4px 0 24px rgba(0, 0, 0, 0.28);
-    background: #ffffff;
+    display: none !important;
+    position: fixed !important;
+    top: 0 !important;
+    bottom: 0 !important;
+    right: 0 !important;
+    width: min(360px, 92vw) !important;
+    height: 100vh !important;
+    height: 100dvh !important;
+    z-index: 1060 !important;
+    box-shadow: -8px 0 32px rgba(0, 0, 0, 0.35) !important;
+    background: #ffffff !important;
+    border-left: 1px solid #cbd5e1 !important;
   }
   .workspace-customer-panel.open-drawer {
     display: flex !important;
+    animation: slideInDrawer 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  }
+  .btn-close-360-panel {
+    display: inline-flex !important;
+  }
+  .view-subtitle {
+    display: none !important;
   }
 }
 
-@media (max-width: 900px) {
+@media (max-width: 950px) {
   /* Sidebar en modo Drawer Deslizable */
   .sidebar {
     position: fixed;
@@ -5555,6 +5468,8 @@ input:checked + .slider:before {
   .topbar {
     padding: 0 1rem;
     height: 60px;
+    min-height: 60px;
+    max-height: 60px;
   }
 
   .view-panel {
@@ -5563,13 +5478,6 @@ input:checked + .slider:before {
 
   .view-title {
     font-size: 1.05rem;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .view-subtitle {
-    display: none;
   }
 
   .topbar-right {
@@ -5581,11 +5489,24 @@ input:checked + .slider:before {
   }
 
   .topbar-advisor-profile .advisor-info-stack {
-    display: none;
+    display: none !important;
   }
 
   .topbar-quota-pill .quota-text {
-    display: none;
+    display: none !important;
+  }
+
+  /* Compactar header del chat para evitar desbordes */
+  .meta-window-tag {
+    display: none !important;
+  }
+
+  .ai-toggle-caption {
+    display: none !important;
+  }
+
+  .btn-toggle-360 .btn-text {
+    display: none !important;
   }
 
   .analytics-row {
@@ -5600,21 +5521,36 @@ input:checked + .slider:before {
 
 @media (max-width: 768px) {
   #view-inbox.view-panel {
-    height: calc(100vh - 60px);
-    height: calc(100dvh - 60px);
+    height: calc(100vh - 56px);
+    height: calc(100dvh - 56px);
+  }
+
+  .topbar {
+    height: 56px !important;
+    min-height: 56px !important;
+    max-height: 56px !important;
+    padding: 0 0.85rem !important;
+  }
+
+  .topbar-quota-pill {
+    display: none !important;
   }
 
   .agent-workspace-container {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr !important;
     position: relative;
   }
 
   .agent-workspace-container.mobile-chat-active .workspace-sidebar {
-    display: none;
+    display: none !important;
   }
 
   .agent-workspace-container:not(.mobile-chat-active) .workspace-chat-main {
-    display: none;
+    display: none !important;
+  }
+
+  .chat-user-fullname {
+    max-width: 130px !important;
   }
 
   .btn-chat-back-mobile {
@@ -5716,7 +5652,23 @@ input:checked + .slider:before {
   }
 
   .topbar-quota-pill {
-    padding: 0.3rem 0.5rem;
+    display: none !important;
+  }
+
+  .btn-advisor-logout span {
+    display: none !important;
+  }
+
+  .btn-inbox-attended span {
+    display: none !important;
+  }
+
+  .btn-inbox-attended {
+    padding: 0.35rem 0.5rem !important;
+  }
+
+  .chat-user-fullname {
+    max-width: 100px !important;
   }
 }
 

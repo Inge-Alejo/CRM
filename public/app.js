@@ -2076,10 +2076,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const workspaceContainer = document.querySelector('.agent-workspace-container');
     if (workspaceContainer) {
       workspaceContainer.classList.remove('mobile-chat-active');
+      workspaceContainer.classList.remove('lead-selected');
     }
     if (inboxChatHeader) inboxChatHeader.style.display = 'none';
     if (inboxComposer) inboxComposer.style.display = 'none';
-    if (inboxCustomerPanel) inboxCustomerPanel.style.display = 'none';
+    if (inboxCustomerPanel) {
+      inboxCustomerPanel.style.display = '';
+      inboxCustomerPanel.classList.remove('open-drawer');
+    }
+    const customerBackdrop = document.getElementById('customerDrawerBackdrop');
+    if (customerBackdrop) customerBackdrop.classList.remove('active');
     if (inboxMessagesFeed) {
       inboxMessagesFeed.innerHTML = `
         <div class="workspace-no-chat-selected">
@@ -2106,26 +2112,37 @@ document.addEventListener('DOMContentLoaded', () => {
     const workspaceContainer = document.querySelector('.agent-workspace-container');
     if (workspaceContainer) {
       workspaceContainer.classList.add('mobile-chat-active');
+      workspaceContainer.classList.add('lead-selected');
     }
     
     // Destacar en la lista lateral
     document.querySelectorAll('.inbox-conv-item').forEach(el => el.classList.remove('active'));
     renderInbox(true);
 
-    // Mostrar contenedores de trabajo
+    // Mostrar contenedores de trabajo (respetando arquitectura CSS sin display inline en ficha 360)
     if (inboxChatHeader) inboxChatHeader.style.display = 'flex';
     if (inboxComposer) inboxComposer.style.display = 'flex';
-    if (inboxCustomerPanel) inboxCustomerPanel.style.display = 'flex';
+    if (inboxCustomerPanel) {
+      inboxCustomerPanel.style.display = '';
+      inboxCustomerPanel.classList.remove('open-drawer');
+    }
+    const customerBackdrop = document.getElementById('customerDrawerBackdrop');
+    if (customerBackdrop) customerBackdrop.classList.remove('active');
 
-    // Respetar estado guardado de Ficha 360 (abierta o cerrada)
+    // Respetar estado guardado de Ficha 360 (abierta o cerrada en escritorio)
     const is360Closed = localStorage.getItem('udea_customer_360_open') === 'false';
     if (workspaceContainer) {
-      if (is360Closed && window.innerWidth > 1080) {
-        workspaceContainer.classList.add('hide-customer-360');
-        if (btnToggleCustomerPanel) btnToggleCustomerPanel.classList.remove('active');
+      if (window.innerWidth > 1180) {
+        if (is360Closed) {
+          workspaceContainer.classList.add('hide-customer-360');
+          if (btnToggleCustomerPanel) btnToggleCustomerPanel.classList.remove('active');
+        } else {
+          workspaceContainer.classList.remove('hide-customer-360');
+          if (btnToggleCustomerPanel) btnToggleCustomerPanel.classList.add('active');
+        }
       } else {
-        workspaceContainer.classList.remove('hide-customer-360');
-        if (btnToggleCustomerPanel) btnToggleCustomerPanel.classList.add('active');
+        // En pantallas <= 1180px, la Ficha 360 no invade la pantalla automáticamente
+        if (btnToggleCustomerPanel) btnToggleCustomerPanel.classList.remove('active');
       }
     }
 
@@ -2756,6 +2773,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Gestión intuitiva para abrir y cerrar la Ficha Customer 360 (Escritorio + Móvil)
   const btnToggleCustomerPanel = document.getElementById('btnToggleCustomerPanel');
   const btnCloseCustomerPanel = document.getElementById('btnCloseCustomerPanel');
+  const customerDrawerBackdrop = document.getElementById('customerDrawerBackdrop');
 
   function closeCustomer360Panel() {
     const container = document.querySelector('.agent-workspace-container');
@@ -2764,6 +2782,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (inboxCustomerPanel) {
       inboxCustomerPanel.classList.remove('open-drawer');
+      inboxCustomerPanel.style.display = '';
+    }
+    if (customerDrawerBackdrop) {
+      customerDrawerBackdrop.classList.remove('active');
     }
     if (btnToggleCustomerPanel) {
       btnToggleCustomerPanel.classList.remove('active');
@@ -2777,8 +2799,14 @@ document.addEventListener('DOMContentLoaded', () => {
     if (container) {
       container.classList.remove('hide-customer-360');
     }
-    if (window.innerWidth <= 1180 && inboxCustomerPanel) {
-      inboxCustomerPanel.classList.add('open-drawer');
+    if (inboxCustomerPanel) {
+      inboxCustomerPanel.style.display = '';
+      if (window.innerWidth <= 1180) {
+        inboxCustomerPanel.classList.add('open-drawer');
+        if (customerDrawerBackdrop) {
+          customerDrawerBackdrop.classList.add('active');
+        }
+      }
     }
     if (btnToggleCustomerPanel) {
       btnToggleCustomerPanel.classList.add('active');
@@ -2812,6 +2840,40 @@ document.addEventListener('DOMContentLoaded', () => {
   if (btnCloseCustomerPanel) {
     btnCloseCustomerPanel.addEventListener('click', closeCustomer360Panel);
   }
+
+  if (customerDrawerBackdrop) {
+    customerDrawerBackdrop.addEventListener('click', closeCustomer360Panel);
+  }
+
+  // Listener para limpieza transparente al cambiar el ancho de pantalla (resize)
+  window.addEventListener('resize', () => {
+    if (window.innerWidth > 1180) {
+      if (inboxCustomerPanel) {
+        inboxCustomerPanel.classList.remove('open-drawer');
+        inboxCustomerPanel.style.display = '';
+      }
+      if (customerDrawerBackdrop) {
+        customerDrawerBackdrop.classList.remove('active');
+      }
+      const is360Closed = localStorage.getItem('udea_customer_360_open') === 'false';
+      const container = document.querySelector('.agent-workspace-container');
+      if (container) {
+        if (is360Closed) {
+          container.classList.add('hide-customer-360');
+          if (btnToggleCustomerPanel) btnToggleCustomerPanel.classList.remove('active');
+        } else {
+          container.classList.remove('hide-customer-360');
+          if (btnToggleCustomerPanel) btnToggleCustomerPanel.classList.add('active');
+        }
+      }
+    } else {
+      // En tablet/móvil, si no tiene clase open-drawer, asegurar que esté oculto y botón inactivo
+      if (inboxCustomerPanel && !inboxCustomerPanel.classList.contains('open-drawer')) {
+        if (btnToggleCustomerPanel) btnToggleCustomerPanel.classList.remove('active');
+        if (customerDrawerBackdrop) customerDrawerBackdrop.classList.remove('active');
+      }
+    }
+  });
 
   window.closeCustomer360Panel = closeCustomer360Panel;
   window.openCustomer360Panel = openCustomer360Panel;
