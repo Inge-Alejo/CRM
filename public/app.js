@@ -142,6 +142,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let firebaseApp = null;
   let firebaseSignIn = null;
   let firebaseSignOut = null;
+  let firebaseSendPasswordReset = null;
 
   // Inicializar Firebase Auth Oficial
   async function initFirebaseClient() {
@@ -158,12 +159,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     try {
       const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js');
-      const { getAuth, signInWithEmailAndPassword, signOut } = await import('https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js');
+      const { getAuth, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } = await import('https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js');
       
       firebaseApp = initializeApp(configToUse);
       firebaseAuth = getAuth(firebaseApp);
       firebaseSignIn = signInWithEmailAndPassword;
       firebaseSignOut = signOut;
+      firebaseSendPasswordReset = sendPasswordResetEmail;
     } catch (err) {
       console.warn('Aviso: Inicialización de Firebase con fallback local:', err.message);
     }
@@ -295,7 +297,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const data = await res.json();
       if (!data.success) {
         if (landingAlertBox) {
-          landingAlertBox.innerHTML = `<strong>Acceso denegado:</strong> ${escapeHtml(data.error || 'Credenciales no autorizadas.')}<br><small style="margin-top:0.35rem; display:block;">💡 Tip: Usa la contraseña institucional <code>UdeA2026*</code> o selecciona uno de los perfiles rápidos abajo.</small>`;
+          landingAlertBox.innerHTML = `<strong>Acceso denegado:</strong> ${escapeHtml(data.error || 'Credenciales no autorizadas en Firebase.')}`;
           landingAlertBox.style.display = 'block';
         }
         return false;
@@ -338,18 +340,103 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Listeners para botones de Perfiles Rápidos en Login
-  document.querySelectorAll('.quick-adv-chip').forEach(chip => {
-    chip.addEventListener('click', () => {
-      const email = chip.getAttribute('data-email');
-      const pwd = chip.getAttribute('data-pwd') || 'UdeA2026*';
-      if (loginEmailInput) loginEmailInput.value = email;
-      if (loginPasswordInput) loginPasswordInput.value = pwd;
-      if (landingAlertBox) landingAlertBox.style.display = 'none';
-      // Enfocar o ejecutar login directo
-      performLogin(email, pwd);
+  // Modal y Flujo Oficial de Recuperación de Contraseña (Firebase)
+  const forgotPasswordModal = document.getElementById('forgotPasswordModal');
+  const btnOpenForgotModal = document.getElementById('btnOpenForgotModal');
+  const btnCloseForgotModal = document.getElementById('btnCloseForgotModal');
+  const btnCancelForgotModal = document.getElementById('btnCancelForgotModal');
+  const forgotPasswordForm = document.getElementById('forgotPasswordForm');
+  const forgotEmailInput = document.getElementById('forgotEmailInput');
+  const forgotAlertBox = document.getElementById('forgotAlertBox');
+  const btnSubmitForgot = document.getElementById('btnSubmitForgot');
+
+  function openForgotModal() {
+    if (forgotPasswordModal) forgotPasswordModal.style.display = 'flex';
+    if (forgotAlertBox) {
+      forgotAlertBox.style.display = 'none';
+      forgotAlertBox.className = 'landing-alert';
+      forgotAlertBox.textContent = '';
+      forgotAlertBox.style.background = '';
+      forgotAlertBox.style.borderColor = '';
+      forgotAlertBox.style.color = '';
+    }
+    if (forgotEmailInput) {
+      if (loginEmailInput && loginEmailInput.value) {
+        forgotEmailInput.value = loginEmailInput.value.trim();
+      }
+      setTimeout(() => forgotEmailInput.focus(), 80);
+    }
+  }
+
+  function closeForgotModal() {
+    if (forgotPasswordModal) forgotPasswordModal.style.display = 'none';
+  }
+
+  if (btnOpenForgotModal) btnOpenForgotModal.addEventListener('click', openForgotModal);
+  if (btnCloseForgotModal) btnCloseForgotModal.addEventListener('click', closeForgotModal);
+  if (btnCancelForgotModal) btnCancelForgotModal.addEventListener('click', closeForgotModal);
+
+  if (forgotPasswordForm) {
+    forgotPasswordForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = forgotEmailInput ? forgotEmailInput.value.trim() : '';
+      if (!email) return;
+
+      if (btnSubmitForgot) {
+        btnSubmitForgot.disabled = true;
+        btnSubmitForgot.innerHTML = '<span>Enviando enlace...</span>';
+      }
+      if (forgotAlertBox) forgotAlertBox.style.display = 'none';
+
+      try {
+        let sent = false;
+        // 1. Intento vía Firebase Client SDK
+        if (firebaseAuth && firebaseSendPasswordReset) {
+          try {
+            await firebaseSendPasswordReset(firebaseAuth, email);
+            sent = true;
+          } catch (fbErr) {
+            console.warn('Aviso: Firebase Client SDK falló, procediendo con API institucional:', fbErr?.code || fbErr?.message);
+          }
+        }
+
+        // 2. Si no fue por SDK cliente, enviar a endpoint oficial institucional
+        if (!sent) {
+          const res = await fetch('/api/auth/forgot-password', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email })
+          });
+          const data = await res.json();
+          if (!data.success) {
+            throw new Error(data.error || 'No fue posible procesar la recuperación.');
+          }
+        }
+
+        if (forgotAlertBox) {
+          forgotAlertBox.style.background = '#ecfdf5';
+          forgotAlertBox.style.borderColor = '#a7f3d0';
+          forgotAlertBox.style.color = '#064e3b';
+          forgotAlertBox.style.display = 'block';
+          forgotAlertBox.innerHTML = `<strong>¡Correo de recuperación enviado!</strong><br><span style="font-size:0.83rem;">Hemos enviado las instrucciones para restablecer tu contraseña a <strong>${escapeHtml(email)}</strong>. Por favor revisa tu bandeja de entrada o spam.</span>`;
+        }
+        if (forgotEmailInput) forgotEmailInput.value = '';
+      } catch (err) {
+        if (forgotAlertBox) {
+          forgotAlertBox.style.background = '';
+          forgotAlertBox.style.borderColor = '';
+          forgotAlertBox.style.color = '';
+          forgotAlertBox.style.display = 'block';
+          forgotAlertBox.innerHTML = `<strong>Error:</strong> ${escapeHtml(err.message)}`;
+        }
+      } finally {
+        if (btnSubmitForgot) {
+          btnSubmitForgot.disabled = false;
+          btnSubmitForgot.innerHTML = '<span>Enviar Instrucciones</span>';
+        }
+      }
     });
-  });
+  }
 
   if (btnLogoutAdvisor) {
     btnLogoutAdvisor.addEventListener('click', async () => {

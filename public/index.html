@@ -37,17 +37,19 @@
           <label for="loginEmailInput" class="landing-label">Correo Institucional</label>
           <div class="input-icon-wrap">
             <svg class="field-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
-            <input type="email" id="loginEmailInput" class="form-input landing-input" required placeholder="correo@udea.edu.co" value="proyectostic.med@udea.edu.co" autocomplete="username">
+            <input type="email" id="loginEmailInput" class="form-input landing-input" required placeholder="correo@udea.edu.co" autocomplete="username">
           </div>
         </div>
 
         <div class="form-group">
-          <label for="loginPasswordInput" class="landing-label">Contraseña Institucional</label>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+            <label for="loginPasswordInput" class="landing-label" style="margin-bottom: 0;">Contraseña Institucional</label>
+            <button type="button" class="btn-link-forgot" id="btnOpenForgotModal">¿Olvidaste tu contraseña?</button>
+          </div>
           <div class="input-icon-wrap">
             <svg class="field-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-            <input type="password" id="loginPasswordInput" class="form-input landing-input" required placeholder="••••••••••••" value="UdeA2026*" autocomplete="current-password">
+            <input type="password" id="loginPasswordInput" class="form-input landing-input" required placeholder="••••••••••••" autocomplete="current-password">
           </div>
-          <small class="landing-field-hint">Contraseña predeterminada: <code>UdeA2026*</code></small>
         </div>
 
         <button type="submit" class="btn btn-primary btn-landing-submit" id="btnLoginSubmit">
@@ -58,45 +60,10 @@
         </button>
       </form>
 
-      <div class="landing-divider">
-        <span>Acceso Rápido por Perfil</span>
-      </div>
-
-      <div class="landing-quick-grid">
-        <button type="button" class="quick-adv-chip" data-email="proyectostic.med@udea.edu.co" data-pwd="UdeA2026*">
-          <span class="chip-avatar">TIC</span>
-          <span class="chip-text">
-            <strong>Admin General TIC</strong>
-            <small>Acceso Completo</small>
-          </span>
-        </button>
-        <button type="button" class="quick-adv-chip" data-email="carolina.martinez@udea.edu.co" data-pwd="UdeA2026*">
-          <span class="chip-avatar">CM</span>
-          <span class="chip-text">
-            <strong>Dra. Carolina Martínez</strong>
-            <small>Educación Continua</small>
-          </span>
-        </button>
-        <button type="button" class="quick-adv-chip" data-email="alejandro.gomez@udea.edu.co" data-pwd="UdeA2026*">
-          <span class="chip-avatar">AG</span>
-          <span class="chip-text">
-            <strong>Dr. Alejandro Gómez</strong>
-            <small>Simulación y Urgencias</small>
-          </span>
-        </button>
-        <button type="button" class="quick-adv-chip" data-email="valeria.restrepo@udea.edu.co" data-pwd="UdeA2026*">
-          <span class="chip-avatar">VR</span>
-          <span class="chip-text">
-            <strong>Lic. Valeria Restrepo</strong>
-            <small>Admisiones y Matrículas</small>
-          </span>
-        </button>
-      </div>
-
       <div class="landing-footer">
         <div class="landing-security-notice">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-          <span>Autenticación institucional respaldada por Google Identity & Firebase Auth</span>
+          <span>Autenticación institucional respaldada por Firebase Authentication</span>
         </div>
         <span class="landing-copyright">© Universidad de Antioquia · Medellín, Colombia</span>
       </div>
@@ -1527,6 +1494,47 @@
           <div style="display:flex; justify-content:flex-end; gap:0.6rem; margin-top:1.2rem; border-top:1px solid #f1f5f9; padding-top:1rem;">
             <button type="button" class="btn btn-secondary" id="btnCancelCannedModal">Cancelar</button>
             <button type="submit" class="btn btn-primary" id="btnSaveCannedMacro">Guardar Plantilla</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal para Recuperar Contraseña Institucional (Firebase) -->
+  <div class="modal-backdrop" id="forgotPasswordModal" style="display: none;">
+    <div class="modal-dialog" style="max-width: 480px; width: 92%;">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 0.6rem;">
+          <div style="width: 34px; height: 34px; border-radius: 8px; background: rgba(15, 122, 54, 0.1); color: var(--udea-green); display: flex; align-items: center; justify-content: center;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          </div>
+          <div>
+            <h3 style="font-size: 1.05rem; font-weight: 800; color: var(--udea-dark); margin: 0;">Recuperar Contraseña</h3>
+            <span style="font-size: 0.76rem; color: var(--text-muted);">Restablecimiento oficial de Firebase Auth</span>
+          </div>
+        </div>
+        <button class="close-btn" id="btnCloseForgotModal" type="button" style="font-size: 1.1rem; cursor: pointer;">✕</button>
+      </div>
+      <div class="modal-body" style="padding: 1.4rem;">
+        <div id="forgotAlertBox" class="landing-alert" style="display: none; margin-bottom: 1.1rem;"></div>
+        
+        <p style="font-size: 0.85rem; color: #475569; margin-top: 0; margin-bottom: 1.1rem; line-height: 1.45;">
+          Ingresa el correo institucional registrado en el panel de Firebase. Se enviará un correo con un enlace seguro para restablecer tu clave.
+        </p>
+
+        <form id="forgotPasswordForm">
+          <div class="form-group" style="margin-bottom: 1.25rem;">
+            <label for="forgotEmailInput" style="display: block; font-size: 0.82rem; font-weight: 700; color: var(--udea-dark); margin-bottom: 0.35rem;">Correo Institucional:</label>
+            <div class="input-icon-wrap">
+              <svg class="field-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+              <input type="email" id="forgotEmailInput" class="form-input landing-input" required placeholder="correo@udea.edu.co" autocomplete="email" style="width: 100%; box-sizing: border-box;">
+            </div>
+          </div>
+          <div style="display: flex; justify-content: flex-end; gap: 0.6rem; border-top: 1px solid #f1f5f9; padding-top: 1rem;">
+            <button type="button" class="btn btn-secondary" id="btnCancelForgotModal">Cancelar</button>
+            <button type="submit" class="btn btn-primary" id="btnSubmitForgot">
+              <span>Enviar Instrucciones</span>
+            </button>
           </div>
         </form>
       </div>

@@ -5988,6 +5988,28 @@ input:checked + .slider:before {
   color: var(--text-muted);
 }
 
+.btn-link-forgot {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--udea-emerald);
+  font-size: 0.76rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  transition: color 0.15s ease;
+  font-family: inherit;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.btn-link-forgot:hover {
+  color: var(--udea-deep-dark);
+  text-decoration: underline;
+}
+
 .landing-footer {
   text-align: center;
   margin-top: 1.35rem;
@@ -6013,8 +6035,6 @@ input:checked + .slider:before {
   .landing-card {
     padding: 1.5rem 1.25rem;
   }
-  .landing-quick-grid {
-    grid-template-columns: 1fr;
-  }
 }
+
 

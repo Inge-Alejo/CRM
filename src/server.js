@@ -225,6 +225,34 @@ async function verifyFirebaseViaRest(email, password) {
   }
 }
 
+/**
+ * Envío oficial de correo de restablecimiento de contraseña vía Firebase Identity Toolkit
+ */
+async function sendFirebasePasswordReset(email) {
+  const apiKey = config.firebase.apiKey || 'AIzaSyCTwp8PaJvGlTYjJnBV7ktvnDeHd8aYemk';
+  const url = `https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key=${apiKey}`;
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        requestType: 'PASSWORD_RESET',
+        email: email
+      })
+    });
+    const data = await res.json();
+    if (data && data.email) {
+      return { success: true, email: data.email };
+    }
+    return {
+      success: false,
+      error: data.error ? data.error.message : 'No se pudo enviar el correo de recuperación.'
+    };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
 // Sincronización automática vía Web Scraping (Exclusivo Administrador General)
 app.post('/api/knowledge/sync', requireAdmin, async (req, res) => {
   try {
@@ -269,7 +297,7 @@ app.get('/api/leads', async (req, res) => {
   res.json({ leads });
 });
 
-// ==================== AUTENTICACIÓN Y ROLES EN TIEMPO REAL ====================
+// ==================== AUTENTICACIÓN ESTRICTA FIREBASE (SIN DATOS FALSOS NI CONTRASEÑAS POR DEFECTO) ====================
 app.post('/api/auth/login', async (req, res) => {
   const { email, password, idToken, displayName, firebaseUid } = req.body;
   if (!email) {
@@ -279,101 +307,84 @@ app.post('/api/auth/login', async (req, res) => {
   let cleanEmail = email.trim().toLowerCase();
   const cleanPassword = password ? password.trim() : '';
 
-  // Soporte para alias comunes del Super Administrador TIC
+  // Soporte para alias del Administrador TIC
   if (cleanEmail === 'admin' || cleanEmail === 'admin@udea.edu.co' || cleanEmail === 'proyectostic' || cleanEmail === 'tic') {
     cleanEmail = 'proyectostic.med@udea.edu.co';
   }
 
   const isTargetAdmin = (cleanEmail === 'proyectostic.med@udea.edu.co');
 
-  let advisor = null;
+  let validatedFbUser = null;
 
-  // 1. Si vino idToken de Firebase, verificarlo criptográficamente con Google Identity Toolkit
+  // 1. Si vino idToken de Firebase SDK cliente, verificar criptográficamente con Google Identity Toolkit
   if (idToken) {
     const fbUser = await verifyFirebaseIdToken(idToken);
     if (fbUser && fbUser.email && fbUser.email.toLowerCase() === cleanEmail) {
-      if (NeonService.isAvailable()) {
-        try {
-          advisor = await NeonService.syncFirebaseAdvisor({
-            email: cleanEmail,
-            displayName: fbUser.displayName || displayName,
-            firebaseUid: fbUser.localId || firebaseUid,
-            password: cleanPassword
-          });
-        } catch (err) {}
-      }
-      const localAdv = syncFirebaseAdvisor({
+      validatedFbUser = {
         email: cleanEmail,
         displayName: fbUser.displayName || displayName,
-        firebaseUid: fbUser.localId || firebaseUid,
-        password: cleanPassword
-      });
-      if (!advisor) advisor = localAdv;
+        localId: fbUser.localId || firebaseUid
+      };
     }
   }
 
-  // 2. Si no se validó por idToken, verificar credenciales con contraseña
-  if (!advisor && cleanPassword) {
-    // Validar con Firebase Identity Toolkit REST signInWithPassword
+  // 2. Si no se validó por idToken, validar contra Firebase REST API con email y password
+  if (!validatedFbUser && cleanPassword) {
     const fbCheck = await verifyFirebaseViaRest(cleanEmail, cleanPassword);
     if (fbCheck.success) {
-      if (NeonService.isAvailable()) {
-        try {
-          advisor = await NeonService.syncFirebaseAdvisor({
-            email: cleanEmail,
-            displayName: fbCheck.user.displayName || displayName,
-            firebaseUid: fbCheck.user.localId,
-            password: cleanPassword
-          });
-        } catch (err) {}
-      }
-      const localAdv = syncFirebaseAdvisor({
+      validatedFbUser = {
         email: cleanEmail,
         displayName: fbCheck.user.displayName || displayName,
-        firebaseUid: fbCheck.user.localId,
-        password: cleanPassword
-      });
-      if (!advisor) advisor = localAdv;
+        localId: fbCheck.user.localId || firebaseUid
+      };
     } else {
-      // 3. Verificación institucional (Neon Postgres / credenciales locales)
-      if (NeonService.isAvailable()) {
-        try {
-          advisor = await NeonService.verifyAdvisorCredentials(cleanEmail, cleanPassword);
-        } catch (err) {}
+      const fbErr = fbCheck.error;
+      let msg = 'Credenciales no autorizadas. Verifica tu correo y contraseña registrados en Firebase.';
+      if (fbErr === 'INVALID_LOGIN_CREDENTIALS' || fbErr === 'INVALID_PASSWORD') {
+        msg = 'Contraseña incorrecta. Ingresa la clave configurada en Firebase.';
+      } else if (fbErr === 'EMAIL_NOT_FOUND') {
+        msg = 'Este usuario no está registrado en Firebase. Solo los usuarios creados por el administrador en la consola de Firebase tienen acceso.';
+      } else if (fbErr === 'USER_DISABLED') {
+        msg = 'Este usuario ha sido deshabilitado en Firebase.';
+      } else if (fbErr === 'TOO_MANY_ATTEMPTS_TRY_LATER') {
+        msg = 'Demasiados intentos fallidos. Intenta más tarde o restablece tu contraseña.';
       }
-      if (!advisor) {
-        advisor = verifyAdvisorCredentials(cleanEmail, cleanPassword);
-      }
-      
-      // Si la contraseña ingresada es la contraseña maestra institucional 'UdeA2026*'
-      if (!advisor && (cleanPassword === 'UdeA2026*')) {
-        let existingAdv = null;
-        if (NeonService.isAvailable()) {
-          try {
-            existingAdv = await NeonService.findAdvisorByEmail(cleanEmail);
-          } catch (e) {}
-        }
-        if (!existingAdv) existingAdv = findAdvisorByEmail(cleanEmail);
-        if (existingAdv) advisor = existingAdv;
-      }
-
-      // Si es el Administrador General proyectostic.med@udea.edu.co y validó contraseña de al menos 6 caracteres
-      if (!advisor && isTargetAdmin && (cleanPassword === 'UdeA2026*' || cleanPassword === 'MedUdeA#2026!EduVida' || cleanPassword.length >= 6)) {
-        if (NeonService.isAvailable()) {
-          try {
-            advisor = await NeonService.syncFirebaseAdvisor({ email: cleanEmail, displayName: 'Administrador General TIC', password: cleanPassword });
-          } catch (err) {}
-        }
-        const localAdv = syncFirebaseAdvisor({ email: cleanEmail, displayName: 'Administrador General TIC', password: cleanPassword });
-        if (!advisor) advisor = localAdv;
-      }
+      return res.status(401).json({ success: false, error: msg });
     }
   }
+
+  // Si no pasó la validación de Firebase, rechazar terminantemente (sin bypasses locales)
+  if (!validatedFbUser) {
+    return res.status(401).json({
+      success: false,
+      error: 'Acceso no autorizado. Solo usuarios registrados y autenticados en Firebase pueden ingresar.'
+    });
+  }
+
+  // 3. Sincronizar o cargar el perfil del asesor/admin en Neon o base de datos institucional
+  let advisor = null;
+  if (NeonService.isAvailable()) {
+    try {
+      advisor = await NeonService.syncFirebaseAdvisor({
+        email: cleanEmail,
+        displayName: validatedFbUser.displayName || (isTargetAdmin ? 'Administrador General TIC' : 'Asesor de Extensión'),
+        firebaseUid: validatedFbUser.localId,
+        password: cleanPassword
+      });
+    } catch (err) {}
+  }
+  const localAdv = syncFirebaseAdvisor({
+    email: cleanEmail,
+    displayName: validatedFbUser.displayName || (isTargetAdmin ? 'Administrador General TIC' : 'Asesor de Extensión'),
+    firebaseUid: validatedFbUser.localId,
+    password: cleanPassword
+  });
+  if (!advisor) advisor = localAdv;
 
   if (!advisor) {
     return res.status(401).json({
       success: false,
-      error: 'Credenciales no autorizadas. Verifica tu correo institucional y contraseña (ej. UdeA2026* o tu contraseña de Firebase).'
+      error: 'Credenciales no autorizadas. Verifica tu correo institucional y contraseña registrada en Firebase.'
     });
   }
 
@@ -400,11 +411,40 @@ app.post('/api/auth/login', async (req, res) => {
   res.json({ success: true, advisor, permissions, token });
 });
 
-// Por máxima seguridad institucional: Registro público deshabilitado
+// Recuperación oficial de contraseña institucional vía Firebase
+app.post('/api/auth/forgot-password', async (req, res) => {
+  const { email } = req.body;
+  if (!email || typeof email !== 'string' || !email.includes('@')) {
+    return res.status(400).json({ success: false, error: 'Ingresa un correo institucional válido.' });
+  }
+
+  let cleanEmail = email.trim().toLowerCase();
+  if (cleanEmail === 'admin' || cleanEmail === 'admin@udea.edu.co' || cleanEmail === 'proyectostic' || cleanEmail === 'tic') {
+    cleanEmail = 'proyectostic.med@udea.edu.co';
+  }
+
+  const resetResult = await sendFirebasePasswordReset(cleanEmail);
+  if (resetResult.success) {
+    return res.json({
+      success: true,
+      message: `Se ha enviado el enlace oficial de restablecimiento a ${cleanEmail}. Revisa tu bandeja de entrada o spam para cambiar tu contraseña en Firebase.`
+    });
+  } else {
+    let errorMsg = 'No fue posible enviar el correo de recuperación.';
+    if (resetResult.error === 'EMAIL_NOT_FOUND') {
+      errorMsg = 'El correo ingresado no se encuentra registrado en el sistema de Firebase.';
+    } else if (resetResult.error) {
+      errorMsg = `Error de Firebase: ${resetResult.error}`;
+    }
+    return res.status(400).json({ success: false, error: errorMsg });
+  }
+});
+
+// Por máxima seguridad institucional: Registro público deshabilitado (solo usuarios creados por el admin en Firebase)
 app.post('/api/auth/register', (req, res) => {
   return res.status(403).json({
     success: false,
-    error: 'Acceso restringido: El autoregistro público está inhabilitado por directrices de seguridad institucional.'
+    error: 'Acceso restringido: El autoregistro desde la app está inhabilitado. Los usuarios deben ser creados previamente por el administrador en la consola de Firebase.'
   });
 });
 
