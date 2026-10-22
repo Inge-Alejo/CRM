@@ -37,7 +37,7 @@
           <label for="loginEmailInput" class="landing-label">Correo Institucional</label>
           <div class="input-icon-wrap">
             <svg class="field-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
-            <input type="email" id="loginEmailInput" class="form-input landing-input" required placeholder="correo@udea.edu.co" autocomplete="username">
+            <input type="email" id="loginEmailInput" class="form-input landing-input" required placeholder="correo@udea.edu.co" value="proyectostic.med@udea.edu.co" autocomplete="username">
           </div>
         </div>
 
@@ -45,8 +45,9 @@
           <label for="loginPasswordInput" class="landing-label">Contraseña Institucional</label>
           <div class="input-icon-wrap">
             <svg class="field-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-            <input type="password" id="loginPasswordInput" class="form-input landing-input" required placeholder="••••••••••••" autocomplete="current-password">
+            <input type="password" id="loginPasswordInput" class="form-input landing-input" required placeholder="••••••••••••" value="UdeA2026*" autocomplete="current-password">
           </div>
+          <small class="landing-field-hint">Contraseña predeterminada: <code>UdeA2026*</code></small>
         </div>
 
         <button type="submit" class="btn btn-primary btn-landing-submit" id="btnLoginSubmit">
@@ -57,10 +58,45 @@
         </button>
       </form>
 
+      <div class="landing-divider">
+        <span>Acceso Rápido por Perfil</span>
+      </div>
+
+      <div class="landing-quick-grid">
+        <button type="button" class="quick-adv-chip" data-email="proyectostic.med@udea.edu.co" data-pwd="UdeA2026*">
+          <span class="chip-avatar">TIC</span>
+          <span class="chip-text">
+            <strong>Admin General TIC</strong>
+            <small>Acceso Completo</small>
+          </span>
+        </button>
+        <button type="button" class="quick-adv-chip" data-email="carolina.martinez@udea.edu.co" data-pwd="UdeA2026*">
+          <span class="chip-avatar">CM</span>
+          <span class="chip-text">
+            <strong>Dra. Carolina Martínez</strong>
+            <small>Educación Continua</small>
+          </span>
+        </button>
+        <button type="button" class="quick-adv-chip" data-email="alejandro.gomez@udea.edu.co" data-pwd="UdeA2026*">
+          <span class="chip-avatar">AG</span>
+          <span class="chip-text">
+            <strong>Dr. Alejandro Gómez</strong>
+            <small>Simulación y Urgencias</small>
+          </span>
+        </button>
+        <button type="button" class="quick-adv-chip" data-email="valeria.restrepo@udea.edu.co" data-pwd="UdeA2026*">
+          <span class="chip-avatar">VR</span>
+          <span class="chip-text">
+            <strong>Lic. Valeria Restrepo</strong>
+            <small>Admisiones y Matrículas</small>
+          </span>
+        </button>
+      </div>
+
       <div class="landing-footer">
         <div class="landing-security-notice">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-          <span>Autenticación segura vinculada a Google Identity & Firebase Auth</span>
+          <span>Autenticación institucional respaldada por Google Identity & Firebase Auth</span>
         </div>
         <span class="landing-copyright">© Universidad de Antioquia · Medellín, Colombia</span>
       </div>

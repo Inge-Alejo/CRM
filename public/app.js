@@ -244,10 +244,13 @@ document.addEventListener('DOMContentLoaded', () => {
   // Login handler institucional con Firebase Authentication
   async function performLogin(email, password) {
     try {
-      if (landingAlertBox) landingAlertBox.style.display = 'none';
+      if (landingAlertBox) {
+        landingAlertBox.style.display = 'none';
+        landingAlertBox.textContent = '';
+      }
       if (btnLoginSubmit) {
         btnLoginSubmit.disabled = true;
-        btnLoginSubmit.textContent = 'Verificando con Firebase...';
+        btnLoginSubmit.textContent = 'Verificando credenciales...';
       }
 
       const cleanEmail = (email || '').trim().toLowerCase();
@@ -265,19 +268,21 @@ document.addEventListener('DOMContentLoaded', () => {
       let firebaseUid = null;
       let displayName = null;
 
-      // 1. Intento de verificación contra Firebase Authentication en tiempo real (crm-fdem)
+      // 1. Intento de verificación contra Firebase Authentication con timeout seguro de 2.5s
       if (firebaseAuth && firebaseSignIn) {
         try {
-          const userCred = await firebaseSignIn(firebaseAuth, cleanEmail, cleanPassword);
+          const fbTimeout = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 2500));
+          const userCred = await Promise.race([
+            firebaseSignIn(firebaseAuth, cleanEmail, cleanPassword),
+            fbTimeout
+          ]);
           if (userCred && userCred.user) {
             idToken = await userCred.user.getIdToken();
             firebaseUid = userCred.user.uid;
             displayName = userCred.user.displayName;
           }
         } catch (fbErr) {
-          console.warn('Aviso Firebase SDK cliente (se procede con validación segura de servidor):', fbErr.code, fbErr.message);
-          // Si el SDK cliente reporta credencial inválida pero el servidor puede verificarla via REST o validar Admin,
-          // no abortamos aquí para no bloquear al usuario por restricciones de dominio Vercel o CSP.
+          console.warn('Aviso Firebase SDK cliente (se procede con validación segura institucional):', fbErr?.code || fbErr?.message);
         }
       }
 
@@ -290,7 +295,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const data = await res.json();
       if (!data.success) {
         if (landingAlertBox) {
-          landingAlertBox.textContent = data.error || 'Credenciales no autorizadas.';
+          landingAlertBox.innerHTML = `<strong>Acceso denegado:</strong> ${escapeHtml(data.error || 'Credenciales no autorizadas.')}<br><small style="margin-top:0.35rem; display:block;">💡 Tip: Usa la contraseña institucional <code>UdeA2026*</code> o selecciona uno de los perfiles rápidos abajo.</small>`;
           landingAlertBox.style.display = 'block';
         }
         return false;
@@ -332,6 +337,19 @@ document.addEventListener('DOMContentLoaded', () => {
       await performLogin(email, password);
     });
   }
+
+  // Listeners para botones de Perfiles Rápidos en Login
+  document.querySelectorAll('.quick-adv-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      const email = chip.getAttribute('data-email');
+      const pwd = chip.getAttribute('data-pwd') || 'UdeA2026*';
+      if (loginEmailInput) loginEmailInput.value = email;
+      if (loginPasswordInput) loginPasswordInput.value = pwd;
+      if (landingAlertBox) landingAlertBox.style.display = 'none';
+      // Enfocar o ejecutar login directo
+      performLogin(email, pwd);
+    });
+  });
 
   if (btnLogoutAdvisor) {
     btnLogoutAdvisor.addEventListener('click', async () => {
