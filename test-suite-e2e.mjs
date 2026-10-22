@@ -29,7 +29,7 @@ async function runE2ETests() {
     // -------------------------------------------------------------
     console.log('📋 CASO DE USO 1: Persistencia y Sincronización en Neon Postgres Cloud');
     const testPhone = '573109990011';
-    
+
     // 1. Guardar mensaje inicial para crear el lead en Neon Cloud
     await NeonService.recordLeadMessage(testPhone, 'Hola, me interesa información', 'user');
 
@@ -228,7 +228,7 @@ async function runE2ETests() {
     const statsData = await statsRes.json();
     assert(statsRes.ok, 'Endpoint /api/admin/system-stats responde 200 OK con token de Administrador General TIC');
     assert(statsData.database && statsData.database.storage, 'Objeto database.storage presente en la respuesta');
-    
+
     const storage = statsData.database.storage;
     const usedMbVal = storage.usedMb || parseFloat((storage.sizeBytes / (1024 * 1024)).toFixed(1));
     const limitMbVal = storage.capacityLimitMb || storage.limitMb || 512;

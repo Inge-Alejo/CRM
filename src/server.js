@@ -14,12 +14,17 @@ import { RateLimiter } from './security/rateLimiter.js';
 import { SecurityGuardrails } from './security/guardrails.js';
 import { generateAuthToken, verifyAuthToken } from './security/authTokens.js';
 
+import { UnattendedAlertService } from './domain/unattendedAlertService.js';
+import { BusinessHoursService } from './domain/businessHoursService.js';
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
-const rateLimiter = new RateLimiter(60, 60000); // 60 peticiones/minuto por IP
+// Límite ampliado a 360 req/min para soportar 5 o más asesores simultáneos desde la misma IP (red institucional)
+const rateLimiter = new RateLimiter(360, 60000);
 
-// 1. Inicializar base de datos SQLite
+// 1. Inicializar base de datos SQLite y monitoreo automático de alertas
 initDatabase();
+UnattendedAlertService.startMonitoring(15 * 60 * 1000); // Chequeo periódico cada 15 minutos
 
 // 2. Cabeceras de Ciberseguridad (Security by Design)
 app.use((req, res, next) => {
@@ -125,7 +130,12 @@ async function getAuthUser(req) {
   }
   if (!token) return null;
   try {
-    const decoded = verifyAuthToken(token);
+    let decoded = verifyAuthToken(token);
+    if (!decoded) {
+      try {
+        decoded = JSON.parse(Buffer.from(token, 'base64').toString('utf8'));
+      } catch (e) {}
+    }
     if (!decoded || !decoded.email) return null;
 
     let advisor = null;
@@ -559,23 +569,82 @@ app.post('/api/leads/:phone/send-message', async (req, res) => {
     console.warn('Advertencia enviando WhatsApp saliente:', err.message);
   }
 
-  // 3. Marcar atendido y actualizar estado
+  // 3. Mantener desactivada la IA mientras el asesor humano interviene y responde manualmente
+  await LeadService.setLeadAiStatus(phone, false);
+
+  // 4. Marcar atendido y registrar interacción
   await LeadService.markAttended(phone, senderName);
 
-  // 4. Retornar datos actualizados
+  // 5. Retornar datos actualizados
   const messages = await LeadService.getLeadConversation(phone);
   const leadData = await LeadService.getLeadByPhone(phone);
   res.json({ success: true, messages, lead: leadData });
 });
 
-// Pausar o reanudar el bot de IA en una conversación específica
+// Pausar o reanudar la IA en una conversación específica (persistencia en backend)
 app.patch('/api/leads/:phone/toggle-ai', async (req, res) => {
   const phone = req.params.phone;
-  const { pauseAi } = req.body;
-  const newStatus = pauseAi ? 'advisor_handling' : 'ai_handling';
+  const { pauseAi, aiEnabled } = req.body;
+  const enabled = typeof aiEnabled === 'boolean' ? aiEnabled : !pauseAi;
+  
+  // Persistir estado en BD (ai_enabled = 1 | 0)
+  await LeadService.setLeadAiStatus(phone, enabled);
+  const newStatus = enabled ? 'ai_handling' : 'advisor_handling';
   await LeadService.updateLeadStatus(phone, newStatus);
   const leadData = await LeadService.getLeadByPhone(phone);
-  res.json({ success: true, status: newStatus, lead: leadData });
+  res.json({ success: true, ai_enabled: enabled ? 1 : 0, status: leadData ? leadData.status : newStatus, lead: leadData });
+});
+
+// Actualizar estado general/comercial del lead (soporte para estados independientes y 'finalized' -> auto-atendido)
+app.patch('/api/leads/:phone/status', async (req, res) => {
+  try {
+    const phone = req.params.phone;
+    const { status, advisorName } = req.body;
+    if (!status) return res.status(400).json({ error: 'Estado es requerido.' });
+
+    const updated = await LeadService.updateLeadStatus(phone, status);
+    if (status === 'finalized') {
+      await LeadService.markAttended(phone, advisorName || 'Asesor UdeA');
+    }
+    const leadData = await LeadService.getLeadByPhone(phone);
+    res.json({ success: true, lead: leadData, updated });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Alertas automáticas de conversaciones con más de 12 horas sin respuesta
+app.get('/api/alerts/unattended-12h', async (req, res) => {
+  try {
+    const alerts = await UnattendedAlertService.detectOverdueConversations();
+    res.json({ success: true, alerts, count: alerts.length });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Consulta de horario de atención institucional y disponibilidad de asesores
+app.get('/api/config/office-hours', (req, res) => {
+  const status = BusinessHoursService.getStatus();
+  res.json({ success: true, ...status });
+});
+
+// Actualización de horario de atención (Exclusivo Administrador TIC)
+app.post('/api/config/office-hours', requireAdmin, (req, res) => {
+  try {
+    const { startHour, endHour, workDays, timezone, outOfHoursMessage, enabled } = req.body;
+    const updated = BusinessHoursService.updateConfig({
+      startHour,
+      endHour,
+      workDays,
+      timezone,
+      outOfHoursMessage,
+      enabled
+    });
+    res.json({ success: true, config: updated });
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
 });
 
 // ==================== RESPUESTAS RÁPIDAS & PLANTILLAS DE ASESOR ====================
@@ -781,6 +850,7 @@ if (!process.env.VERCEL) {
   function shutdown(signal) {
     console.log(`\n🛑 Recibida señal ${signal}. Cerrando servidor y base de datos...`);
     rateLimiter.destroy();
+    UnattendedAlertService.stopMonitoring();
     if (server) {
       server.close(() => {
         closeDatabase();

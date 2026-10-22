@@ -183,6 +183,17 @@ REGLAS CRÍTICAS DE COMUNICACIÓN Y EFICIENCIA DE TOKENS:
 10. FECHAS Y HORARIOS: Si el usuario pregunta por un curso vigente del catálogo, incluye de forma concisa su fecha de inicio y horario oficial.
 11. TONO AMENO Y EMOJIS: Sé siempre muy cordial, empático y ameno. Integra emojis contextuales y médicos (🩺, 📚, ✨, 👋, 🏥, 💡, 🎓, 💳, 📅) de manera natural en tus respuestas para que la experiencia en WhatsApp sea cercana, cálida y profesional.
 12. FORMATO WHATSAPP: Usa negritas (*texto*) para títulos o datos clave, y viñetas breves.
+13. SIMPLIFICACIÓN DEL PRIMER MENSAJE ANTE SALUDOS:
+    - Cuando el usuario inicie una conversación con un saludo (como «Hola», «Buenos días», «Buenas tardes» o «Buenas noches»), responde de manera breve, cálida y natural. Por ejemplo: «¡Hola! 👋 Te damos la bienvenida al Centro de Extensión de la Facultad de Medicina UdeA 🩺. ¿En qué curso estás interesado?».
+    - ESTÁ ESTRICTAMENTE PROHIBIDO mostrar automáticamente listados de cursos, precios, fechas ni descripciones extensas cuando el usuario únicamente esté saludando.
+    - Si el usuario pregunta por un curso específico, responde de inmediato con información pertinente y actualizada.
+    - Evita repetir el saludo durante una conversación ya iniciada. Conserva en todo momento el contexto y la continuidad de la conversación.
+14. ADVERTENCIA EN ENLACES DE PAGO (COMPUTADOR OBLIGATORIO):
+    - La Universidad no procesa pagos dentro de este chat ni en el CRM; se comparten enlaces externos oficiales.
+    - La plataforma de pagos oficial de la UdeA no es compatible con celulares ni dispositivos móviles.
+    - Siempre que compartas un enlace de pago, incluye esta advertencia clara sin alterar la URL oficial:
+      «⚠️ *Aviso para el pago:* Para realizar el pago, debes abrir el siguiente enlace desde un computador. Actualmente, el proceso no es compatible con celulares ni otros dispositivos móviles.»
+    - Conserva el enlace original exactamente como se proporciona en la base de datos, incluidos sus parámetros. Nunca inventes parámetros ni solicites datos bancarios.
 
 BASE DE CONOCIMIENTO OFICIAL VIGENTE:
 ${knowledgeContext}
@@ -411,7 +422,8 @@ ${knowledgeContext}
           return {
             replyText: `¡Con gusto te oriento con el proceso de pago${salutation}! 💳✨\n\n` +
               `Para formalizar tu matrícula en *${match.title}*, el proceso es 100% virtual a través del portal oficial de la Universidad de Antioquia:\n\n` +
-              `1️⃣ Ingresa al enlace oficial de pago:\n` +
+              `⚠️ *Nota importante:* Para realizar el pago, debes abrir el siguiente enlace desde un computador. Actualmente, el proceso no es compatible con celulares ni otros dispositivos móviles.\n\n` +
+              `1️⃣ Ingresa al enlace oficial de pago desde tu computador:\n` +
               `👉 💳 *Enlace directo de inscripción y pago:* ${directPaymentLink}\n` +
               (infoLink && infoLink !== directPaymentLink ? `ℹ️ *Enlace de información oficial:* ${infoLink}\n\n` : `\n`) +
               `2️⃣ Diligencia el formulario de inscripción con tus datos personales.\n` +
@@ -567,7 +579,7 @@ ${knowledgeContext}
 
     // 2. Si pregunta por programas no ofertados en extensión UdeA
     const unsupportedTopics = [
-      'paliativ', 'dolor', 'estetic', 'plastic', 'forense', 'toxicolog', 
+      'estetic', 'plastic', 'forense', 
       'salud ocupacional', 'oftalmolog', 'oncolog', 'otorrino', 'urolog'
     ];
     if (unsupportedTopics.some(t => q.includes(t))) {
@@ -588,26 +600,24 @@ ${knowledgeContext}
       };
     }
 
-    // 3. Saludo inicial
-    if (q.includes('hola') || q.includes('buenos dias') || q.includes('buenas tardes') || q.includes('buenas noches') || q === 'menu') {
-      if (hasData) {
+    // 3. Saludo inicial simplificado, breve y natural (Requisito 1)
+    const isGreetingPattern = /^(hola|buenos d[ií]as|buenas tardes|buenas noches|hola apolo|saludos|menu|hey)[\s!.,👋🩺]*$/i.test(query.trim()) ||
+      ((q.includes('hola') || q.includes('buenos dias') || q.includes('buenas tardes') || q.includes('buenas noches')) && !detectedProgramTitle && !isPriceIntent && !isPaymentIntent && !isScheduleIntent && !isSyllabusIntent && !isDiscountIntent && !isRequirementsIntent);
+
+    if (isGreetingPattern) {
+      // Verificar si la conversación ya está iniciada (hay mensajes previos del usuario o bot en el historial)
+      const hasPriorMessages = Array.isArray(conversationHistory) && conversationHistory.length > 0;
+      if (hasPriorMessages) {
         return {
-          replyText: `¡Hola de nuevo, ${knownName || 'estimado(a) doctor(a)'}! 👋🩺 Te damos una cálida bienvenida al *Centro de Extensión de la Facultad de Medicina UdeA* ✨.\n\n¿En cuál de nuestros cursos o diplomados te gustaría conocer fechas oficiales e inversión hoy? 📚🎓`,
+          replyText: `¡Hola de nuevo${knownName ? ', ' + knownName : ''}! 👋🩺 ¿En qué curso estás interesado o en qué te puedo orientar hoy?`,
           detectedProgram: null,
           requestAdvisor: false
         };
       }
 
-      let reply = `¡Hola! 👋 Te damos la bienvenida al *Centro de Extensión de la Facultad de Medicina UdeA* 🩺✨.\n\n`;
-      reply += `Contamos con una amplia oferta académica de educación médica continua con inscripciones abiertas: 📚\n\n`;
-      const activePrograms = items.filter(item => item.category !== 'Información General').slice(0, 4);
-      for (const item of activePrograms) {
-        reply += `• 🎓 *${item.title}*\n`;
-      }
-      reply += `\nPuedes consultar más detalles en https://extension.medicinaudea.co o indicarme qué programa te interesa para darte fechas e inversión. ¡Con gusto te oriento! 💡✨`;
-
+      // Primer mensaje cuando el usuario inicia saludando
       return {
-        replyText: reply,
+        replyText: `¡Hola! 👋 Bienvenido al Centro de Extensión de la Facultad de Medicina UdeA 🩺. ¿En qué curso estás interesado?`,
         detectedProgram: null,
         requestAdvisor: false
       };
@@ -639,24 +649,14 @@ ${knowledgeContext}
   }
 
   /**
-   * Genera el saludo inicial autónomo del asistente oficial Apolo para inicio de chats
+   * Genera el saludo inicial autónomo del asistente oficial Apolo para inicio de chats (Requisito 1)
    */
   static async generateInitialGreeting(currentLead = {}) {
-    const items = await KnowledgeBaseService.getActiveItems();
-    const activePrograms = items.filter(item => item.category !== 'Información General').slice(0, 4);
-    let sampleList = '';
-    activePrograms.forEach(p => {
-      sampleList += `• 🎓 *${p.title}*\n`;
-    });
-
     const knownName = (currentLead && currentLead.name && currentLead.name !== 'Interesado UdeA') 
       ? ` ${currentLead.name}` 
       : '';
 
-    return `¡Hola${knownName}! 👋 Te damos la bienvenida al *Centro de Extensión de la Facultad de Medicina UdeA* 🩺✨.\n\n` +
-      `Contamos con una amplia oferta académica de educación médica continua con inscripciones abiertas: 📚\n\n` +
-      sampleList +
-      `\nPuedes consultar información detallada de cualquiera de ellos o de nuestra oferta completa. ¿Sobre cuál de nuestros programas te gustaría conocer fechas oficiales e inversión? ¡Con gusto te oriento! 💡✨`;
+    return `¡Hola${knownName}! 👋 Te damos la bienvenida al Centro de Extensión de la Facultad de Medicina UdeA 🩺. ¿En qué curso estás interesado?`;
   }
 
   /**

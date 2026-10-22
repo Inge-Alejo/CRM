@@ -606,9 +606,19 @@ document.addEventListener('DOMContentLoaded', () => {
         inboxPendingBadge.style.display = 'inline-block';
         inboxPendingBadge.textContent = advisorNeeded.length;
       }
+      const now = Date.now();
+      const twelveHoursMs = 12 * 60 * 60 * 1000;
+      const overdueLeads = allLoadedLeads.filter(l => {
+        if (['closed', 'finalized', 'not_interested', 'enrolled'].includes(l.status)) return false;
+        if (l.attended_by || l.status === 'attended') return false;
+        const msgTime = new Date(l.updated_at || l.created_at).getTime();
+        return (now - msgTime) > twelveHoursMs;
+      });
+
       if (dashAlertBanner) {
         dashAlertBanner.style.display = 'flex';
-        dashAlertMessage.textContent = `Hay ${advisorNeeded.length} persona(s) esperando atención de un asesor en este momento.`;
+        const overdueMsg = overdueLeads.length > 0 ? ` ⚠️ (${overdueLeads.length} con más de 12 horas sin respuesta).` : '';
+        dashAlertMessage.textContent = `Hay ${advisorNeeded.length} persona(s) esperando atención de un asesor en este momento.${overdueMsg}`;
       }
       if (kpiAdvisorFooter) {
         kpiAdvisorFooter.textContent = '¡Atención prioritaria!';
@@ -664,12 +674,15 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function getStatusPill(status) {
-    if (status === 'advisor_requested') return '<span class="status-pill advisor_requested"><span class="status-dot"></span>Requiere Asesor</span>';
+    if (status === 'advisor_requested') return '<span class="status-pill advisor_requested"><span class="status-dot"></span>Requiere Asesor Humano</span>';
+    if (status === 'contacted') return '<span class="status-pill contacted"><span class="status-dot"></span>Asesor Contactado</span>';
     if (status === 'attended') return '<span class="status-pill attended"><span class="status-dot"></span>✓ Atendido</span>';
-    if (status === 'contacted') return '<span class="status-pill contacted"><span class="status-dot"></span>Contactado</span>';
+    if (status === 'follow_up') return '<span class="status-pill follow_up" style="background: rgba(14, 165, 233, 0.12); color: #0284c7; border: 1px solid rgba(14, 165, 233, 0.3);"><span class="status-dot" style="background:#0284c7;"></span>🔄 En Seguimiento</span>';
     if (status === 'enrolled') return '<span class="status-pill enrolled"><span class="status-dot"></span>🎓 Matriculado</span>';
-    if (status === 'closed') return '<span class="status-pill closed"><span class="status-dot"></span>Cerrado</span>';
-    return '<span class="status-pill ai_handling"><span class="status-dot"></span>Atendido por IA</span>';
+    if (status === 'closed') return '<span class="status-pill closed"><span class="status-dot"></span>🔒 Cerrado</span>';
+    if (status === 'not_interested') return '<span class="status-pill not_interested" style="background: rgba(239, 68, 68, 0.12); color: #dc2626; border: 1px solid rgba(239, 68, 68, 0.3);"><span class="status-dot" style="background:#dc2626;"></span>🚫 No Interesado</span>';
+    if (status === 'finalized') return '<span class="status-pill finalized" style="background: rgba(5, 150, 105, 0.12); color: #059669; border: 1px solid rgba(5, 150, 105, 0.3);"><span class="status-dot" style="background:#059669;"></span>🏁 Finalizado</span>';
+    return '<span class="status-pill ai_handling"><span class="status-dot"></span>En gestión IA</span>';
   }
 
   function getTemperatureBadge(temp) {
@@ -2000,6 +2013,17 @@ document.addEventListener('DOMContentLoaded', () => {
       list = list.filter(l => l.status === 'advisor_requested');
     } else if (currentInboxFilter === 'attended') {
       list = list.filter(l => l.status === 'attended' || !!l.attended_by);
+    } else if (currentInboxFilter === 'follow_up') {
+      list = list.filter(l => l.status === 'follow_up');
+    } else if (currentInboxFilter === 'overdue') {
+      const now = Date.now();
+      const twelveHoursMs = 12 * 60 * 60 * 1000;
+      list = list.filter(l => {
+        if (['closed', 'finalized', 'not_interested', 'enrolled'].includes(l.status)) return false;
+        if (l.attended_by || l.status === 'attended') return false;
+        const msgTime = new Date(l.updated_at || l.created_at).getTime();
+        return (now - msgTime) > twelveHoursMs;
+      });
     }
 
     // Aplicar búsqueda por texto
@@ -2031,6 +2055,9 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
+    const now = Date.now();
+    const twelveHoursMs = 12 * 60 * 60 * 1000;
+
     inboxConversationsList.innerHTML = list.map(lead => {
       const isSelected = lead.phone_number === currentInboxPhone;
       const initials = getInitials(lead.name || 'Interesado UdeA');
@@ -2042,9 +2069,12 @@ document.addEventListener('DOMContentLoaded', () => {
       const timeStr = lead.updated_at ? new Date(lead.updated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
       const isUrgent = lead.status === 'advisor_requested';
       const isAttended = lead.status === 'attended' || !!lead.attended_by;
+      const isFollowUp = lead.status === 'follow_up';
+      const leadTime = new Date(lead.updated_at || lead.created_at).getTime();
+      const isOverdue = !['closed', 'finalized', 'not_interested', 'enrolled'].includes(lead.status) && !isAttended && ((now - leadTime) > twelveHoursMs);
 
       return `
-        <div class="inbox-conv-item ${isSelected ? 'active' : ''} ${isUrgent ? 'unread' : ''}" onclick="window.selectInboxLead('${safePhone}')">
+        <div class="inbox-conv-item ${isSelected ? 'active' : ''} ${isUrgent || isOverdue ? 'unread' : ''}" onclick="window.selectInboxLead('${safePhone}')">
           <div class="conv-avatar">${initials}</div>
           <div class="conv-body">
             <div class="conv-top">
@@ -2055,7 +2085,10 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="conv-tags">
               <span class="conv-tag temp ${tempClass}">${tempLabel}</span>
               ${isUrgent ? `<span class="conv-tag req">🚨 Requiere Asesor</span>` : ''}
+              ${isOverdue ? `<span class="conv-tag req" style="background:#fee2e2; color:#b91c1c;">⏰ >12h sin respuesta</span>` : ''}
               ${isAttended ? `<span class="conv-tag attended">✓ Atendido</span>` : ''}
+              ${isFollowUp ? `<span class="conv-tag" style="background:#e0f2fe; color:#0369a1;">🔄 Seguimiento</span>` : ''}
+              ${lead.status === 'finalized' ? `<span class="conv-tag" style="background:#ecfdf5; color:#047857;">🏁 Finalizado</span>` : ''}
               ${lead.assigned_advisor && lead.assigned_advisor !== 'Sin Asignar' ? `<span class="conv-tag" style="background:#f1f5f9; color:#475569;">👤 ${escapeHtml(lead.assigned_advisor)}</span>` : ''}
             </div>
           </div>
@@ -2285,6 +2318,17 @@ document.addEventListener('DOMContentLoaded', () => {
         inboxCustStatusSelect.value = lead.status || 'ai_handling';
       }
 
+      // Sincronizar Toggle de IA en la cabecera del chat
+      const inboxAiToggleCheck = document.getElementById('inboxAiToggleCheck');
+      const inboxAiToggleLabel = document.getElementById('inboxAiToggleLabel');
+      const isAiActive = (lead.ai_enabled !== 0 && lead.status !== 'advisor_handling');
+      if (inboxAiToggleCheck) {
+        inboxAiToggleCheck.checked = isAiActive;
+      }
+      if (inboxAiToggleLabel) {
+        inboxAiToggleLabel.textContent = isAiActive ? '🤖 IA Activa' : '⏸️ IA Pausada';
+      }
+
       // Select de Temperatura
       if (inboxCustTempSelect) {
         inboxCustTempSelect.value = lead.interest_temperature || 'cold';
@@ -2334,6 +2378,12 @@ document.addEventListener('DOMContentLoaded', () => {
           inboxMessageInput.value = '';
           autoResizeComposerTextarea();
         }
+        // Al responder el asesor humano, la IA queda pausada explícitamente en el chat
+        const inboxAiToggleCheck = document.getElementById('inboxAiToggleCheck');
+        const inboxAiToggleLabel = document.getElementById('inboxAiToggleLabel');
+        if (inboxAiToggleCheck) inboxAiToggleCheck.checked = false;
+        if (inboxAiToggleLabel) inboxAiToggleLabel.textContent = '⏸️ IA Pausada';
+
         // Recargar chat y actualizar lista
         await window.selectInboxLead(currentInboxPhone);
         fetchLeads();
@@ -2677,13 +2727,39 @@ document.addEventListener('DOMContentLoaded', () => {
     inboxCustStatusSelect.addEventListener('change', async () => {
       if (!currentInboxPhone) return;
       const newStatus = inboxCustStatusSelect.value;
+      const currentAdvisor = getActiveAdvisor();
       try {
-        await fetch(`/api/leads/${encodeURIComponent(currentInboxPhone)}/status`, {
+        const res = await fetch(`/api/leads/${encodeURIComponent(currentInboxPhone)}/status`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ status: newStatus })
+          body: JSON.stringify({ status: newStatus, advisorName: currentAdvisor })
         });
-        updateInboxAttendedButtonState({ status: newStatus });
+        const data = await res.json();
+        const updatedLead = data.lead || { status: newStatus };
+        currentInboxLead = updatedLead;
+
+        // Requisito 8.3: Si se selecciona 'Finalizado', el sistema marca automáticamente como Atendido
+        if (newStatus === 'finalized' || newStatus === 'attended') {
+          updateInboxAttendedButtonState({
+            status: newStatus,
+            attended_by: currentAdvisor,
+            attended_at: new Date().toISOString()
+          });
+          if (inboxActiveStatus) {
+            inboxActiveStatus.textContent = newStatus === 'finalized' ? '✓ Atendido (Finalizado)' : `✓ Atendido por ${currentAdvisor}`;
+          }
+        } else {
+          updateInboxAttendedButtonState(updatedLead);
+          if (inboxActiveStatus) {
+            inboxActiveStatus.textContent = 
+              newStatus === 'follow_up' ? '🔄 En Seguimiento' :
+              newStatus === 'advisor_requested' ? '🚨 Requiere Asesor Humano' :
+              newStatus === 'contacted' ? '👨‍⚕️ Asesor Contactado' :
+              newStatus === 'enrolled' ? '🎓 Matriculado Oficialmente' :
+              newStatus === 'closed' ? '🔒 Cerrado' :
+              newStatus === 'not_interested' ? '🚫 No Interesado' : '🤖 En gestión IA';
+          }
+        }
         fetchLeads();
       } catch (err) {
         console.warn('Error actualizando estado:', err.message);
@@ -2691,7 +2767,37 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Copiar link oficial de inscripción y pago del programa de interés con feedback
+  // Control de activación/desactivación de IA en la conversación activa (Requisito 5)
+  const inboxAiToggleCheck = document.getElementById('inboxAiToggleCheck');
+  const inboxAiToggleLabel = document.getElementById('inboxAiToggleLabel');
+  if (inboxAiToggleCheck) {
+    inboxAiToggleCheck.addEventListener('change', async () => {
+      if (!currentInboxPhone) return;
+      const enabled = inboxAiToggleCheck.checked;
+      if (inboxAiToggleLabel) {
+        inboxAiToggleLabel.textContent = enabled ? '🤖 IA Activa' : '⏸️ IA Pausada';
+      }
+      try {
+        const res = await fetch(`/api/leads/${encodeURIComponent(currentInboxPhone)}/toggle-ai`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ aiEnabled: enabled, pauseAi: !enabled })
+        });
+        const data = await res.json();
+        if (data.lead) {
+          currentInboxLead = data.lead;
+          if (inboxCustStatusSelect) {
+            inboxCustStatusSelect.value = data.lead.status || (enabled ? 'ai_handling' : 'advisor_handling');
+          }
+        }
+        fetchLeads();
+      } catch (err) {
+        console.error('Error al cambiar estado de IA:', err);
+      }
+    });
+  }
+
+  // Copiar link oficial de inscripción y pago del programa de interés con advertencia de computador (Requisito 4)
   if (btnInboxCopyPaymentLink) {
     btnInboxCopyPaymentLink.addEventListener('click', async () => {
       let link = null;
@@ -2722,11 +2828,14 @@ document.addEventListener('DOMContentLoaded', () => {
         link = 'https://extension.medicinaudea.co/oferta-academica/';
       }
 
+      // Texto oficial con advertencia obligatoria de pago desde computador (Requisito 4)
+      const messageToShare = `Para realizar el pago, debes abrir el siguiente enlace desde un computador. Actualmente, el proceso no es compatible con celulares ni otros dispositivos móviles:\n${link}`;
+
       // Copiado en portapapeles con fallback seguro
       let copied = false;
       if (navigator.clipboard && window.isSecureContext) {
         try {
-          await navigator.clipboard.writeText(link);
+          await navigator.clipboard.writeText(messageToShare);
           copied = true;
         } catch (clipErr) {
           console.warn('Fallo navigator.clipboard, usando fallback textarea:', clipErr);
@@ -2736,7 +2845,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!copied) {
         try {
           const textArea = document.createElement('textarea');
-          textArea.value = link;
+          textArea.value = messageToShare;
           textArea.style.position = 'fixed';
           textArea.style.left = '-9999px';
           textArea.style.top = '-9999px';
@@ -2750,9 +2859,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       }
 
+      // Si el composer del asesor está abierto, sugerir o insertar el texto para comodidad del asesor
+      if (inboxMessageInput && !inboxMessageInput.value) {
+        inboxMessageInput.value = messageToShare;
+        autoResizeComposerTextarea();
+      }
+
       // Feedback visual interactivo en el botón
       const originalHtml = btnInboxCopyPaymentLink.innerHTML;
-      btnInboxCopyPaymentLink.innerHTML = '✓ ¡Copiado!';
+      btnInboxCopyPaymentLink.innerHTML = '✓ ¡Mensaje y Link Copiados!';
       btnInboxCopyPaymentLink.style.backgroundColor = '#059669';
       btnInboxCopyPaymentLink.style.borderColor = '#059669';
       btnInboxCopyPaymentLink.style.color = '#ffffff';
@@ -2765,7 +2880,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }, 2500);
 
       if (!copied) {
-        prompt('Copia el enlace oficial de matrícula y pago de la Facultad de Medicina UdeA:', link);
+        prompt('Copia el mensaje y enlace oficial de pago:', messageToShare);
       }
     });
   }

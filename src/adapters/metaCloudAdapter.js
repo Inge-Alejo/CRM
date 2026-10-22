@@ -4,6 +4,7 @@ import { ConversationTracker } from '../domain/conversationTracker.js';
 import { GeminiService } from '../ai/geminiService.js';
 import { LeadService } from '../domain/leadService.js';
 import { AdvisorNotifier } from '../domain/notifier.js';
+import { BusinessHoursService } from '../domain/businessHoursService.js';
 
 export class MetaCloudAdapter {
   /**
@@ -80,18 +81,40 @@ export class MetaCloudAdapter {
         return;
       }
 
-      // 3. Obtener historial y generar respuesta con IA
+      // 3. Evaluar si la IA está desactivada para esta conversación (Requisito 5)
+      const currentLead = await LeadService.getLeadByPhone(senderPhone);
+      const isAiDisabled = currentLead && (currentLead.ai_enabled === 0 || currentLead.status === 'advisor_handling');
+
+      if (isAiDisabled) {
+        console.log(`🤖 [IA DESACTIVADA]: Conversación con ${senderPhone} en atención manual por asesor. Se omite respuesta automática de Gemini.`);
+        
+        // Si está fuera de horario, avisar al usuario una sola vez
+        if (!BusinessHoursService.isWithinOfficeHours()) {
+          const outOfHoursNotice = config.officeHours?.outOfHoursMessage || 'Hemos recibido tu mensaje y será atendido en el próximo horario de servicio.';
+          await LeadService.recordLeadMessage(senderPhone, outOfHoursNotice, 'bot');
+          await this.sendWhatsAppMessage(senderPhone, outOfHoursNotice);
+        }
+        return;
+      }
+
+      // 4. Obtener historial y generar respuesta con IA
       const history = await LeadService.getLeadConversation(senderPhone);
       const aiResult = await GeminiService.generateReply(userText, senderPhone, history);
+
+      // Si el usuario solicitó asesor y estamos fuera de horario, anexar el aviso institucional
+      if (aiResult.requestAdvisor && !BusinessHoursService.isWithinOfficeHours()) {
+        aiResult.replyText += `\n\n📌 ${config.officeHours.outOfHoursMessage}`;
+      }
 
       // Guardar respuesta del bot
       await LeadService.recordLeadMessage(senderPhone, aiResult.replyText, 'bot');
 
-      // 4. Si el estudiante solicita asesor, disparar notificación
+      // 5. Si el estudiante solicita asesor, disparar notificación y desactivar IA para dar paso al asesor
       if (aiResult.requestAdvisor) {
         await LeadService.updateLeadStatus(senderPhone, 'advisor_requested', aiResult.detectedProgram);
         await AdvisorNotifier.triggerAdvisorAlert({
           phoneNumber: senderPhone,
+          studentName: currentLead?.name,
           reason: 'Solicitud explícita de asesor o caso especial',
           lastUserMessage: userText
         });
@@ -99,7 +122,7 @@ export class MetaCloudAdapter {
         await LeadService.updateLeadStatus(senderPhone, 'ai_handling', aiResult.detectedProgram);
       }
 
-      // 5. Enviar mensaje de vuelta a WhatsApp mediante Meta Graph API
+      // 6. Enviar mensaje de vuelta a WhatsApp mediante Meta Graph API
       await this.sendWhatsAppMessage(senderPhone, aiResult.replyText);
 
     } catch (err) {

@@ -122,8 +122,36 @@ export class NeonService {
 
   static async getLeadByPhone(phoneNumber) {
     const sql = getSql();
-    const rows = await sql`SELECT * FROM leads WHERE phone_number = ${phoneNumber} LIMIT 1;`;
+    if (!sql) return null;
+    const clean = (phoneNumber || '').trim();
+    const noPlus = clean.replace(/^\+/, '');
+    const withPlus = `+${noPlus}`;
+    const rows = await sql`
+      SELECT * FROM leads 
+      WHERE phone_number = ${clean} OR phone_number = ${noPlus} OR phone_number = ${withPlus} 
+      LIMIT 1;
+    `;
     return rows.length > 0 ? rows[0] : null;
+  }
+
+  static async setLeadAiStatus(phoneNumber, aiEnabled) {
+    const sql = getSql();
+    if (!sql) return;
+    const clean = (phoneNumber || '').trim();
+    const noPlus = clean.replace(/^\+/, '');
+    const withPlus = `+${noPlus}`;
+    const val = aiEnabled ? 1 : 0;
+    const nowIso = new Date().toISOString();
+    try {
+      await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS ai_enabled INTEGER DEFAULT 1;`;
+      await sql`
+        UPDATE leads 
+        SET ai_enabled = ${val}, updated_at = ${nowIso}
+        WHERE phone_number = ${clean} OR phone_number = ${noPlus} OR phone_number = ${withPlus};
+      `;
+    } catch (err) {
+      console.warn('Error en NeonService.setLeadAiStatus:', err.message);
+    }
   }
 
   static async getLeadConversation(phoneNumber) {
@@ -208,20 +236,36 @@ export class NeonService {
     }
   }
 
-  static async updateLeadStatus(phoneNumber, status, programInterest = null, name = null) {
+  static async updateLeadStatus(phoneNumber, status, programInterest = null, name = null, advisorName = null) {
     const sql = getSql();
+    if (!sql) return;
     const nowIso = new Date().toISOString();
-    const lead = await this.getLeadByPhone(phoneNumber);
+    let lead = await this.getLeadByPhone(phoneNumber);
+    if (!lead) {
+      await this.recordLeadMessage(phoneNumber, '', 'user');
+      lead = await this.getLeadByPhone(phoneNumber);
+    }
     if (!lead) return;
 
     const newProg = programInterest || lead.program_interest;
     const newName = name || lead.name;
 
-    await sql`
-      UPDATE leads 
-      SET status = ${status}, program_interest = ${newProg}, name = ${newName}, updated_at = ${nowIso}
-      WHERE phone_number = ${phoneNumber};
-    `;
+    if (status === 'finalized') {
+      const attBy = lead.attended_by || advisorName || lead.assigned_advisor || 'Asesor UdeA';
+      const attAt = lead.attended_at || nowIso;
+      await sql`
+        UPDATE leads 
+        SET status = ${status}, program_interest = ${newProg}, name = ${newName},
+            attended_by = ${attBy}, attended_at = ${attAt}, ai_enabled = 0, updated_at = ${nowIso}
+        WHERE phone_number = ${phoneNumber};
+      `;
+    } else {
+      await sql`
+        UPDATE leads 
+        SET status = ${status}, program_interest = ${newProg}, name = ${newName}, updated_at = ${nowIso}
+        WHERE phone_number = ${phoneNumber};
+      `;
+    }
   }
 
   static async updateLeadSegmentation(phoneNumber, segData = {}) {
@@ -264,10 +308,15 @@ export class NeonService {
 
   static async markAttended(phoneNumber, advisorName) {
     const sql = getSql();
+    if (!sql) return;
     const nowIso = new Date().toISOString();
+    const lead = await this.getLeadByPhone(phoneNumber);
+    const newStatus = (lead && (lead.status === 'finalized' || lead.status === 'closed' || lead.status === 'enrolled'))
+      ? lead.status
+      : 'attended';
     await sql`
       UPDATE leads 
-      SET status = 'attended', attended_by = ${advisorName}, attended_at = ${nowIso}, updated_at = ${nowIso}
+      SET status = ${newStatus}, attended_by = ${advisorName}, attended_at = ${nowIso}, updated_at = ${nowIso}
       WHERE phone_number = ${phoneNumber};
     `;
     await this.recordSecurityAudit('LEAD_ATTENDED', { phone: phoneNumber, advisor: advisorName });

@@ -385,6 +385,8 @@
                 <button class="triage-pill" data-filter="mine">Mis Casos</button>
                 <button class="triage-pill" data-filter="needs_human">🚨 Piden Asesor</button>
                 <button class="triage-pill" data-filter="attended">✓ Atendidos</button>
+                <button class="triage-pill" data-filter="follow_up">🔄 Seguimiento</button>
+                <button class="triage-pill" data-filter="overdue">⏰ >12h Sin Respuesta</button>
                 <button class="triage-pill" data-filter="hot">Prioridad Alta</button>
               </div>
             </div>
@@ -561,9 +563,12 @@
                     <option value="ai_handling">En gestión IA</option>
                     <option value="advisor_requested">Requiere Asesor Humano</option>
                     <option value="contacted">Asesor Contactado</option>
-                    <option value="attended">Atendido / En Seguimiento</option>
+                    <option value="attended">Atendido</option>
+                    <option value="follow_up">En Seguimiento</option>
                     <option value="enrolled">Matriculado Oficialmente 🎓</option>
-                    <option value="closed">Cerrado / No Interesado</option>
+                    <option value="closed">Cerrado</option>
+                    <option value="not_interested">No Interesado</option>
+                    <option value="finalized">Finalizado</option>
                   </select>
                 </div>
 
@@ -613,12 +618,15 @@
             <label>Estado:</label>
             <select id="crmFilterSelect" class="form-select">
               <option value="">Todos los estados</option>
-              <option value="advisor_requested">🚨 Requiere Asesor</option>
-              <option value="attended">✓ Atendido / En Seguimiento</option>
-              <option value="ai_handling">🤖 En atención por IA</option>
+              <option value="advisor_requested">🚨 Requiere Asesor Humano</option>
               <option value="contacted">👨‍⚕️ Asesor Contactado</option>
+              <option value="attended">✓ Atendido</option>
+              <option value="follow_up">🔄 En Seguimiento</option>
+              <option value="ai_handling">🤖 En gestión IA</option>
               <option value="enrolled">🎓 Matriculado Oficialmente</option>
-              <option value="closed">Cerrado / No Interesado</option>
+              <option value="closed">🔒 Cerrado</option>
+              <option value="not_interested">🚫 No Interesado</option>
+              <option value="finalized">🏁 Finalizado</option>
             </select>
           </div>
           <div class="filter-group">

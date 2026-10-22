@@ -68,11 +68,24 @@ export class SimulatorAdapter {
     // 1. Evaluar telemetría de cuotas (informativo para el simulador)
     const evaluation = await ConversationTracker.evaluateIncomingMessage(cleanPhone);
 
-    // 2. En el simulador (Sandbox de pruebas), siempre reactivar el modo IA
-    await LeadService.updateLeadStatus(cleanPhone, 'ai_handling');
-
-    // 3. Registrar mensaje del usuario en la base de datos
+    // 2. Registrar mensaje del usuario en la base de datos
     await LeadService.recordLeadMessage(cleanPhone, cleanMessage, 'user');
+
+    // 3. Evaluar si la IA está desactivada por el asesor para esta conversación (Requisito 5)
+    const currentLead = (await LeadService.getLeadByPhone(cleanPhone)) || {};
+    const isAiDisabled = (currentLead.ai_enabled === 0 || currentLead.status === 'advisor_handling');
+
+    if (isAiDisabled) {
+      console.log(`🤖 [IA DESACTIVADA EN SIMULADOR]: Conversación con ${cleanPhone} en gestión manual por asesor.`);
+      const messages = await LeadService.getLeadConversation(cleanPhone);
+      return {
+        success: true,
+        aiPaused: true,
+        replyText: '⏸️ [IA DESACTIVADA]: La inteligencia artificial está pausada para esta conversación. Esperando respuesta manual del asesor humano.',
+        messages,
+        leadData: currentLead
+      };
+    }
 
     // 4. Obtener historial conversacional actualizado
     const history = await LeadService.getLeadConversation(cleanPhone);

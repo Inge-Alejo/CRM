@@ -164,14 +164,20 @@ function applySchemaMigrations() {
   if (!leadCols.includes('email')) {
     db.exec(`ALTER TABLE leads ADD COLUMN email TEXT DEFAULT '';`);
   }
+  if (!leadCols.includes('ai_enabled')) {
+    db.exec(`ALTER TABLE leads ADD COLUMN ai_enabled INTEGER DEFAULT 1;`);
+  }
 
-  // 3. Migración para advisors (password y role_type)
+  // 3. Migración para advisors (password, role_type, is_available)
   const advCols = db.prepare('PRAGMA table_info(advisors)').all().map(c => c.name);
   if (!advCols.includes('password')) {
     db.exec(`ALTER TABLE advisors ADD COLUMN password TEXT DEFAULT 'UdeA2026*';`);
   }
   if (!advCols.includes('role_type')) {
     db.exec(`ALTER TABLE advisors ADD COLUMN role_type TEXT DEFAULT 'advisor';`);
+  }
+  if (!advCols.includes('is_available')) {
+    db.exec(`ALTER TABLE advisors ADD COLUMN is_available INTEGER DEFAULT 1;`);
   }
 
   // Asegurar la existencia y privilegios máximos del Administrador General TIC
@@ -225,7 +231,7 @@ function updateDefaultCourseDates() {
   
   const updateStmt = db.prepare(`
     UPDATE knowledge_items
-    SET start_date = ?, schedule = ?, investment = ?, payment_link = ?
+    SET start_date = ?, schedule = ?, investment = ?, payment_link = ?, modality = ?
     WHERE id = ?
   `);
 
@@ -237,72 +243,128 @@ function updateDefaultCourseDates() {
     let schedule = item.schedule;
     let investment = item.investment;
     let paymentLink = item.payment_link;
+    let modality = item.modality || 'Virtual';
 
     if (codeLower.includes('sueno') || titleLower.includes('sueño')) {
       startDate = 'Inicia: 1 de febrero al 30 de junio de 2027';
       schedule = 'Virtual sincrónico los Jueves 6:00 p.m. - 9:00 p.m. + Plataforma 24/7';
       investment = '$3.350.000 COP';
       paymentLink = item.registration_link || 'https://extension.medicinaudea.co/eventos/medicina-del-sueno/';
+      modality = 'Virtual con encuentros sincrónicos';
     } else if (codeLower.includes('pediatria') || titleLower.includes('pediatría')) {
       startDate = 'Inicia: 11 al 13 de febrero de 2027';
       schedule = 'Jornadas académicas en Auditorio Centro Comercial San Diego, Medellín';
       investment = '$300.000 COP';
       paymentLink = item.registration_link || 'https://extension.medicinaudea.co/eventos/curso-de-actualizacion-en-pediatria-2027/';
+      modality = 'Presencial (Auditorio Centro Comercial San Diego, Medellín)';
     } else if (codeLower.includes('anestesi') || titleLower.includes('anestesiología')) {
       startDate = 'Inicia: 12 al 14 de noviembre de 2026';
       schedule = 'Campus Medellín UdeA (Carrera 51D # 62-29)';
       investment = '$300.000 COP';
       paymentLink = item.registration_link || 'https://extension.medicinaudea.co/eventos/anestesiologia/';
+      modality = 'Presencial (Campus Medellín UdeA)';
     } else if (codeLower.includes('neuro') || titleLower.includes('neurocirugía')) {
       startDate = 'Fecha: 23 de octubre de 2026';
       schedule = 'Jornada académica intensiva (Campus UdeA)';
       investment = '$170.000 COP';
       paymentLink = item.registration_link || 'https://extension.medicinaudea.co/eventos/neurocirugia/';
+      modality = 'Presencial (Campus Medellín UdeA)';
+    } else if (codeLower.includes('infecto') || titleLower.includes('infectología')) {
+      startDate = 'Fecha: 15 de octubre de 2026';
+      schedule = 'Presencial en Sede San Ignacio (Calle 62 N.º 52 - 59, Medellín)';
+      investment = '$200.000 COP';
+      paymentLink = item.registration_link || 'https://extension.medicinaudea.co/oferta-academica/';
+      modality = 'Presencial (Sede San Ignacio, Medellín)';
+    } else if (codeLower.includes('ortoped') || titleLower.includes('ortopedia')) {
+      startDate = 'Fecha: Octubre de 2026';
+      schedule = 'Campus Medellín UdeA (Horario: 15:00 a 17:00)';
+      investment = '$300.000 COP';
+      paymentLink = item.registration_link || 'https://extension.medicinaudea.co/oferta-academica/';
+      modality = 'Presencial (Campus Medellín UdeA)';
+    } else if (codeLower.includes('dermato') || titleLower.includes('dermatología')) {
+      startDate = 'Fecha: Noviembre de 2026';
+      schedule = 'Presencial en Carrera 25A # 1A Sur – 45 (Centro de Convenciones, Medellín)';
+      investment = '$350.000 COP';
+      paymentLink = item.registration_link || 'https://extension.medicinaudea.co/oferta-academica/';
+      modality = 'Presencial (Carrera 25A # 1A Sur – 45)';
+    } else if (codeLower.includes('10-curso') || titleLower.includes('10 cursos')) {
+      startDate = 'Inscripciones abiertas';
+      schedule = 'Plataforma virtual AprendeEnLínea UdeA';
+      investment = 'Tarifa diferencial por paquete de cursos';
+      paymentLink = item.registration_link || 'https://extension.medicinaudea.co/oferta-academica/';
+      modality = 'Virtual';
     } else if (codeLower.includes('acls') || titleLower.includes('avanzado') || titleLower.includes('soporte vital básico y avanzado')) {
       startDate = 'Inicia: 22 al 30 de octubre de 2026';
       schedule = 'Centro de Simulación Médica UdeA Sede Robledo';
       investment = '$850.000 COP';
       paymentLink = item.registration_link || 'https://extension.medicinaudea.co/eventos/soporte-vital-basico-y-avanzado-4/';
+      modality = 'Presencial (Centro de Simulación Médica UdeA Sede Robledo)';
     } else if (codeLower.includes('soporte vital básico') || (titleLower.includes('soporte vital') && !titleLower.includes('avanzado'))) {
       startDate = 'Inicia: 9 al 16 de octubre de 2026';
       schedule = 'Práctica intensiva en Centro de Simulación Médica Robledo';
       investment = '$250.000 COP';
       paymentLink = item.registration_link || 'https://extension.medicinaudea.co/eventos/soporte-vital-basico/';
+      modality = 'Presencial (Centro de Simulación Médica UdeA Sede Robledo)';
+    } else if (codeLower.includes('artroscop') || titleLower.includes('artroscopia') || codeLower.includes('entrenamiento-avanza') || titleLower.includes('resonancia magnética')) {
+      startDate = 'Inscripciones abiertas';
+      schedule = 'Centro de Simulación Médica UdeA Sede Robledo';
+      investment = 'Consultar en portal oficial';
+      paymentLink = item.registration_link || 'https://extension.medicinaudea.co/oferta-academica/';
+      modality = 'Presencial (Centro de Simulación Médica UdeA Sede Robledo)';
+    } else if (codeLower.includes('la-ia-y-la-formacion') || titleLower.includes('quirúrgica')) {
+      startDate = 'Fecha: 25 de septiembre de 2026';
+      schedule = 'Presencial en Facultad de Medicina Carrera 51D # 62-29 Campus Medellín';
+      investment = 'Ingreso libre (Previa inscripción)';
+      paymentLink = item.registration_link || 'https://extension.medicinaudea.co/oferta-academica/';
+      modality = 'Presencial (Facultad de Medicina, Campus Medellín)';
     } else if (codeLower.includes('fucsia') || titleLower.includes('fucsia')) {
       startDate = 'Inicia: 2 al 28 de noviembre de 2026';
       schedule = 'Virtual con acompañamiento docente en AprendeEnLínea UdeA';
       investment = '$150.000 COP';
       paymentLink = item.registration_link || 'https://extension.medicinaudea.co/eventos/codigo-fucsia/';
+      modality = 'Virtual';
     } else if (codeLower.includes('buenas practicas') || titleLower.includes('buenas prácticas')) {
       startDate = 'Inicia: 2 al 28 de noviembre de 2026';
       schedule = 'Virtual a través de la plataforma de la Facultad de Medicina';
       investment = '$150.000 COP';
       paymentLink = item.registration_link || 'https://extension.medicinaudea.co/eventos/buenas-practicas-clinicas/';
+      modality = 'Virtual';
     } else if (codeLower.includes('organos') || titleLower.includes('donante')) {
       startDate = 'Inicia: 2 al 28 de noviembre de 2026';
       schedule = 'Virtual con encuentros sincrónicos';
       investment = '$300.000 COP';
       paymentLink = item.registration_link || 'https://extension.medicinaudea.co/eventos/deteccion-y-cuidado-del-donante-de-organos-y-tejidos-5/';
+      modality = 'Virtual con encuentros sincrónicos';
     } else if (codeLower.includes('papsivi') || titleLower.includes('conflicto armado')) {
       startDate = 'Inicia: 2 al 27 de noviembre de 2026';
       schedule = 'Virtual con enfoque psicosocial y tutoría especializada';
       investment = '$150.000 COP';
       paymentLink = item.registration_link || 'https://extension.medicinaudea.co/eventos/papsivi/';
+      modality = 'Virtual';
     } else if (codeLower.includes('omicas') || titleLower.includes('ómicas')) {
       startDate = 'Inicia: 25 de julio al 12 de diciembre de 2026';
       schedule = 'Miércoles y Viernes 6:00 p.m. - 8:30 p.m. (AprendeEnLínea UdeA)';
       investment = '$3.100.000 COP';
       paymentLink = item.registration_link || 'https://extension.medicinaudea.co/eventos/ciencias-omicas-aplicadas/';
+      modality = 'Virtual (Plataforma AprendeEnLínea UdeA)';
     } else if (codeLower.includes('parto') || titleLower.includes('parto')) {
       startDate = 'Inicia: 13 de julio al 31 de octubre de 2026';
       schedule = 'Martes 5:00 p.m. - 9:00 p.m. + Talleres en Centro de Simulación';
       investment = '$1.800.000 COP';
       paymentLink = item.registration_link || 'https://extension.medicinaudea.co/eventos/parto-seguro/';
+      modality = 'Híbrida (Virtual + Talleres presenciales)';
     } else if (codeLower.includes('endocrino') || titleLower.includes('endocrinología')) {
       startDate = 'Inicia: 1 de junio al 20 de noviembre de 2026';
       schedule = 'Viernes 5:00 p.m. - 9:00 p.m.';
       investment = '$2.800.000 COP';
       paymentLink = item.registration_link || 'https://extension.medicinaudea.co/eventos/endocrinologia-ginecologica/';
+      modality = 'Virtual con encuentros sincrónicos';
+    } else if (modality && modality.includes('Sede Robledo') && !titleLower.includes('simulaci') && !titleLower.includes('soporte vital')) {
+      // Corregir registros residuales que tenían Robledo por defecto sin pertenecer a esa sede
+      modality = 'Presencial (Lugar pendiente de validación en citación oficial)';
+      if (schedule && schedule.includes('Robledo')) {
+        schedule = 'Jornadas académicas presenciales (Lugar y horario en programación oficial)';
+      }
     } else if (!startDate || startDate.includes('Noviembre 2026')) {
       startDate = 'Inscripciones abiertas (Ver cohorte y calendario en enlace oficial)';
       schedule = 'Consultar programación detallada en el portal de extensión';
@@ -313,7 +375,7 @@ function updateDefaultCourseDates() {
       paymentLink = item.registration_link || 'https://extension.medicinaudea.co/oferta-academica/';
     }
 
-    updateStmt.run(startDate, schedule, investment, paymentLink, item.id);
+    updateStmt.run(startDate, schedule, investment, paymentLink, modality, item.id);
   }
 }
 
@@ -642,12 +704,17 @@ export function assignLeadAdvisor(phoneNumber, advisorName) {
  */
 export function markLeadAttendedByAdvisor(phoneNumber, advisorName) {
   const nowIso = new Date().toISOString();
+  const current = db.prepare('SELECT status FROM leads WHERE phone_number = ?').get(phoneNumber);
+  const newStatus = (current && (current.status === 'finalized' || current.status === 'closed' || current.status === 'enrolled'))
+    ? current.status
+    : 'attended';
+
   const stmt = db.prepare(`
     UPDATE leads
-    SET status = 'attended', attended_by = ?, attended_at = ?, updated_at = ?
+    SET status = ?, attended_by = ?, attended_at = ?, updated_at = ?
     WHERE phone_number = ?
   `);
-  stmt.run(advisorName, nowIso, nowIso, phoneNumber);
+  stmt.run(newStatus, advisorName, nowIso, nowIso, phoneNumber);
 
   const audit = db.prepare(`
     INSERT INTO audit_logs (event, details, timestamp)
@@ -689,6 +756,29 @@ export function updateLeadNotes(phoneNumber, notes) {
 }
 
 /**
+ * Activa o desactiva la inteligencia artificial para un lead específico de forma persistente
+ */
+export function setLeadAiStatus(phoneNumber, aiEnabled) {
+  const nowIso = new Date().toISOString();
+  const val = aiEnabled ? 1 : 0;
+  const clean = (phoneNumber || '').trim();
+  const noPlus = clean.replace(/^\+/, '');
+  const withPlus = `+${noPlus}`;
+  const stmt = db.prepare(`
+    UPDATE leads
+    SET ai_enabled = ?, updated_at = ?
+    WHERE phone_number = ? OR phone_number = ? OR phone_number = ?
+  `);
+  stmt.run(val, nowIso, clean, noPlus, withPlus);
+
+  const audit = db.prepare(`
+    INSERT INTO audit_logs (event, details, timestamp)
+    VALUES (?, ?, ?)
+  `);
+  audit.run(val ? 'AI_ENABLED_FOR_LEAD' : 'AI_DISABLED_FOR_LEAD', JSON.stringify({ phoneNumber, ai_enabled: val }), nowIso);
+}
+
+/**
  * Estadísticas de segmentación en tiempo real para el dashboard
  */
 export function getSegmentationStats() {
@@ -703,6 +793,27 @@ export function getSegmentationStats() {
   
   const tempMap = { hot: 0, warm: 0, cold: 0 };
   tempRows.forEach(r => { if (tempMap[r.interest_temperature] !== undefined) tempMap[r.interest_temperature] = r.count; });
+
+  // Por estado independiente (Atendido, En Seguimiento, Cerrado, No Interesado, etc.)
+  const statusRows = db.prepare(`
+    SELECT status, COUNT(*) as count
+    FROM leads
+    GROUP BY status
+  `).all();
+  const statusMap = {
+    ai_handling: 0,
+    advisor_requested: 0,
+    contacted: 0,
+    attended: 0,
+    follow_up: 0,
+    enrolled: 0,
+    closed: 0,
+    not_interested: 0,
+    finalized: 0
+  };
+  statusRows.forEach(r => {
+    statusMap[r.status] = r.count;
+  });
 
   // Por profesión
   const profRows = db.prepare(`
@@ -720,10 +831,10 @@ export function getSegmentationStats() {
     ORDER BY count DESC
   `).all();
 
-  // Por asesor
+  // Por asesor: Atendidos reales (marca de atención o status atendido/finalizado)
   const advisorStats = db.prepare(`
     SELECT assigned_advisor, COUNT(*) as total_assigned,
-           SUM(CASE WHEN status = 'contacted' OR status = 'closed' THEN 1 ELSE 0 END) as total_attended
+           SUM(CASE WHEN attended_by IS NOT NULL OR status = 'attended' OR status = 'finalized' THEN 1 ELSE 0 END) as total_attended
     FROM leads
     GROUP BY assigned_advisor
   `).all();
@@ -738,6 +849,7 @@ export function getSegmentationStats() {
     totalLeads,
     total_leads: totalLeads,
     temperatures: tempMap,
+    statuses: statusMap,
     professions: profMap,
     professionsList: profRows,
     thematicAreas: areaMap,
@@ -846,6 +958,7 @@ export function syncFirebaseAdvisor({ email, displayName, firebaseUid, password 
   }
 }
 
+
 /**
  * Actualiza los datos de identidad capturados por la IA (nombre, doc, email, perfil)
  */
@@ -883,9 +996,13 @@ export function recordSecurityAudit(eventType, details) {
   }
 }
 
+export function getDb() {
+  return db;
+}
+
 export function closeDatabase() {
   try {
-    db.close();
+    if (db) db.close();
   } catch (err) {
     console.error('Error cerrando base de datos:', err.message);
   }

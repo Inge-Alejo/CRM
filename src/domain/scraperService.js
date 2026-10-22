@@ -93,11 +93,23 @@ export class ScraperService {
         target_audience = excluded.target_audience,
         modality = excluded.modality,
         duration_hours = excluded.duration_hours,
-        investment = excluded.investment,
-        start_date = excluded.start_date,
-        schedule = excluded.schedule,
+        investment = CASE 
+          WHEN excluded.investment LIKE '%Consultar%' AND knowledge_items.investment NOT LIKE '%Consultar%' THEN knowledge_items.investment 
+          ELSE excluded.investment 
+        END,
+        start_date = CASE 
+          WHEN excluded.start_date LIKE '%Consultar%' AND knowledge_items.start_date NOT LIKE '%Consultar%' THEN knowledge_items.start_date 
+          ELSE excluded.start_date 
+        END,
+        schedule = CASE 
+          WHEN excluded.schedule LIKE '%pendiente%' AND knowledge_items.schedule NOT LIKE '%pendiente%' THEN knowledge_items.schedule 
+          ELSE excluded.schedule 
+        END,
         registration_link = excluded.registration_link,
-        payment_link = excluded.payment_link,
+        payment_link = CASE 
+          WHEN excluded.payment_link = excluded.registration_link AND knowledge_items.payment_link != knowledge_items.registration_link THEN knowledge_items.payment_link 
+          ELSE excluded.payment_link 
+        END,
         description = excluded.description,
         is_active = 1
     `);
@@ -184,10 +196,14 @@ export class ScraperService {
     // Detectar modalidad (Virtual, Presencial, Híbrida)
     let modality = 'Virtual';
     const lowerHtml = html.toLowerCase();
-    if (lowerHtml.includes('híbrida') || lowerHtml.includes('hibrida')) {
+    const hasHybrid = lowerHtml.includes('híbrida') || lowerHtml.includes('hibrida');
+    const hasPresencial = lowerHtml.includes('presencial');
+    const hasVirtual = lowerHtml.includes('virtual') || lowerHtml.includes('en línea') || lowerHtml.includes('online');
+
+    if (hasHybrid || (hasPresencial && hasVirtual)) {
       modality = 'Híbrida (Virtual + Presencial)';
-    } else if (lowerHtml.includes('presencial')) {
-      modality = 'Presencial (Sede Robledo / Parque de la Vida)';
+    } else if (hasPresencial) {
+      modality = 'Presencial';
     } else if (lowerHtml.includes('virtual sincr') || lowerHtml.includes('sincrónic')) {
       modality = 'Virtual con encuentros sincrónicos';
     } else {
@@ -278,16 +294,49 @@ export class ScraperService {
       }
     }
 
-    // 3. Extraer ubicación y horario
-    let schedule = 'Encuentros sincrónicos virtuales y trabajo autónomo';
+    // 3. Extraer ubicación y horario diferenciando Sede, Dirección y Auditorio/Lugar específico (Requisito 2)
+    let verifiedLocation = null;
     const addressMatch = html.match(/"address"\s*:\s*"([^"]+)"/i);
     const scheduleMatch = html.match(/Horario:?\s*<\/strong>\s*([^<]+)/i);
+    const mecLocationMatch = html.match(/class=["'][^"']*mec-single-event-location[^"']*["'][^>]*>([\s\S]*?)<\/div>/i);
+    const venueTextMatch = html.match(/(?:Lugar|Auditorio|Sede):?\s*<\/strong>\s*([^<]+)/i);
+
+    const rawVenue = venueTextMatch ? venueTextMatch[1].trim() : (mecLocationMatch ? mecLocationMatch[1].replace(/<[^>]+>/g, '').trim() : '');
+    const rawAddress = addressMatch ? addressMatch[1].trim() : '';
+
+    // Reglas basadas en evidencia estricta (no asignar Robledo por defecto)
+    if (lowerHtml.includes('auditorio centro comercial san diego') || rawVenue.toLowerCase().includes('san diego')) {
+      verifiedLocation = 'Auditorio Centro Comercial San Diego, Medellín';
+    } else if (lowerHtml.includes('carrera 25a # 1a sur') || rawAddress.includes('25A')) {
+      verifiedLocation = 'Carrera 25A # 1A Sur – 45 (Centro de Convenciones, Medellín)';
+    } else if (lowerHtml.includes('centro de simulación médica') && (lowerHtml.includes('robledo') || lowerHtml.includes('sede robledo'))) {
+      verifiedLocation = 'Centro de Simulación Médica UdeA Sede Robledo';
+    } else if (lowerHtml.includes('sede robledo') && !lowerHtml.includes('san ignacio')) {
+      verifiedLocation = 'Campus UdeA Sede Robledo';
+    } else if (lowerHtml.includes('calle 62 n.º 52') || lowerHtml.includes('calle 62 # 52')) {
+      verifiedLocation = 'Sede San Ignacio (Calle 62 N.º 52 - 59, Medellín)';
+    } else if (lowerHtml.includes('carrera 51d # 62-29') || lowerHtml.includes('carrera 51d # 62')) {
+      verifiedLocation = 'Campus Medellín UdeA (Facultad de Medicina, Carrera 51D # 62-29)';
+    } else if (rawVenue && rawAddress) {
+      verifiedLocation = `${rawVenue} (${rawAddress})`;
+    } else if (rawVenue) {
+      verifiedLocation = rawVenue;
+    } else if (rawAddress) {
+      verifiedLocation = `Presencial en ${rawAddress}`;
+    }
+
+    let schedule = 'Encuentros sincrónicos virtuales y plataforma 24/7';
     if (scheduleMatch) {
       schedule = scheduleMatch[1].trim();
-    } else if (addressMatch) {
-      schedule = `Presencial en ${addressMatch[1].trim()}`;
+      if (verifiedLocation && !schedule.toLowerCase().includes(verifiedLocation.toLowerCase())) {
+        schedule = `${schedule} | Lugar: ${verifiedLocation}`;
+      }
+    } else if (verifiedLocation) {
+      schedule = `Presencial en ${verifiedLocation}`;
     } else if (modality.includes('Presencial')) {
-      schedule = 'Sábados intensivos en Centro de Simulación Médica Robledo';
+      schedule = 'Jornadas académicas presenciales (Lugar y horario pendientes de validación en citación oficial)';
+    } else if (modality.includes('Híbrida')) {
+      schedule = 'Virtual con talleres prácticos (Programación por confirmar)';
     }
 
     // 4. Extraer el enlace directo oficial del botón donde dice "Inscripciones", "Inscribirse" o "Pagar"

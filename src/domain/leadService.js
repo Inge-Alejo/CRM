@@ -1,4 +1,4 @@
-import { db, assignLeadAdvisor, markLeadAttendedByAdvisor, unmarkLeadAttendedByAdvisor, updateLeadNotes } from '../db/database.js';
+import { db, assignLeadAdvisor, markLeadAttendedByAdvisor, unmarkLeadAttendedByAdvisor, updateLeadNotes, setLeadAiStatus } from '../db/database.js';
 import { NeonService } from '../db/neonService.js';
 
 export class LeadService {
@@ -6,15 +6,41 @@ export class LeadService {
    * Obtiene un lead específico por su número telefónico
    */
   static async getLeadByPhone(phoneNumber) {
+    const clean = (phoneNumber || '').trim();
+    const noPlus = clean.replace(/^\+/, '');
+    const withPlus = `+${noPlus}`;
+
+    let lead = null;
     if (NeonService.isAvailable()) {
       try {
-        const lead = await NeonService.getLeadByPhone(phoneNumber);
-        if (lead) return lead;
+        lead = await NeonService.getLeadByPhone(phoneNumber);
       } catch (err) {
         console.warn('Neon query error en getLeadByPhone, usando fallback local:', err.message);
       }
     }
-    return db.prepare('SELECT * FROM leads WHERE phone_number = ?').get(phoneNumber);
+    const localLead = db.prepare('SELECT * FROM leads WHERE phone_number = ? OR phone_number = ? OR phone_number = ?').get(clean, noPlus, withPlus);
+    if (!lead) return localLead;
+    if (localLead && (lead.ai_enabled === undefined || lead.ai_enabled === null)) {
+      lead.ai_enabled = localLead.ai_enabled !== undefined ? localLead.ai_enabled : 1;
+    }
+    return lead;
+  }
+
+  /**
+   * Activa o desactiva la IA para un lead específico
+   */
+  static async setLeadAiStatus(phoneNumber, aiEnabled) {
+    // 1. Guardar en BD local SQLite
+    setLeadAiStatus(phoneNumber, aiEnabled);
+
+    // 2. Guardar en Neon Postgres si está activo
+    if (NeonService.isAvailable()) {
+      try {
+        await NeonService.setLeadAiStatus(phoneNumber, aiEnabled);
+      } catch (err) {
+        console.warn('Error en NeonService.setLeadAiStatus:', err.message);
+      }
+    }
   }
 
   /**
@@ -165,22 +191,48 @@ export class LeadService {
   }
 
   /**
-   * Actualiza el estado de un lead (ej: al solicitar asesor)
+   * Actualiza el estado de un lead (ej: al solicitar asesor o cambiar de fase comercial)
+   * Si el estado es 'finalized', se marca automáticamente como atendido (Requisito 8.3)
    */
-  static async updateLeadStatus(phoneNumber, status, programInterest = null, name = null) {
+  static async updateLeadStatus(phoneNumber, status, programInterest = null, name = null, advisorName = null) {
     const nowIso = new Date().toISOString();
+    let normalizedStatus = status;
+
+    // Retrocompatibilidad con valores agrupados antiguos
+    if (status === 'attended_or_follow_up') normalizedStatus = 'attended';
+    if (status === 'closed_or_not_interested') normalizedStatus = 'closed';
 
     if (NeonService.isAvailable()) {
       try {
-        await NeonService.updateLeadStatus(phoneNumber, status, programInterest, name);
+        await NeonService.updateLeadStatus(phoneNumber, normalizedStatus, programInterest, name);
       } catch (err) {
         console.warn('Error actualizando estado en Neon:', err.message);
       }
     }
 
     try {
+      let current = db.prepare('SELECT * FROM leads WHERE phone_number = ?').get(phoneNumber);
+      if (!current) {
+        db.prepare(`
+          INSERT INTO leads (phone_number, name, program_interest, status, created_at, updated_at, last_message, assigned_advisor, segment_profession, interest_temperature, thematic_area, event_interests)
+          VALUES (?, 'Interesado UdeA', 'Por definir', ?, ?, ?, '', 'Sin Asignar', 'Por Definir', 'cold', 'General', '')
+        `).run(phoneNumber, normalizedStatus, nowIso, nowIso);
+        current = db.prepare('SELECT * FROM leads WHERE phone_number = ?').get(phoneNumber) || {};
+      }
       const fields = ['updated_at = ?', 'status = ?'];
-      const params = [nowIso, status];
+      const params = [nowIso, normalizedStatus];
+
+      // Requisito 8.3: Si se establece 'finalized', marcar automáticamente el chat como Atendido
+      if (normalizedStatus === 'finalized') {
+        const attBy = current.attended_by || advisorName || current.assigned_advisor || 'Asesor UdeA';
+        const attAt = current.attended_at || nowIso;
+        fields.push('attended_by = ?', 'attended_at = ?', 'ai_enabled = 0');
+        params.push(attBy, attAt);
+      } else if (normalizedStatus === 'ai_handling') {
+        fields.push('ai_enabled = 1');
+      } else if (normalizedStatus === 'advisor_handling' || normalizedStatus === 'contacted' || normalizedStatus === 'advisor_requested') {
+        fields.push('ai_enabled = 0');
+      }
 
       if (programInterest) {
         fields.push('program_interest = ?');
@@ -199,6 +251,31 @@ export class LeadService {
         WHERE phone_number = ?
       `);
       updateStmt.run(...params);
+    } catch (e) {
+      console.warn('Aviso actualizando estado del lead en SQLite:', e.message);
+    }
+  }
+
+  /**
+   * Activa o desactiva la inteligencia artificial para un lead
+   */
+  static async setLeadAiStatus(phoneNumber, aiEnabled) {
+    const val = aiEnabled ? 1 : 0;
+    const newStatus = val === 1 ? 'ai_handling' : 'advisor_handling';
+    const nowIso = new Date().toISOString();
+
+    if (NeonService.isAvailable()) {
+      try {
+        await NeonService.updateLeadStatus(phoneNumber, newStatus);
+      } catch (err) {}
+    }
+
+    try {
+      db.prepare(`
+        UPDATE leads 
+        SET ai_enabled = ?, status = ?, updated_at = ?
+        WHERE phone_number = ?
+      `).run(val, newStatus, nowIso, phoneNumber);
     } catch (e) {}
   }
 
@@ -315,6 +392,18 @@ export class LeadService {
     } catch (e) {
       console.warn('Error en clearLeadConversation:', e.message);
     }
+  }
+
+  /**
+   * Persiste la activación o desactivación de la IA en un lead
+   */
+  static async setLeadAiStatus(phoneNumber, aiEnabled) {
+    if (NeonService.isAvailable()) {
+      try {
+        await NeonService.setLeadAiStatus(phoneNumber, aiEnabled);
+      } catch (err) {}
+    }
+    setLeadAiStatus(phoneNumber, aiEnabled);
   }
 }
 
