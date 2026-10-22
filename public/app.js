@@ -2424,14 +2424,12 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       // Sincronizar Toggle de IA en la cabecera del chat
-      const inboxAiToggleCheck = document.getElementById('inboxAiToggleCheck');
-      const inboxAiToggleLabel = document.getElementById('inboxAiToggleLabel');
-      const isAiActive = (lead.ai_enabled !== 0 && lead.status !== 'advisor_handling');
+      const isLeadAiActive = (lead.ai_enabled !== 0 && lead.status !== 'advisor_handling');
       if (inboxAiToggleCheck) {
-        inboxAiToggleCheck.checked = isAiActive;
+        inboxAiToggleCheck.checked = isLeadAiActive;
       }
       if (inboxAiToggleLabel) {
-        inboxAiToggleLabel.textContent = isAiActive ? '🤖 IA Activa' : '⏸️ IA Pausada';
+        inboxAiToggleLabel.textContent = isLeadAiActive ? '🤖 IA Activa' : '⏸️ IA Pausada';
       }
 
       // Select de Temperatura
@@ -2873,8 +2871,6 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Control de activación/desactivación de IA en la conversación activa (Requisito 5)
-  const inboxAiToggleCheck = document.getElementById('inboxAiToggleCheck');
-  const inboxAiToggleLabel = document.getElementById('inboxAiToggleLabel');
   if (inboxAiToggleCheck) {
     inboxAiToggleCheck.addEventListener('change', async () => {
       if (!currentInboxPhone) return;
