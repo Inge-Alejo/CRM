@@ -1244,13 +1244,19 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // 7. Simulador WhatsApp (Modo Sandbox con respuesta autónoma garantizada)
+  let isSimulatorLoading = false;
+
   window.triggerSimulatorReset = async function() {
+    if (isSimulatorLoading) return;
     const phone = simPhoneInput ? simPhoneInput.value : '+573001234567';
     await loadSimulatorChat(phone, true);
   };
 
   async function loadSimulatorChat(phone, forceReset = false) {
     if (!chatWindow) return;
+    if (isSimulatorLoading && forceReset) return;
+    isSimulatorLoading = true;
+
     const cleanPhone = (phone || (simPhoneInput ? simPhoneInput.value : '') || '+573001234567').trim();
 
     // Feedback visual inmediato en el botón de reinicio
@@ -1280,7 +1286,14 @@ document.addEventListener('DOMContentLoaded', () => {
       chatWindow.innerHTML = '';
 
       if (data.messages && data.messages.length > 0) {
+        // Deduplicación preventiva de mensajes de bienvenida consecutivos idénticos del bot
+        const seenWelcome = new Set();
         data.messages.forEach(msg => {
+          const isWelcome = msg.sender === 'bot' && (msg.content || '').includes('bienvenida al Centro de Extensión');
+          if (isWelcome) {
+            if (seenWelcome.has(msg.content)) return;
+            seenWelcome.add(msg.content);
+          }
           const senderType = msg.sender === 'user' ? 'user' : (msg.sender === 'advisor' ? 'advisor' : 'bot');
           appendBubble(msg.content, senderType, msg.timestamp);
         });
@@ -1306,6 +1319,7 @@ document.addEventListener('DOMContentLoaded', () => {
       chatWindow.innerHTML = '';
       appendBubble(`¡Hola! 👋 Te damos la bienvenida al *Centro de Extensión de la Facultad de Medicina UdeA* 🩺✨.\n\n¿En cuál de nuestros programas te gustaría conocer fechas oficiales e inversión?`, 'bot');
     } finally {
+      isSimulatorLoading = false;
       if (btnSimResetChat) {
         btnSimResetChat.innerHTML = `
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
@@ -1374,6 +1388,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  function formatWhatsAppText(text) {
+    if (!text) return '';
+    return escapeHtml(text).replace(/\*(.*?)\*/g, '<strong>$1</strong>');
+  }
+
   function appendBubble(text, sender, timestamp) {
     if (!chatWindow) return;
     const bubble = document.createElement('div');
@@ -1381,14 +1400,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const time = timestamp
       ? new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       : new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    bubble.innerHTML = `${formatWhatsAppText(text)}<div class="wa-time">${time}</div>`;
+    const formatted = formatWhatsAppText(text);
+    bubble.innerHTML = `<div class="wa-bubble-content">${formatted}</div><div class="wa-bubble-meta"><span class="wa-bubble-time">${time}</span>${sender !== 'user' ? '<span class="wa-check">✓✓</span>' : ''}</div>`;
     chatWindow.appendChild(bubble);
     chatWindow.scrollTop = chatWindow.scrollHeight;
-  }
-
-  function formatWhatsAppText(text) {
-    if (!text) return '';
-    return text.replace(/\*(.*?)\*/g, '<strong>$1</strong>');
   }
 
   if (simulatorForm) {
@@ -2436,18 +2451,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const senderClass = isUser ? 'user' : (isAdvisor ? 'advisor' : 'bot');
             const senderTag = isUser ? '👤 Prospecto' : (isAdvisor ? '👨‍⚕️ Asesor Humano UdeA' : '🤖 Asistente Apolo (IA)');
             const time = m.timestamp ? new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
-            const safeContent = escapeHtml(m.content);
+            const safeFormattedContent = formatWhatsAppText(m.content);
 
-            return `
-              <div class="wa-bubble ${senderClass}">
-                <div class="wa-bubble-sender">${senderTag}</div>
-                <div class="wa-bubble-content">${safeContent}</div>
-                <div class="wa-bubble-meta">
-                  <span class="wa-bubble-time">${time}</span>
-                  ${isAdvisor || !isUser ? `<span class="wa-check">✓✓</span>` : ''}
-                </div>
-              </div>
-            `;
+            return `<div class="wa-bubble ${senderClass}"><div class="wa-bubble-sender">${senderTag}</div><div class="wa-bubble-content">${safeFormattedContent}</div><div class="wa-bubble-meta"><span class="wa-bubble-time">${time}</span>${isAdvisor || !isUser ? '<span class="wa-check">✓✓</span>' : ''}</div></div>`;
           }).join('');
 
           // Auto-scroll al fondo

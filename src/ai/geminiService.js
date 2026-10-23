@@ -199,10 +199,13 @@ BASE DE CONOCIMIENTO OFICIAL VIGENTE:
 ${knowledgeContext}
     `.trim();
 
-    // Formatear historial reciente para mantener contexto conversacional
+    // Formatear historial reciente para mantener contexto conversacional evitando duplicar el mensaje actual
     const contents = [];
-    const recentHistory = conversationHistory.slice(-6);
-    for (const msg of recentHistory) {
+    const pastMessages = conversationHistory.filter((msg, idx) => {
+      return !(idx === conversationHistory.length - 1 && msg.sender === 'user' && msg.content === sanitizedMsg);
+    }).slice(-6);
+
+    for (const msg of pastMessages) {
       contents.push({
         role: msg.sender === 'user' ? 'user' : 'model',
         parts: [{ text: msg.content }]

@@ -4,6 +4,8 @@ import { LeadService } from '../domain/leadService.js';
 import { AdvisorNotifier } from '../domain/notifier.js';
 import { SecurityGuardrails } from '../security/guardrails.js';
 
+const activeInits = new Map();
+
 export class SimulatorAdapter {
   /**
    * Inicializa o reinicia la conversación de prueba en el simulador con un saludo autónomo de la IA
@@ -11,45 +13,76 @@ export class SimulatorAdapter {
   static async initConversation(phoneNumber, reset = false) {
     const cleanPhone = SecurityGuardrails.sanitizePhone(phoneNumber) || '+573001234567';
 
-    if (reset) {
-      await LeadService.clearLeadConversation(cleanPhone);
+    // Evitar que dos peticiones simultáneas procesen un init o reset concurrentemente
+    if (activeInits.has(cleanPhone)) {
+      return await activeInits.get(cleanPhone);
     }
 
-    let history = await LeadService.getLeadConversation(cleanPhone);
-    let leadData = (await LeadService.getLeadByPhone(cleanPhone)) || {};
+    const initPromise = (async () => {
+      try {
+        if (reset) {
+          await LeadService.clearLeadConversation(cleanPhone);
+        }
 
-    // Si el chat está vacío o se pidió reinicio explícito, la IA genera su saludo autónomo inicial
-    if (reset || !history || history.length === 0) {
-      const greetingText = await GeminiService.generateInitialGreeting(leadData);
-      
-      // Registrar en la base de datos como mensaje oficial del bot
-      await LeadService.recordLeadMessage(cleanPhone, greetingText, 'bot');
-      await LeadService.updateLeadStatus(cleanPhone, 'ai_handling');
+        let history = await LeadService.getLeadConversation(cleanPhone);
+        let leadData = (await LeadService.getLeadByPhone(cleanPhone)) || {};
 
-      history = await LeadService.getLeadConversation(cleanPhone);
-      leadData = (await LeadService.getLeadByPhone(cleanPhone)) || {};
+        // Limpiar duplicados idénticos consecutivos del bot si quedaron en la BD
+        if (Array.isArray(history) && history.length > 1) {
+          const deduped = [];
+          for (let i = 0; i < history.length; i++) {
+            const cur = history[i];
+            const prev = deduped[deduped.length - 1];
+            if (prev && prev.sender === 'bot' && cur.sender === 'bot' && prev.content === cur.content) {
+              continue;
+            }
+            deduped.push(cur);
+          }
+          history = deduped;
+        }
 
-      return {
-        success: true,
-        isNew: true,
-        senderPhone: cleanPhone,
-        replyText: greetingText,
-        messages: history,
-        leadData
-      };
-    }
+        const lastMsg = history && history.length > 0 ? history[history.length - 1] : null;
+        const alreadyGreeted = lastMsg && lastMsg.sender === 'bot' && (lastMsg.content || '').includes('bienvenida al Centro de Extensión');
 
-    // Si ya tenía historial y no es reinicio, reactivar el modo IA para la prueba
-    await LeadService.updateLeadStatus(cleanPhone, 'ai_handling');
-    leadData = (await LeadService.getLeadByPhone(cleanPhone)) || {};
+        // Si el chat está vacío o se pidió reinicio explícito, generar el saludo autónomo solo si no existe ya
+        if ((reset || !history || history.length === 0) && !alreadyGreeted) {
+          const greetingText = await GeminiService.generateInitialGreeting(leadData);
+          
+          // Registrar en la base de datos como mensaje oficial del bot
+          await LeadService.recordLeadMessage(cleanPhone, greetingText, 'bot');
+          await LeadService.updateLeadStatus(cleanPhone, 'ai_handling');
 
-    return {
-      success: true,
-      isNew: false,
-      senderPhone: cleanPhone,
-      messages: history,
-      leadData
-    };
+          history = await LeadService.getLeadConversation(cleanPhone);
+          leadData = (await LeadService.getLeadByPhone(cleanPhone)) || {};
+
+          return {
+            success: true,
+            isNew: true,
+            senderPhone: cleanPhone,
+            replyText: greetingText,
+            messages: history,
+            leadData
+          };
+        }
+
+        // Si ya tenía historial y no es reinicio, reactivar el modo IA para la prueba
+        await LeadService.updateLeadStatus(cleanPhone, 'ai_handling');
+        leadData = (await LeadService.getLeadByPhone(cleanPhone)) || {};
+
+        return {
+          success: true,
+          isNew: false,
+          senderPhone: cleanPhone,
+          messages: history,
+          leadData
+        };
+      } finally {
+        activeInits.delete(cleanPhone);
+      }
+    })();
+
+    activeInits.set(cleanPhone, initPromise);
+    return await initPromise;
   }
 
   /**
