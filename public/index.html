@@ -176,6 +176,7 @@
             <div class="advisor-info-stack">
               <span class="advisor-name-text" id="topbarAdvisorName">Administrador General TIC</span>
               <span class="advisor-role-text" id="topbarAdvisorRole">Super Administrador TIC</span>
+              <span class="advisor-capacity-text" id="topbarAdvisorCapacity" style="display:none;" title="Capacidad de atención concurrente recomendada (3-5 chats activos)">0 chats activos</span>
             </div>
             <button class="btn-advisor-logout" id="btnLogoutAdvisor" title="Cerrar sesión segura">
               <svg class="mini-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
@@ -389,6 +390,7 @@
                 <button class="triage-pill" data-filter="needs_human">🚨 Piden Asesor</button>
                 <button class="triage-pill" data-filter="attended">✓ Atendidos</button>
                 <button class="triage-pill" data-filter="follow_up">🔄 Seguimiento</button>
+                <button class="triage-pill" data-filter="finalized">🏁 Finalizados</button>
                 <button class="triage-pill" data-filter="overdue">⏰ >12h Sin Respuesta</button>
                 <button class="triage-pill" data-filter="hot">Prioridad Alta</button>
               </div>
@@ -424,6 +426,8 @@
                     <span id="inboxActivePhone" class="chat-phone-mono">+57 300 000 0000</span>
                     <span class="submeta-divider">•</span>
                     <span id="inboxActiveStatus" class="chat-status-text">En atención</span>
+                    <span class="submeta-divider">•</span>
+                    <span id="inboxActiveAdvisorCollision" class="advisor-collision-pill" style="display:none;"></span>
                     <span class="submeta-divider">•</span>
                     <span class="meta-window-tag" title="Ventana oficial de conversación de WhatsApp Cloud API">🟢 Ventana Meta 24h Activa</span>
                   </div>

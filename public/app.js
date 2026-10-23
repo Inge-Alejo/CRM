@@ -255,8 +255,13 @@ document.addEventListener('DOMContentLoaded', () => {
         btnLoginSubmit.textContent = 'Verificando credenciales...';
       }
 
-      const cleanEmail = (email || '').trim().toLowerCase();
+      let cleanEmail = (email || '').trim().toLowerCase();
       const cleanPassword = (password || '').trim();
+
+      // Normalizar alias del Administrador General TIC para compatibilidad plena con Firebase
+      if (cleanEmail === 'admin' || cleanEmail === 'admin@udea.edu.co' || cleanEmail === 'proyectostic' || cleanEmail === 'tic') {
+        cleanEmail = 'proyectostic.med@udea.edu.co';
+      }
 
       if (!cleanEmail || !cleanPassword) {
         if (landingAlertBox) {
@@ -452,9 +457,16 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Inicializar UI de Asesor y Firebase
-  if (currentAdvisorUser) {
+  // Inicializar UI de Asesor y restaurar sesión si existe token activo
+  const storedToken = localStorage.getItem('udea_auth_token');
+  if (currentAdvisorUser && storedToken) {
     updateAdvisorUI(currentAdvisorUser);
+    if (loginLandingView) loginLandingView.style.display = 'none';
+    if (dashboardAppView) dashboardAppView.style.display = 'flex';
+    loadAdvisorsList();
+    loadTelemetry();
+    fetchLeads();
+    fetchPortfolio();
   }
   initFirebaseClient();
 
@@ -633,13 +645,33 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     }
 
-    // Atajos de teclado: Alt+B para alternar barra, Escape para cerrar drawer en móviles
+    // Atajos de teclado ergonómicos: Alt+B (sidebar), Alt+A (marcar atendido), Alt+F (finalizar chat), Alt+S (ficha 360)
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
         closeMobileSidebar();
-      } else if ((e.altKey && (e.key === 'b' || e.key === 'B')) || (e.ctrlKey && (e.key === 'b' || e.key === 'B') && !e.shiftKey)) {
+        return;
+      }
+      
+      const isTyping = e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA');
+
+      if ((e.altKey && (e.key === 'b' || e.key === 'B')) || (e.ctrlKey && (e.key === 'b' || e.key === 'B') && !e.shiftKey)) {
         e.preventDefault();
         toggleSidebar();
+      } else if (!isTyping && e.altKey && (e.key === 'a' || e.key === 'A')) {
+        e.preventDefault();
+        const btn = document.getElementById('btnInboxMarkAttended');
+        if (btn && btn.offsetParent !== null) btn.click();
+      } else if (!isTyping && e.altKey && (e.key === 's' || e.key === 'S')) {
+        e.preventDefault();
+        const btn = document.getElementById('btnToggleCustomerPanel');
+        if (btn) btn.click();
+      } else if (!isTyping && e.altKey && (e.key === 'f' || e.key === 'F')) {
+        e.preventDefault();
+        const statusSelect = document.getElementById('inboxCustStatusSelect');
+        if (statusSelect && statusSelect.value !== 'finalized') {
+          statusSelect.value = 'finalized';
+          statusSelect.dispatchEvent(new Event('change'));
+        }
       }
     });
 
@@ -2109,17 +2141,39 @@ document.addEventListener('DOMContentLoaded', () => {
     const myAdvisor = getActiveAdvisor();
     let list = [...allLoadedLeads];
 
+    // Actualizar indicador de capacidad del asesor activo (concurrencia recomendada 3-5 chats)
+    const topbarAdvisorCapacity = document.getElementById('topbarAdvisorCapacity');
+    if (topbarAdvisorCapacity) {
+      const activeLoad = allLoadedLeads.filter(l => 
+        (l.assigned_advisor || '') === myAdvisor && 
+        !['closed', 'finalized', 'not_interested', 'enrolled'].includes(l.status)
+      ).length;
+      topbarAdvisorCapacity.style.display = 'inline-flex';
+      topbarAdvisorCapacity.textContent = `${activeLoad} chat${activeLoad === 1 ? '' : 's'} activo${activeLoad === 1 ? '' : 's'}`;
+      if (activeLoad >= 5) {
+        topbarAdvisorCapacity.style.background = '#fef3c7';
+        topbarAdvisorCapacity.style.color = '#b45309';
+        topbarAdvisorCapacity.style.borderColor = '#fde68a';
+      } else {
+        topbarAdvisorCapacity.style.background = '#ecfdf5';
+        topbarAdvisorCapacity.style.color = '#047857';
+        topbarAdvisorCapacity.style.borderColor = '#a7f3d0';
+      }
+    }
+
     // Aplicar filtro de Triage
     if (currentInboxFilter === 'mine') {
       list = list.filter(l => (l.assigned_advisor || '') === myAdvisor);
     } else if (currentInboxFilter === 'hot') {
       list = list.filter(l => l.interest_temperature === 'hot');
     } else if (currentInboxFilter === 'needs_human') {
-      list = list.filter(l => l.status === 'advisor_requested');
+      list = list.filter(l => l.status === 'advisor_requested' && l.status !== 'finalized' && l.status !== 'closed');
     } else if (currentInboxFilter === 'attended') {
-      list = list.filter(l => l.status === 'attended' || !!l.attended_by);
+      list = list.filter(l => (l.status === 'attended' || l.status === 'finalized' || !!l.attended_by) && l.status !== 'follow_up');
     } else if (currentInboxFilter === 'follow_up') {
       list = list.filter(l => l.status === 'follow_up');
+    } else if (currentInboxFilter === 'finalized') {
+      list = list.filter(l => l.status === 'finalized');
     } else if (currentInboxFilter === 'overdue') {
       const now = Date.now();
       const twelveHoursMs = 12 * 60 * 60 * 1000;
@@ -2306,16 +2360,50 @@ document.addEventListener('DOMContentLoaded', () => {
       if (inboxActiveName) inboxActiveName.textContent = lead.name || 'Interesado UdeA';
       if (inboxActivePhone) inboxActivePhone.textContent = lead.phone_number || '';
       if (inboxActiveStatus) {
-        if (lead.status === 'attended' || lead.attended_by) {
+        if (lead.status === 'finalized') {
+          inboxActiveStatus.textContent = `✓ Finalizado (Atendido por ${lead.attended_by || 'Asesor'})`;
+        } else if (lead.status === 'attended' || lead.attended_by) {
           inboxActiveStatus.textContent = `✓ Atendido (${lead.attended_by || 'Asesor'})`;
+        } else if (lead.status === 'follow_up') {
+          inboxActiveStatus.textContent = '🔄 En Seguimiento';
+        } else if (lead.status === 'closed') {
+          inboxActiveStatus.textContent = '🔒 Cerrado';
+        } else if (lead.status === 'not_interested') {
+          inboxActiveStatus.textContent = '🚫 No Interesado';
         } else if (lead.status === 'advisor_requested') {
           inboxActiveStatus.textContent = '🚨 Espera asesor';
-        } else if (lead.status === 'advisor_handling') {
+        } else if (lead.status === 'advisor_handling' || lead.status === 'contacted') {
           inboxActiveStatus.textContent = '👨‍⚕️ Asesor al mando';
+        } else if (lead.status === 'enrolled') {
+          inboxActiveStatus.textContent = '🎓 Matriculado Oficialmente';
         } else {
           inboxActiveStatus.textContent = '🤖 IA Apolo';
         }
       }
+
+      // Indicador de colisión / Asignación en tiempo real (Salesforce / HubSpot Pattern)
+      const inboxActiveAdvisorCollision = document.getElementById('inboxActiveAdvisorCollision');
+      if (inboxActiveAdvisorCollision) {
+        const assigned = lead.assigned_advisor || 'Sin Asignar';
+        const myAdv = getActiveAdvisor();
+        if (assigned !== 'Sin Asignar' && assigned !== myAdv) {
+          inboxActiveAdvisorCollision.textContent = `⚠️ En atención por: ${assigned}`;
+          inboxActiveAdvisorCollision.className = 'advisor-collision-pill warning';
+          inboxActiveAdvisorCollision.title = `El asesor ${assigned} está asignado a este chat. Evita respuestas duplicadas.`;
+          inboxActiveAdvisorCollision.style.display = 'inline-flex';
+        } else if (assigned === myAdv) {
+          inboxActiveAdvisorCollision.textContent = `👤 Asignado a ti`;
+          inboxActiveAdvisorCollision.className = 'advisor-collision-pill mine';
+          inboxActiveAdvisorCollision.title = 'Eres el asesor responsable de este caso.';
+          inboxActiveAdvisorCollision.style.display = 'inline-flex';
+        } else {
+          inboxActiveAdvisorCollision.textContent = `⏳ Sin Asignar`;
+          inboxActiveAdvisorCollision.className = 'advisor-collision-pill unassigned';
+          inboxActiveAdvisorCollision.title = 'Este chat aún no tiene asesor asignado. Puedes asignártelo en la Ficha 360.';
+          inboxActiveAdvisorCollision.style.display = 'inline-flex';
+        }
+      }
+
       updateInboxAttendedButtonState(lead);
 
       if (inboxActiveTempBadge) {

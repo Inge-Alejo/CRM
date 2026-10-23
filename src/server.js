@@ -660,7 +660,7 @@ app.patch('/api/leads/:phone/status', async (req, res) => {
     const { status, advisorName } = req.body;
     if (!status) return res.status(400).json({ error: 'Estado es requerido.' });
 
-    const updated = await LeadService.updateLeadStatus(phone, status);
+    const updated = await LeadService.updateLeadStatus(phone, status, null, null, advisorName);
     if (status === 'finalized') {
       await LeadService.markAttended(phone, advisorName || 'Asesor UdeA');
     }
