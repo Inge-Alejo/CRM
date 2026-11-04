@@ -107,6 +107,8 @@ export async function initPostgresDatabase() {
   await sql`ALTER TABLE advisors ADD COLUMN IF NOT EXISTS presence_status TEXT DEFAULT 'offline';`;
   await sql`ALTER TABLE advisors ADD COLUMN IF NOT EXISTS last_seen TEXT;`;
   await sql`ALTER TABLE advisors ADD COLUMN IF NOT EXISTS viewing_lead TEXT;`;
+  await sql`ALTER TABLE advisors ADD COLUMN IF NOT EXISTS current_session_id TEXT;`;
+  await sql`ALTER TABLE advisors ADD COLUMN IF NOT EXISTS last_login_at TEXT;`;
 
   await sql`
     CREATE TABLE IF NOT EXISTS canned_responses (

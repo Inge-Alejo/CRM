@@ -2,7 +2,7 @@ import express from 'express';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { config } from './config.js';
-import { initDatabase, closeDatabase, getAdvisors, getSegmentationStats, verifyAdvisorCredentials, findAdvisorByEmail, registerNewAdvisor, syncFirebaseAdvisor, recordSecurityAudit } from './db/database.js';
+import { initDatabase, closeDatabase, getAdvisors, getSegmentationStats, verifyAdvisorCredentials, findAdvisorByEmail, registerNewAdvisor, syncFirebaseAdvisor, recordSecurityAudit, updateAdvisorSession } from './db/database.js';
 import { NeonService } from './db/neonService.js';
 import { MetaCloudAdapter } from './adapters/metaCloudAdapter.js';
 import { SimulatorAdapter } from './adapters/simulatorAdapter.js';
@@ -165,6 +165,15 @@ async function getAuthUser(req) {
     if (advisor && (advisor.email.toLowerCase() === 'proyectostic.med@udea.edu.co' || decoded.role_type === 'admin')) {
       advisor.role_type = 'admin';
     }
+
+    // Control de Sesión Única Activa por Usuario
+    if (decoded.sessionId && advisor && advisor.current_session_id) {
+      if (decoded.sessionId !== advisor.current_session_id) {
+        req.sessionTerminated = true;
+        return null;
+      }
+    }
+
     return advisor;
   } catch (e) {
     return null;
@@ -174,6 +183,12 @@ async function getAuthUser(req) {
 async function requireAdmin(req, res, next) {
   const user = await getAuthUser(req);
   if (!user) {
+    if (req.sessionTerminated) {
+      return res.status(401).json({
+        error: 'Tu sesión ha sido cerrada porque se inició sesión en otro dispositivo o navegador.',
+        code: 'SESSION_TERMINATED'
+      });
+    }
     return res.status(401).json({ error: 'Sesión no válida o expirada. Inicie sesión nuevamente.' });
   }
   const isSuperAdmin = (user.role_type === 'admin' || (user.email && user.email.toLowerCase() === 'proyectostic.med@udea.edu.co'));
@@ -412,8 +427,19 @@ app.post('/api/auth/login', async (req, res) => {
     canExportData: isAdmin
   };
 
-  const token = generateAuthToken({ id: advisor.id, email: advisor.email, role_type: advisor.role_type });
-  res.json({ success: true, advisor, permissions, token });
+  const sessionId = `sess_${Date.now()}_${crypto.randomBytes(8).toString('hex')}`;
+  if (NeonService.isAvailable()) {
+    try {
+      await NeonService.updateAdvisorSession(advisor.email, sessionId);
+    } catch (e) {}
+  }
+  updateAdvisorSession(advisor.email, sessionId);
+
+  // Expulsar cualquier conexión previa activa de este asesor (Garantía de Sesión Única)
+  RealtimeService.terminateUserSessions(advisor.email, 'Se ha iniciado una nueva sesión con tu cuenta desde otro dispositivo o ventana.');
+
+  const token = generateAuthToken({ id: advisor.id, email: advisor.email, role_type: advisor.role_type, sessionId });
+  res.json({ success: true, advisor, permissions, token, sessionId });
 });
 
 // Recuperación oficial de contraseña institucional vía Firebase
@@ -455,7 +481,16 @@ app.post('/api/auth/register', (req, res) => {
 
 app.get('/api/auth/me', async (req, res) => {
   const advisor = await getAuthUser(req);
-  if (!advisor) return res.status(401).json({ authenticated: false });
+  if (!advisor) {
+    if (req.sessionTerminated) {
+      return res.status(401).json({
+        authenticated: false,
+        code: 'SESSION_TERMINATED',
+        error: 'Tu sesión ha sido cerrada porque se inició sesión en otro dispositivo o navegador.'
+      });
+    }
+    return res.status(401).json({ authenticated: false });
+  }
   const isAdmin = (advisor.role_type === 'admin' || advisor.email.toLowerCase() === 'proyectostic.med@udea.edu.co');
   advisor.role_type = isAdmin ? 'admin' : 'advisor';
   advisor.role = isAdmin ? 'Super Administrador TIC' : (advisor.role || 'Asesor de Extensión UdeA');
@@ -490,6 +525,12 @@ app.post('/api/auth/logout', async (req, res) => {
 app.get('/api/realtime/events', async (req, res) => {
   const user = await getAuthUser(req);
   if (!user) {
+    if (req.sessionTerminated) {
+      return res.status(401).json({
+        error: 'Tu sesión ha sido cerrada porque se inició sesión en otro dispositivo o navegador.',
+        code: 'SESSION_TERMINATED'
+      });
+    }
     return res.status(401).json({ error: 'No autorizado para canal en tiempo real.' });
   }
   RealtimeService.handleSseConnection(req, res, user);

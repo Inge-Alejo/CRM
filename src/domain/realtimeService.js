@@ -47,6 +47,11 @@ export class RealtimeService {
     });
     res.flushHeaders?.();
 
+    // Expulsar cualquier conexión SSE anterior del mismo asesor (Garantía de Sesión Única)
+    if (advisor && advisor.email) {
+      this.terminateUserSessions(advisor.email, 'Se ha iniciado una nueva sesión con tu cuenta desde otro dispositivo o pestaña.');
+    }
+
     const clientId = `client_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
     const clientData = {
       id: clientId,
@@ -120,6 +125,30 @@ export class RealtimeService {
     });
 
     console.log(`🔌 [REALTIME SSE]: Cliente desconectado (${client.advisor.name}) - Restantes: ${this.clients.size}`);
+  }
+
+  /**
+   * Termina y expulsa cualquier sesión SSE activa previa del mismo usuario (Sesión Única Activa)
+   * @param {string} email Correo del asesor
+   * @param {string} message Motivo de la desconexión
+   */
+  static terminateUserSessions(email, message = 'Tu sesión ha sido cerrada porque se inició sesión en otro dispositivo o ventana.') {
+    if (!email) return;
+    const emailLower = email.toLowerCase();
+    for (const [clientId, client] of this.clients.entries()) {
+      if (client.advisor && client.advisor.email?.toLowerCase() === emailLower) {
+        this.sendToClient(client.res, 'session:terminated', {
+          reason: 'concurrent_session',
+          message,
+          timestamp: new Date().toISOString()
+        });
+        try {
+          client.res.end();
+        } catch (e) {}
+        this.clients.delete(clientId);
+        console.log(`🛑 [SESIÓN EXPULSADA]: Conexión anterior (${clientId}) de ${email} cerrada por inicio de sesión concurrente.`);
+      }
+    }
   }
 
   /**

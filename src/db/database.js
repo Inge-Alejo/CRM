@@ -198,6 +198,12 @@ function applySchemaMigrations() {
   if (!advCols.includes('is_available')) {
     db.exec(`ALTER TABLE advisors ADD COLUMN is_available INTEGER DEFAULT 1;`);
   }
+  if (!advCols.includes('current_session_id')) {
+    db.exec(`ALTER TABLE advisors ADD COLUMN current_session_id TEXT;`);
+  }
+  if (!advCols.includes('last_login_at')) {
+    db.exec(`ALTER TABLE advisors ADD COLUMN last_login_at TEXT;`);
+  }
 
   // Asegurar la existencia y privilegios máximos del Administrador General TIC
   const adminCheck = db.prepare("SELECT id FROM advisors WHERE LOWER(email) = 'proyectostic.med@udea.edu.co'").get();
@@ -896,7 +902,7 @@ export function verifyAdvisorCredentials(email, password) {
 export function findAdvisorByEmail(email) {
   if (!email) return null;
   const cleanEmail = email.trim().toLowerCase();
-  const advisor = db.prepare('SELECT id, name, role, role_type, email, phone, avatar, is_active FROM advisors WHERE LOWER(email) = ?').get(cleanEmail);
+  const advisor = db.prepare('SELECT id, name, role, role_type, email, phone, avatar, is_active, current_session_id FROM advisors WHERE LOWER(email) = ?').get(cleanEmail);
   if (!advisor) return null;
   const { password: _, ...safeAdvisor } = advisor;
   if (cleanEmail === 'proyectostic.med@udea.edu.co') {
@@ -1012,6 +1018,31 @@ export function recordSecurityAudit(eventType, details) {
     `).run(eventType, typeof details === 'string' ? details : JSON.stringify(details), nowIso);
   } catch (err) {
     console.error('Error registrando auditoría de seguridad:', err);
+  }
+}
+
+export function updateAdvisorSession(email, sessionId) {
+  try {
+    const nowIso = new Date().toISOString();
+    db.prepare(`
+      UPDATE advisors 
+      SET current_session_id = ?, last_login_at = ?
+      WHERE LOWER(email) = LOWER(?)
+    `).run(sessionId, nowIso, email);
+  } catch (e) {
+    console.warn('Error en updateAdvisorSession SQLite:', e.message);
+  }
+}
+
+export function getAdvisorSession(email) {
+  try {
+    return db.prepare(`
+      SELECT current_session_id, last_login_at 
+      FROM advisors 
+      WHERE LOWER(email) = LOWER(?)
+    `).get(email);
+  } catch {
+    return null;
   }
 }
 

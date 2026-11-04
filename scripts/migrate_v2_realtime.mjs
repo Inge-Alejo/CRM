@@ -82,6 +82,11 @@ async function runRealtimeMigration() {
   `;
   console.log('✅ Tabla `system_settings` verificada en Neon con global_ai_enabled.');
 
+  // 7. Columnas de control de sesión única concurrente en advisors
+  await sql`ALTER TABLE advisors ADD COLUMN IF NOT EXISTS current_session_id TEXT;`;
+  await sql`ALTER TABLE advisors ADD COLUMN IF NOT EXISTS last_login_at TEXT;`;
+  console.log('✅ Columnas de sesión única (current_session_id) verificadas en Neon.');
+
   console.log('🎉 Migración V2 completada exitosamente.');
 }
 

@@ -24,7 +24,7 @@ export class NeonService {
     const sql = getSql();
     const cleanEmail = email.trim().toLowerCase();
     const rows = await sql`
-      SELECT id, name, role, role_type, email, phone, avatar, is_active 
+      SELECT id, name, role, role_type, email, phone, avatar, is_active, current_session_id 
       FROM advisors 
       WHERE LOWER(email) = ${cleanEmail} 
       LIMIT 1;
@@ -829,5 +829,37 @@ export class NeonService {
 
   static async setGlobalAiStatus(enabled, updatedBy = 'system') {
     return await this.setSystemSetting('global_ai_enabled', enabled ? 'true' : 'false', updatedBy);
+  }
+
+  // ==================== SESIONES ÚNICAS CONCURRENTES ====================
+  static async updateAdvisorSession(email, sessionId) {
+    const sql = getSql();
+    if (!sql) return;
+    try {
+      const nowIso = new Date().toISOString();
+      await sql`
+        UPDATE advisors 
+        SET current_session_id = ${sessionId}, last_login_at = ${nowIso}
+        WHERE LOWER(email) = LOWER(${email});
+      `;
+    } catch (err) {
+      console.warn('Error en NeonService.updateAdvisorSession:', err.message);
+    }
+  }
+
+  static async getAdvisorSession(email) {
+    const sql = getSql();
+    if (!sql) return null;
+    try {
+      const rows = await sql`
+        SELECT current_session_id, last_login_at 
+        FROM advisors 
+        WHERE LOWER(email) = LOWER(${email}) 
+        LIMIT 1;
+      `;
+      return rows.length > 0 ? rows[0] : null;
+    } catch {
+      return null;
+    }
   }
 }

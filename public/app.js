@@ -190,6 +190,26 @@ document.addEventListener('DOMContentLoaded', () => {
     modalChatBody.scrollTop = modalChatBody.scrollHeight;
   }
 
+  function handleSessionTerminated(message) {
+    if (realtimeEventSource) {
+      try { realtimeEventSource.close(); } catch (e) {}
+      realtimeEventSource = null;
+    }
+    localStorage.removeItem('udea_auth_token');
+    localStorage.removeItem('udea_advisor_user');
+
+    alert('⚠️ Sesión Cerrada:\n\n' + (message || 'Tu sesión ha sido cerrada automáticamente porque se inició sesión con esta cuenta desde otro dispositivo o pestaña.'));
+
+    if (dashboardAppView) dashboardAppView.style.display = 'none';
+    if (loginLandingView) {
+      loginLandingView.style.display = 'flex';
+      if (landingAlertBox) {
+        landingAlertBox.textContent = message || 'Sesión finalizada: Se inició sesión en otro dispositivo o pestaña.';
+        landingAlertBox.style.display = 'block';
+      }
+    }
+  }
+
   function initRealtimeSSE() {
     const token = localStorage.getItem('udea_auth_token');
     if (!token) return;
@@ -292,6 +312,15 @@ document.addEventListener('DOMContentLoaded', () => {
       } catch (err) {}
     });
 
+    realtimeEventSource.addEventListener('session:terminated', (e) => {
+      try {
+        const data = JSON.parse(e.data);
+        handleSessionTerminated(data.message);
+      } catch (err) {
+        handleSessionTerminated('Tu sesión ha sido cerrada porque se inició sesión en otro dispositivo o pestaña.');
+      }
+    });
+
     realtimeEventSource.addEventListener('alert:triggered', (e) => {
       try {
         const data = JSON.parse(e.data);
@@ -309,14 +338,42 @@ document.addEventListener('DOMContentLoaded', () => {
         realtimeEventSource.close();
         realtimeEventSource = null;
       }
-      const delay = Math.min(1000 * Math.pow(1.5, realtimeReconnectAttempts), 15000);
-      realtimeReconnectAttempts++;
-      clearTimeout(realtimeReconnectTimer);
-      realtimeReconnectTimer = setTimeout(() => {
-        if (localStorage.getItem('udea_auth_token')) {
-          initRealtimeSSE();
+
+      const token = localStorage.getItem('udea_auth_token');
+      if (!token) return;
+
+      // Verificar si la sesión fue invalidada por una nueva sesión en otro equipo
+      fetch(`/api/auth/me?token=${encodeURIComponent(token)}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      }).then(res => {
+        if (res.status === 401) {
+          res.json().then(data => {
+            if (data.code === 'SESSION_TERMINATED') {
+              handleSessionTerminated(data.error);
+              return;
+            }
+          }).catch(() => {});
+          return;
         }
-      }, delay);
+
+        const delay = Math.min(1000 * Math.pow(1.5, realtimeReconnectAttempts), 15000);
+        realtimeReconnectAttempts++;
+        clearTimeout(realtimeReconnectTimer);
+        realtimeReconnectTimer = setTimeout(() => {
+          if (localStorage.getItem('udea_auth_token')) {
+            initRealtimeSSE();
+          }
+        }, delay);
+      }).catch(() => {
+        const delay = Math.min(1000 * Math.pow(1.5, realtimeReconnectAttempts), 15000);
+        realtimeReconnectAttempts++;
+        clearTimeout(realtimeReconnectTimer);
+        realtimeReconnectTimer = setTimeout(() => {
+          if (localStorage.getItem('udea_auth_token')) {
+            initRealtimeSSE();
+          }
+        }, delay);
+      });
     };
   }
 
@@ -3594,6 +3651,20 @@ document.addEventListener('DOMContentLoaded', () => {
       if (loginLandingView) loginLandingView.style.display = 'none';
       if (dashboardAppView) dashboardAppView.style.display = 'flex';
       updateAdvisorUI(user);
+
+      // Validar si la sesión sigue siendo válida (Sesión Única Activa)
+      fetch(`/api/auth/me?token=${encodeURIComponent(token)}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      }).then(res => {
+        if (res.status === 401) {
+          res.json().then(data => {
+            if (data.code === 'SESSION_TERMINATED') {
+              handleSessionTerminated(data.error);
+            }
+          }).catch(() => {});
+        }
+      }).catch(() => {});
+
       loadAdvisorsList();
       loadTelemetry();
       fetchLeads();
