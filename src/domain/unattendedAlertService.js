@@ -1,5 +1,6 @@
 import { db } from '../db/database.js';
 import { AdvisorNotifier } from './notifier.js';
+import { RealtimeService } from './realtimeService.js';
 
 export class UnattendedAlertService {
   static checkIntervalTimer = null;
@@ -93,9 +94,10 @@ export class UnattendedAlertService {
               timestamp: new Date().toISOString()
             };
 
-            // Disparar en AdvisorNotifier
+            // Disparar en AdvisorNotifier y Realtime SSE
             AdvisorNotifier.recentAlerts.unshift(alertData);
             if (AdvisorNotifier.recentAlerts.length > 50) AdvisorNotifier.recentAlerts.pop();
+            RealtimeService.notifyAlert(alertData);
 
             // Registrar en auditoría de la base de datos
             try {

@@ -1,5 +1,6 @@
 import { db } from '../db/database.js';
 import { config } from '../config.js';
+import { RealtimeService } from './realtimeService.js';
 
 export class AdvisorNotifier {
   static recentAlerts = [];
@@ -24,6 +25,9 @@ export class AdvisorNotifier {
     // 1. Guardar en historial de alertas en memoria para el Dashboard en tiempo real
     this.recentAlerts.unshift(alertData);
     if (this.recentAlerts.length > 50) this.recentAlerts.pop();
+
+    // Notificar en tiempo real por SSE a todos los asesores
+    RealtimeService.notifyAlert(alertData);
 
     // 2. Registrar en auditoría SQLite
     const auditStmt = db.prepare(`

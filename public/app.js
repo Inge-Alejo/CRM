@@ -103,6 +103,17 @@ document.addEventListener('DOMContentLoaded', () => {
   let allPortfolioItems = [];
   let allAdvisorsList = [];
   let currentActivePhone = null;
+  let currentActiveLeadVersion = 1;
+  let realtimeEventSource = null;
+  let realtimeReconnectTimer = null;
+  let realtimeReconnectAttempts = 0;
+
+  const topbarRealtimePill = document.getElementById('topbarRealtimePill');
+  const realtimeStatusDot = document.getElementById('realtimeStatusDot');
+  const realtimeStatusText = document.getElementById('realtimeStatusText');
+  const activeAdvisorsBadge = document.getElementById('activeAdvisorsBadge');
+  const modalConcurrentViewerNotice = document.getElementById('modalConcurrentViewerNotice');
+  const modalConcurrentViewerText = document.getElementById('modalConcurrentViewerText');
 
   async function loadAdvisorsList() {
     try {
@@ -124,6 +135,189 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (err) {
       console.warn('Error cargando lista de asesores:', err);
     }
+  }
+
+  // ================================================================
+  // MOTOR DE SINCRONIZACIÓN EN TIEMPO REAL (SSE & MULTIUSUARIO)
+  // ================================================================
+  function updateActiveAdvisorsBadge(advisors) {
+    if (!activeAdvisorsBadge) return;
+    const count = Array.isArray(advisors) ? advisors.length : 1;
+    activeAdvisorsBadge.style.display = 'inline-block';
+    activeAdvisorsBadge.textContent = `${count} ${count === 1 ? 'asesor activo' : 'asesores activos'}`;
+  }
+
+  function checkConcurrentViewer(advisors) {
+    if (!modalConcurrentViewerNotice || !currentActivePhone) return;
+    const me = JSON.parse(localStorage.getItem('udea_advisor_user') || '{}');
+    const myEmail = me.email ? me.email.toLowerCase() : '';
+    const cleanCurrent = currentActivePhone.replace(/\+/g, '').replace(/\s+/g, '');
+
+    const otherViewer = (advisors || []).find(a => 
+      a.email && a.email.toLowerCase() !== myEmail &&
+      a.viewingLead && a.viewingLead.replace(/\+/g, '').replace(/\s+/g, '') === cleanCurrent
+    );
+
+    if (otherViewer) {
+      modalConcurrentViewerNotice.style.display = 'flex';
+      if (modalConcurrentViewerText) {
+        modalConcurrentViewerText.textContent = `👁️ ${otherViewer.name || otherViewer.email} también está visualizando este caso en tiempo real`;
+      }
+    } else {
+      modalConcurrentViewerNotice.style.display = 'none';
+    }
+  }
+
+  function appendMessageToChatModal(msg) {
+    if (!modalChatBody) return;
+    const isUser = msg.sender === 'user';
+    const time = new Date(msg.timestamp || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const safeContent = escapeHtml(msg.content);
+
+    const bubbleHtml = `
+      <div style="align-self: ${isUser ? 'flex-end' : 'flex-start'}; background: ${isUser ? 'var(--wa-bubble-user)' : '#f1f5f9'}; padding: 0.65rem 0.95rem; border-radius: 8px; max-width: 85%; font-size: 0.85rem; white-space: pre-wrap; line-height: 1.45;">
+        <strong>${isUser ? 'Estudiante / Interesado' : 'Asistente Oficial UdeA'}:</strong><br>
+        ${safeContent}
+        <div style="font-size: 0.75rem; color: #64748b; text-align: right; margin-top: 0.3rem;">${time}</div>
+      </div>
+    `;
+
+    if (modalChatBody.textContent.includes('Sin mensajes')) {
+      modalChatBody.innerHTML = '<div id="chatMessagesContainer" style="display: flex; flex-direction: column; gap: 0.75rem;"></div>';
+    }
+    const container = modalChatBody.querySelector('div') || modalChatBody;
+    container.insertAdjacentHTML('beforeend', bubbleHtml);
+    modalChatBody.scrollTop = modalChatBody.scrollHeight;
+  }
+
+  function initRealtimeSSE() {
+    const token = localStorage.getItem('udea_auth_token');
+    if (!token) return;
+
+    if (realtimeEventSource) {
+      try { realtimeEventSource.close(); } catch (e) {}
+      realtimeEventSource = null;
+    }
+
+    const sseUrl = `/api/realtime/events?token=${encodeURIComponent(token)}`;
+    realtimeEventSource = new EventSource(sseUrl);
+
+    realtimeEventSource.onopen = () => {
+      realtimeReconnectAttempts = 0;
+      if (realtimeStatusDot) realtimeStatusDot.className = 'realtime-dot';
+      if (realtimeStatusText) realtimeStatusText.textContent = 'Tiempo Real';
+    };
+
+    realtimeEventSource.addEventListener('connected', (e) => {
+      try {
+        const data = JSON.parse(e.data);
+        if (data.activeAdvisors) updateActiveAdvisorsBadge(data.activeAdvisors);
+      } catch (err) {}
+    });
+
+    realtimeEventSource.addEventListener('lead:updated', (e) => {
+      try {
+        const data = JSON.parse(e.data);
+        if (!data || !data.lead) return;
+        const updatedLead = data.lead;
+
+        const idx = allLoadedLeads.findIndex(l => l.phone_number === updatedLead.phone_number);
+        if (idx !== -1) {
+          allLoadedLeads[idx] = { ...allLoadedLeads[idx], ...updatedLead };
+        } else {
+          allLoadedLeads.unshift(updatedLead);
+        }
+
+        if (typeof renderLeadsTable === 'function') renderLeadsTable(allLoadedLeads);
+        if (typeof renderOverviewLeadsTable === 'function') renderOverviewLeadsTable(allLoadedLeads);
+
+        // Si el modal de chat está abierto con este lead, actualizar campos en tiempo real
+        const cleanCurrent = (currentActivePhone || '').replace(/\+/g, '').replace(/\s+/g, '');
+        const cleanUpdated = (updatedLead.phone_number || '').replace(/\+/g, '').replace(/\s+/g, '');
+
+        if (cleanCurrent && cleanCurrent === cleanUpdated) {
+          currentActiveLeadVersion = updatedLead.version || (currentActiveLeadVersion + 1);
+          if (modalAdvisorSelect && data.action === 'assignment') {
+            modalAdvisorSelect.value = updatedLead.assigned_advisor || 'Sin Asignar';
+          }
+          if (modalAttendedByBadge) {
+            if (updatedLead.attended_by) {
+              modalAttendedByBadge.textContent = `Atendido por: ${updatedLead.attended_by} (${new Date(updatedLead.attended_at || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})`;
+              modalAttendedByBadge.style.color = '#059669';
+            } else {
+              modalAttendedByBadge.textContent = 'Aún no atendido formalmente';
+              modalAttendedByBadge.style.color = '#dc2626';
+            }
+          }
+          if (modalNotesInput && data.action === 'notes') {
+            modalNotesInput.value = updatedLead.notes || '';
+          }
+        }
+      } catch (err) {
+        console.warn('Error en SSE lead:updated:', err);
+      }
+    });
+
+    realtimeEventSource.addEventListener('message:received', (e) => {
+      try {
+        const data = JSON.parse(e.data);
+        if (!data || !data.message) return;
+        const cleanCurrent = (currentActivePhone || '').replace(/\+/g, '').replace(/\s+/g, '');
+        const cleanTarget = (data.phone || '').replace(/\+/g, '').replace(/\s+/g, '');
+
+        if (cleanCurrent && cleanCurrent === cleanTarget) {
+          appendMessageToChatModal(data.message);
+        }
+      } catch (err) {
+        console.warn('Error en SSE message:received:', err);
+      }
+    });
+
+    realtimeEventSource.addEventListener('advisor:presence', (e) => {
+      try {
+        const data = JSON.parse(e.data);
+        if (data.activeAdvisors) updateActiveAdvisorsBadge(data.activeAdvisors);
+        checkConcurrentViewer(data.activeAdvisors);
+      } catch (err) {}
+    });
+
+    realtimeEventSource.addEventListener('canned:updated', () => {
+      loadCannedResponses();
+    });
+
+    realtimeEventSource.addEventListener('system:global_ai', (e) => {
+      try {
+        const data = JSON.parse(e.data);
+        updateGlobalAiUI(data);
+      } catch (err) {}
+    });
+
+    realtimeEventSource.addEventListener('alert:triggered', (e) => {
+      try {
+        const data = JSON.parse(e.data);
+        if (data.alert && dashAlertBanner && dashAlertMessage) {
+          dashAlertBanner.style.display = 'flex';
+          dashAlertMessage.textContent = `⚠️ ALERTA EN TIEMPO REAL: ${data.alert.studentName} (${data.alert.phoneNumber}) - ${data.alert.reason}`;
+        }
+      } catch (err) {}
+    });
+
+    realtimeEventSource.onerror = () => {
+      if (realtimeStatusDot) realtimeStatusDot.className = 'realtime-dot disconnected';
+      if (realtimeStatusText) realtimeStatusText.textContent = 'Reconectando...';
+      if (realtimeEventSource) {
+        realtimeEventSource.close();
+        realtimeEventSource = null;
+      }
+      const delay = Math.min(1000 * Math.pow(1.5, realtimeReconnectAttempts), 15000);
+      realtimeReconnectAttempts++;
+      clearTimeout(realtimeReconnectTimer);
+      realtimeReconnectTimer = setTimeout(() => {
+        if (localStorage.getItem('udea_auth_token')) {
+          initRealtimeSSE();
+        }
+      }, delay);
+    };
   }
 
   // Configuración oficial de Firebase Auth (crm-fdem)
@@ -445,6 +639,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (btnLogoutAdvisor) {
     btnLogoutAdvisor.addEventListener('click', async () => {
+      if (realtimeEventSource) {
+        try { realtimeEventSource.close(); } catch (e) {}
+        realtimeEventSource = null;
+      }
+      try {
+        await fetch('/api/auth/logout', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('udea_auth_token') || ''}` }
+        });
+      } catch (e) {}
       if (firebaseAuth && firebaseSignOut) {
         try { await firebaseSignOut(firebaseAuth); } catch (e) {}
       }
@@ -1116,17 +1320,29 @@ document.addEventListener('DOMContentLoaded', () => {
   // 6. Ver Historial Completo y Panel de Asesor en Modal
   window.viewChat = async (phone) => {
     currentActivePhone = phone;
+    currentActiveLeadVersion = 1;
     const safePhone = escapeHtml(phone);
     modalChatTitle.textContent = `Conversación con ${safePhone}`;
     modalChatBody.innerHTML = '<p>Cargando mensajes del historial...</p>';
     modalChatFooter.innerHTML = '';
     chatModal.style.display = 'flex';
 
+    // Notificar presencia al bus en tiempo real
+    fetch('/api/realtime/presence', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('udea_auth_token') || ''}`
+      },
+      body: JSON.stringify({ status: 'online', viewingLead: phone })
+    }).catch(() => {});
+
     try {
       const res = await fetch(`/api/leads/${encodeURIComponent(phone)}/chat`);
       const data = await res.json();
       const messages = data.messages || [];
       const lead = data.lead || {};
+      currentActiveLeadVersion = lead.version || 1;
 
       // Configurar controles del Asesor
       if (modalAdvisorSelect) {
@@ -1184,8 +1400,11 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!currentActivePhone) return;
       await fetch(`/api/leads/${encodeURIComponent(currentActivePhone)}/advisor`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ advisor: modalAdvisorSelect.value })
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('udea_auth_token') || ''}`
+        },
+        body: JSON.stringify({ advisor: modalAdvisorSelect.value, version: currentActiveLeadVersion })
       });
       fetchLeads();
     });
@@ -1198,8 +1417,11 @@ document.addEventListener('DOMContentLoaded', () => {
       modalAdvisorSelect.value = myName;
       await fetch(`/api/leads/${encodeURIComponent(currentActivePhone)}/advisor`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ advisor: myName })
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('udea_auth_token') || ''}`
+        },
+        body: JSON.stringify({ advisor: myName, version: currentActiveLeadVersion })
       });
       fetchLeads();
       alert(`Caso asignado exitosamente a ${myName}`);
@@ -1212,8 +1434,11 @@ document.addEventListener('DOMContentLoaded', () => {
       const myName = getActiveAdvisor();
       await fetch(`/api/leads/${encodeURIComponent(currentActivePhone)}/attend`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ advisor: myName })
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('udea_auth_token') || ''}`
+        },
+        body: JSON.stringify({ advisor: myName, version: currentActiveLeadVersion })
       });
       if (modalAttendedByBadge) {
         modalAttendedByBadge.textContent = `Atendido por: ${myName} (Recién registrado)`;
@@ -1228,11 +1453,27 @@ document.addEventListener('DOMContentLoaded', () => {
     btnSaveNotes.addEventListener('click', async () => {
       if (!currentActivePhone || !modalNotesInput) return;
       const notes = modalNotesInput.value.trim();
-      await fetch(`/api/leads/${encodeURIComponent(currentActivePhone)}/notes`, {
+      const res = await fetch(`/api/leads/${encodeURIComponent(currentActivePhone)}/notes`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ notes })
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('udea_auth_token') || ''}`
+        },
+        body: JSON.stringify({ notes, version: currentActiveLeadVersion })
       });
+      if (res.status === 409) {
+        const conflictData = await res.json();
+        alert('⚠️ Conflicto de Concurrencia: Otro asesor actualizó las notas de este prospecto recientemente. Hemos actualizado los datos para que no se pierda información.');
+        if (conflictData.lead) {
+          modalNotesInput.value = conflictData.lead.notes || '';
+          currentActiveLeadVersion = conflictData.lead.version || (currentActiveLeadVersion + 1);
+        }
+        return;
+      }
+      const data = await res.json();
+      if (data.lead) {
+        currentActiveLeadVersion = data.lead.version || (currentActiveLeadVersion + 1);
+      }
       fetchLeads();
       alert('Nota guardada correctamente en la ficha del lead.');
     });
@@ -1240,7 +1481,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
   btnCloseModal.addEventListener('click', () => {
     chatModal.style.display = 'none';
+    if (modalConcurrentViewerNotice) modalConcurrentViewerNotice.style.display = 'none';
+    const prevPhone = currentActivePhone;
     currentActivePhone = null;
+
+    fetch('/api/realtime/presence', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('udea_auth_token') || ''}`
+      },
+      body: JSON.stringify({ status: 'online', viewingLead: null })
+    }).catch(() => {});
   });
 
   // 7. Simulador WhatsApp (Modo Sandbox con respuesta autónoma garantizada)
@@ -1957,6 +2209,145 @@ document.addEventListener('DOMContentLoaded', () => {
         btnSyncWeb.click();
       }
     });
+  }
+
+  // ==========================================================================
+  // CONTROL MAESTRO DE IA GLOBAL (KILL-SWITCH EXCLUSIVO SUPERADMIN TIC)
+  // ==========================================================================
+  let currentGlobalAiState = true;
+
+  function updateGlobalAiUI(details) {
+    if (!details) return;
+    currentGlobalAiState = details.enabled !== false;
+    const isEnabled = currentGlobalAiState;
+
+    // 1. Píldora de la Topbar
+    const btnTopbarAi = document.getElementById('btnTopbarGlobalAi');
+    const topbarAiText = document.getElementById('topbarAiText');
+    const isSuperAdmin = currentAdvisorUser && (currentAdvisorUser.role_type === 'admin' || (currentAdvisorUser.email && currentAdvisorUser.email.toLowerCase() === 'proyectostic.med@udea.edu.co'));
+
+    if (btnTopbarAi && topbarAiText) {
+      if (isEnabled) {
+        btnTopbarAi.classList.remove('paused');
+        topbarAiText.textContent = 'IA Global: Activa';
+        btnTopbarAi.title = isSuperAdmin 
+          ? 'Control Maestro: IA Activa en todo el CRM (Clic para pausar)'
+          : 'Estado de la IA: Activa (Control exclusivo Superadmin TIC)';
+      } else {
+        btnTopbarAi.classList.add('paused');
+        topbarAiText.textContent = 'IA Global: Pausada';
+        btnTopbarAi.title = isSuperAdmin
+          ? 'Control Maestro: IA Pausada en todo el CRM (Clic para reactivar)'
+          : 'Estado de la IA: Pausada por TIC (Atención 100% manual)';
+      }
+    }
+
+    // 2. Tarjeta Maestra en el Panel de Control TIC
+    const card = document.getElementById('globalAiMasterCard');
+    const badge = document.getElementById('globalAiStatusBadge');
+    const btnAdminToggle = document.getElementById('btnAdminToggleGlobalAi');
+    const btnIcon = document.getElementById('btnAdminToggleGlobalAiIcon');
+    const btnLabel = document.getElementById('btnAdminToggleGlobalAiLabel');
+    const metaText = document.getElementById('globalAiMetaText');
+
+    if (card) {
+      if (isEnabled) {
+        card.classList.remove('is-paused');
+      } else {
+        card.classList.add('is-paused');
+      }
+    }
+
+    if (badge) {
+      badge.textContent = isEnabled ? 'IA Global: Activa ✅' : 'IA Global: Pausada ⏸️';
+      badge.className = isEnabled ? 'badge badge-success' : 'badge badge-hot';
+    }
+
+    if (btnAdminToggle && btnIcon && btnLabel) {
+      if (isEnabled) {
+        btnAdminToggle.className = 'btn btn-danger btn-md';
+        btnIcon.textContent = '⏸️';
+        btnLabel.textContent = 'Pausar IA en todo el CRM';
+      } else {
+        btnAdminToggle.className = 'btn btn-primary btn-md';
+        btnIcon.textContent = '▶️';
+        btnLabel.textContent = 'Reanudar IA en todo el CRM';
+      }
+      btnAdminToggle.style.display = isSuperAdmin ? 'inline-flex' : 'none';
+    }
+
+    if (metaText) {
+      const modifier = details.updated_by ? `por ${details.updated_by}` : 'por TIC';
+      const timeStr = details.updated_at ? new Date(details.updated_at).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }) : 'recientemente';
+      metaText.textContent = isEnabled
+        ? `Estado: Activa · Respuestas automáticas habilitadas (${modifier} a las ${timeStr})`
+        : `Estado: PAUSADA · Todas las respuestas automáticas están suspendidas (${modifier} a las ${timeStr})`;
+    }
+  }
+
+  async function loadGlobalAiStatus() {
+    try {
+      const token = localStorage.getItem('udea_auth_token');
+      if (!token) return;
+      const res = await fetch(`/api/admin/global-ai?token=${encodeURIComponent(token)}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        updateGlobalAiUI(data);
+      }
+    } catch (e) {
+      console.warn('Error consultando estado de IA Global:', e.message);
+    }
+  }
+
+  async function toggleGlobalAiAction() {
+    const isSuperAdmin = currentAdvisorUser && (currentAdvisorUser.role_type === 'admin' || (currentAdvisorUser.email && currentAdvisorUser.email.toLowerCase() === 'proyectostic.med@udea.edu.co'));
+    if (!isSuperAdmin) {
+      alert('⛔ Acceso restringido:\n\nSolo la cuenta del Administrador General TIC (proyectostic.med@udea.edu.co) tiene autorización para pausar o reanudar la Inteligencia Artificial globalmente.');
+      return;
+    }
+
+    const targetState = !currentGlobalAiState;
+    const confirmMessage = targetState
+      ? '¿Confirmas que deseas REANUDAR la Inteligencia Artificial en todo el CRM?\n\nEl chatbot volverá a responder de manera autónoma a los prospectos.'
+      : '⚠️ ¿Confirmas que deseas PAUSAR la Inteligencia Artificial globalmente en todo el CRM?\n\nAl pausar la IA:\n- Ningún prospecto recibirá respuestas automáticas del bot.\n- Todos los mensajes entrantes deberán ser respondidos manualmente por los asesores humanos.\n- Podrás reanudarla en cualquier momento desde este botón.';
+
+    if (!confirm(confirmMessage)) return;
+
+    try {
+      const token = localStorage.getItem('udea_auth_token');
+      const res = await fetch('/api/admin/global-ai', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ enabled: targetState })
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        updateGlobalAiUI(data);
+        alert(`✅ ${data.message}`);
+      } else {
+        alert('❌ Error al cambiar el estado de la IA: ' + (data.error || 'Acceso denegado.'));
+      }
+    } catch (err) {
+      alert('❌ Error de comunicación: ' + err.message);
+    }
+  }
+
+  const btnTopbarAi = document.getElementById('btnTopbarGlobalAi');
+  if (btnTopbarAi) {
+    btnTopbarAi.addEventListener('click', toggleGlobalAiAction);
+  }
+
+  const btnAdminToggleAi = document.getElementById('btnAdminToggleGlobalAi');
+  if (btnAdminToggleAi) {
+    btnAdminToggleAi.addEventListener('click', toggleGlobalAiAction);
   }
 
   // ==========================================================================
@@ -3208,10 +3599,16 @@ document.addEventListener('DOMContentLoaded', () => {
       fetchLeads();
       fetchPortfolio();
       loadCannedResponses();
+      initRealtimeSSE();
+      loadGlobalAiStatus();
       if (typeof loadSimulatorChat === 'function') {
         loadSimulatorChat(simPhoneInput ? simPhoneInput.value : null, false);
       }
     } else {
+      if (realtimeEventSource) {
+        try { realtimeEventSource.close(); } catch (e) {}
+        realtimeEventSource = null;
+      }
       if (dashboardAppView) dashboardAppView.style.display = 'none';
       if (loginLandingView) loginLandingView.style.display = 'flex';
     }
@@ -3219,12 +3616,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
   checkAuthAndInit();
 
-  // Polling automático cada 7 segundos SOLO si hay sesión activa
+  // Fallback suave de sincronización cada 30 segundos (los eventos críticos fluyen por SSE en < 200ms)
   setInterval(() => {
     if (localStorage.getItem('udea_auth_token')) {
       loadTelemetry();
       fetchLeads();
       loadCannedResponses();
     }
-  }, 7000);
+  }, 30000);
 });

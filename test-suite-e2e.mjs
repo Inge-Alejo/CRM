@@ -1,6 +1,7 @@
 import fetch from 'node-fetch';
 import { NeonService } from './src/db/neonService.js';
 import { config } from './src/config.js';
+import { generateAuthToken } from './src/security/authTokens.js';
 
 const BASE_URL = 'http://localhost:3000';
 
@@ -56,6 +57,10 @@ async function runE2ETests() {
     // CASO DE USO 2: CHATBOT DE IA CON EMOJIS Y DIFERENCIACIÓN DE ENLACES
     // -------------------------------------------------------------
     console.log('📋 CASO DE USO 2: IA Apolo - Tono Ameno con Emojis & Diferenciación AsOne');
+
+    // Asegurar que la IA esté activa para el lead de prueba
+    await NeonService.setLeadAiStatus(testPhone, true);
+    await NeonService.updateLeadStatus(testPhone, 'ai_handling');
 
     // 2.1 Saludo inicial (debe contener emojis cálidos como 👋, 🩺, ✨, 📚)
     const chatGreetRes = await fetch(`${BASE_URL}/api/simulator/send`, {
@@ -217,10 +222,10 @@ async function runE2ETests() {
     // -------------------------------------------------------------
     console.log('📋 CASO DE USO 5: Métrica de Capacidad de BD en Panel de Control');
 
-    const adminToken = Buffer.from(JSON.stringify({
+    const adminToken = generateAuthToken({
       email: 'proyectostic.med@udea.edu.co',
       role_type: 'admin'
-    })).toString('base64');
+    });
 
     const statsRes = await fetch(`${BASE_URL}/api/admin/system-stats`, {
       headers: { 'Authorization': `Bearer ${adminToken}` }

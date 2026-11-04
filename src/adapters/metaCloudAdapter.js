@@ -5,6 +5,7 @@ import { GeminiService } from '../ai/geminiService.js';
 import { LeadService } from '../domain/leadService.js';
 import { AdvisorNotifier } from '../domain/notifier.js';
 import { BusinessHoursService } from '../domain/businessHoursService.js';
+import { SystemSettingsService } from '../domain/systemSettingsService.js';
 
 export class MetaCloudAdapter {
   /**
@@ -81,12 +82,18 @@ export class MetaCloudAdapter {
         return;
       }
 
-      // 3. Evaluar si la IA está desactivada para esta conversación (Requisito 5)
+      // 3. Evaluar si la IA está desactivada globalmente o para esta conversación
+      const globalAiActive = await SystemSettingsService.isGlobalAiEnabled();
       const currentLead = await LeadService.getLeadByPhone(senderPhone);
-      const isAiDisabled = currentLead && (currentLead.ai_enabled === 0 || currentLead.status === 'advisor_handling');
+      const isAiDisabled = !globalAiActive || (currentLead && (currentLead.ai_enabled === 0 || currentLead.status === 'advisor_handling'));
 
       if (isAiDisabled) {
-        console.log(`🤖 [IA DESACTIVADA]: Conversación con ${senderPhone} en atención manual por asesor. Se omite respuesta automática de Gemini.`);
+        if (!globalAiActive) {
+          console.log(`⏸️ [IA GLOBALMENTE PAUSADA POR TIC]: Omitiendo respuesta automática de Gemini para ${senderPhone}.`);
+          await LeadService.updateLeadStatus(senderPhone, 'advisor_handling');
+        } else {
+          console.log(`🤖 [IA DESACTIVADA]: Conversación con ${senderPhone} en atención manual por asesor. Se omite respuesta automática de Gemini.`);
+        }
         
         // Si está fuera de horario, avisar al usuario una sola vez
         if (!BusinessHoursService.isWithinOfficeHours()) {

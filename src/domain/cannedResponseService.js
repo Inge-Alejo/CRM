@@ -9,6 +9,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { db, recordSecurityAudit } from '../db/database.js';
 import { NeonService } from '../db/neonService.js';
+import { RealtimeService } from './realtimeService.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -101,14 +102,29 @@ class CannedResponseService {
   syncBackupFile() {
     try {
       const rows = db.prepare('SELECT * FROM canned_responses ORDER BY created_at ASC').all();
-      fs.writeFileSync(BACKUP_FILE, JSON.stringify(rows, null, 2), 'utf8');
+      // Solo escribir si no es entorno de solo lectura o serverless
+      if (!process.env.VERCEL) {
+        fs.writeFileSync(BACKUP_FILE, JSON.stringify(rows, null, 2), 'utf8');
+      }
     } catch (e) {
-      console.warn('Error sincronizando canned_responses.json:', e.message);
+      console.warn('Aviso sincronizando canned_responses.json (posible FS de solo lectura):', e.message);
     }
   }
 
   async getAll() {
-    // Si Neon Cloud está disponible, intentamos consultar allí primero o sincronizar
+    // 1. Intentar consultar desde Neon Cloud Postgres
+    if (NeonService.isAvailable()) {
+      try {
+        const cloudRows = await NeonService.getCannedResponses();
+        if (cloudRows && cloudRows.length > 0) {
+          return cloudRows;
+        }
+      } catch (err) {
+        console.warn('Aviso consultando canned_responses en Neon, usando fallback local:', err.message);
+      }
+    }
+
+    // 2. Fallback a SQLite local
     try {
       const rows = db.prepare('SELECT * FROM canned_responses ORDER BY created_at ASC').all();
       return rows;
@@ -131,19 +147,50 @@ class CannedResponseService {
     const cleanShortcut = (shortcut && shortcut.trim()) ? shortcut.trim() : title.substring(0, 15);
     const cleanCategory = category ? category.trim().toLowerCase() : 'general';
 
-    db.prepare(`
-      INSERT INTO canned_responses (id, title, shortcut, message, category, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run(id, title.trim(), cleanShortcut, message.trim(), cleanCategory, now, now);
+    // 1. Guardar en Neon Cloud
+    let createdRecord = null;
+    if (NeonService.isAvailable()) {
+      try {
+        createdRecord = await NeonService.createCannedResponse({
+          id,
+          title: title.trim(),
+          shortcut: cleanShortcut,
+          message: message.trim(),
+          category: cleanCategory,
+          created_at: now,
+          updated_at: now
+        });
+      } catch (err) {
+        console.warn('Error guardando canned_response en Neon:', err.message);
+      }
+    }
 
-    this.syncBackupFile();
+    // 2. Guardar en SQLite local
+    try {
+      db.prepare(`
+        INSERT INTO canned_responses (id, title, shortcut, message, category, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `).run(id, title.trim(), cleanShortcut, message.trim(), cleanCategory, now, now);
+      this.syncBackupFile();
+    } catch (e) {}
+
     recordSecurityAudit('CANNED_RESPONSE_CREATED', { id, title: title.trim(), shortcut: cleanShortcut });
-
-    return { id, title: title.trim(), shortcut: cleanShortcut, message: message.trim(), category: cleanCategory, created_at: now, updated_at: now };
+    const finalRecord = createdRecord || { id, title: title.trim(), shortcut: cleanShortcut, message: message.trim(), category: cleanCategory, created_at: now, updated_at: now };
+    RealtimeService.notifyCannedUpdate('create', finalRecord);
+    return finalRecord;
   }
 
   async update(id, { title, shortcut, message, category }) {
-    const existing = db.prepare('SELECT * FROM canned_responses WHERE id = ?').get(id);
+    let existing = null;
+    if (NeonService.isAvailable()) {
+      try {
+        const rows = await NeonService.getCannedResponses();
+        existing = rows.find(r => r.id === id);
+      } catch (e) {}
+    }
+    if (!existing) {
+      existing = db.prepare('SELECT * FROM canned_responses WHERE id = ?').get(id);
+    }
     if (!existing) {
       throw new Error('Respuesta rápida no encontrada.');
     }
@@ -154,28 +201,52 @@ class CannedResponseService {
     const newMessage = message !== undefined ? message.trim() : existing.message;
     const newCategory = category !== undefined ? category.trim().toLowerCase() : existing.category;
 
-    db.prepare(`
-      UPDATE canned_responses
-      SET title = ?, shortcut = ?, message = ?, category = ?, updated_at = ?
-      WHERE id = ?
-    `).run(newTitle, newShortcut, newMessage, newCategory, now, id);
+    let updatedRecord = null;
+    if (NeonService.isAvailable()) {
+      try {
+        updatedRecord = await NeonService.updateCannedResponse(id, {
+          title: newTitle,
+          shortcut: newShortcut,
+          message: newMessage,
+          category: newCategory,
+          updated_at: now
+        });
+      } catch (err) {
+        console.warn('Error actualizando canned_response en Neon:', err.message);
+      }
+    }
 
-    this.syncBackupFile();
+    try {
+      db.prepare(`
+        UPDATE canned_responses
+        SET title = ?, shortcut = ?, message = ?, category = ?, updated_at = ?
+        WHERE id = ?
+      `).run(newTitle, newShortcut, newMessage, newCategory, now, id);
+      this.syncBackupFile();
+    } catch (e) {}
+
     recordSecurityAudit('CANNED_RESPONSE_UPDATED', { id, title: newTitle, shortcut: newShortcut });
-
-    return { id, title: newTitle, shortcut: newShortcut, message: newMessage, category: newCategory, created_at: existing.created_at, updated_at: now };
+    const finalUpdated = updatedRecord || { id, title: newTitle, shortcut: newShortcut, message: newMessage, category: newCategory, created_at: existing.created_at, updated_at: now };
+    RealtimeService.notifyCannedUpdate('update', finalUpdated);
+    return finalUpdated;
   }
 
   async delete(id) {
-    const existing = db.prepare('SELECT * FROM canned_responses WHERE id = ?').get(id);
-    if (!existing) {
-      throw new Error('Respuesta rápida no encontrada.');
+    if (NeonService.isAvailable()) {
+      try {
+        await NeonService.deleteCannedResponse(id);
+      } catch (err) {
+        console.warn('Error eliminando canned_response en Neon:', err.message);
+      }
     }
 
-    db.prepare('DELETE FROM canned_responses WHERE id = ?').run(id);
-    this.syncBackupFile();
-    recordSecurityAudit('CANNED_RESPONSE_DELETED', { id, title: existing.title });
+    try {
+      db.prepare('DELETE FROM canned_responses WHERE id = ?').run(id);
+      this.syncBackupFile();
+    } catch (e) {}
 
+    recordSecurityAudit('CANNED_RESPONSE_DELETED', { id });
+    RealtimeService.notifyCannedUpdate('delete', { id });
     return { success: true, deletedId: id };
   }
 }

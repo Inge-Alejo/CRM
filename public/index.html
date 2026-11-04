@@ -186,6 +186,19 @@
             </button>
           </div>
 
+          <!-- Indicador de Sincronización en Tiempo Real Multiusuario (SSE) -->
+          <div class="topbar-realtime-pill" id="topbarRealtimePill" title="Sincronización multiusuario en tiempo real activa">
+            <span class="realtime-dot" id="realtimeStatusDot"></span>
+            <span class="realtime-text" id="realtimeStatusText">Tiempo Real</span>
+            <span class="active-advisors-pill" id="activeAdvisorsBadge" style="display:none;" title="Asesores conectados simultáneamente">1 asesor</span>
+          </div>
+
+          <!-- Control Maestro / Estado de la IA Global -->
+          <button class="topbar-global-ai-pill" id="btnTopbarGlobalAi" title="Control Maestro de IA Global (Exclusivo Superadmin TIC)">
+            <span class="global-ai-dot" id="topbarAiDot"></span>
+            <span id="topbarAiText">IA Global: Activa</span>
+          </button>
+
           <!-- Contador discreto de conversaciones mensuales -->
           <div class="topbar-quota-pill" title="Conversaciones gratuitas de servicio consumidas este mes">
             <span class="quota-icon">
@@ -1035,6 +1048,29 @@
           </div>
         </div>
 
+        <!-- TARJETA DE CONTROL MAESTRO DE IA GLOBAL (KILL-SWITCH EXCLUSIVO SUPERADMIN) -->
+        <div class="global-ai-master-card" id="globalAiMasterCard">
+          <div class="global-ai-card-content">
+            <div class="global-ai-badge-group">
+              <span class="badge badge-hot">Control Maestro Exclusivo TIC</span>
+              <span class="badge badge-success" id="globalAiStatusBadge">IA Global: Activa ✅</span>
+            </div>
+            <h3 class="global-ai-card-title">Interrupción Global de la Inteligencia Artificial (Kill-Switch)</h3>
+            <p class="global-ai-card-desc">
+              Esta función suspende o reanuda de inmediato el chatbot inteligente en todas las conversaciones y sesiones de asesores. Al pausarse, la IA no responderá mensajes automáticamente y la atención pasará a ser 100% manual por los asesores.
+            </p>
+            <div class="global-ai-meta-text" id="globalAiMetaText">
+              Estado: Activa · Respuestas automáticas en funcionamiento
+            </div>
+          </div>
+          <div class="global-ai-card-action">
+            <button class="btn btn-danger btn-md" id="btnAdminToggleGlobalAi">
+              <span id="btnAdminToggleGlobalAiIcon">⏸️</span>
+              <span id="btnAdminToggleGlobalAiLabel">Pausar IA en todo el CRM</span>
+            </button>
+          </div>
+        </div>
+
         <!-- Rejilla de Métricas en Vivo -->
         <div class="metrics-grid">
           
@@ -1344,6 +1380,12 @@
       <div class="modal-header">
         <h3 id="modalChatTitle">Historial de Conversación</h3>
         <button class="close-btn" id="btnCloseModal">✕</button>
+      </div>
+
+      <!-- Notificación de asesor concurrente visualizando este caso -->
+      <div id="modalConcurrentViewerNotice" class="modal-concurrent-notice" style="display:none;">
+        <span class="pulse-dot-amber"></span>
+        <span id="modalConcurrentViewerText">Otro asesor está viendo este caso en tiempo real</span>
       </div>
 
       <!-- Barra de Gestión de Asesor para este Lead -->

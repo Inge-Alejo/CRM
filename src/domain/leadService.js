@@ -1,5 +1,6 @@
 import { db, assignLeadAdvisor, markLeadAttendedByAdvisor, unmarkLeadAttendedByAdvisor, updateLeadNotes, setLeadAiStatus } from '../db/database.js';
 import { NeonService } from '../db/neonService.js';
+import { RealtimeService } from './realtimeService.js';
 
 export class LeadService {
   /**
@@ -88,6 +89,21 @@ export class LeadService {
     } catch (e) {
       // Ignorar fallas secundarias de caché local si Neon ya procesó
     }
+
+    // 3. Notificación inmediata en tiempo real por SSE (< 100 ms)
+    try {
+      RealtimeService.notifyNewMessage(phoneNumber, {
+        sender,
+        content: messageContent,
+        timestamp: nowIso
+      });
+      const updatedLead = await this.getLeadByPhone(phoneNumber);
+      if (updatedLead) {
+        RealtimeService.notifyLeadUpdate(updatedLead, 'new_message');
+      }
+    } catch (err) {
+      console.warn('Aviso notificando realtime new message:', err.message);
+    }
   }
 
   /**
@@ -127,11 +143,17 @@ export class LeadService {
       const stmt = db.prepare(`
         UPDATE leads
         SET name = ?, doc_type = ?, doc_number = ?, email = ?,
-            segment_profession = ?, interest_temperature = ?, thematic_area = ?, event_interests = ?, updated_at = ?
+            segment_profession = ?, interest_temperature = ?, thematic_area = ?, event_interests = ?, updated_at = ?,
+            version = COALESCE(version, 1) + 1
         WHERE phone_number = ?
       `);
       stmt.run(name, docType, docNumber, email, profession, temperature, area, events, nowIso, phoneNumber);
     } catch (e) {}
+
+    const updatedLead = await this.getLeadByPhone(phoneNumber);
+    if (updatedLead) {
+      RealtimeService.notifyLeadUpdate(updatedLead, 'segmentation');
+    }
   }
 
   /**
@@ -146,6 +168,10 @@ export class LeadService {
       }
     }
     assignLeadAdvisor(phoneNumber, advisorName);
+    const updatedLead = await this.getLeadByPhone(phoneNumber);
+    if (updatedLead) {
+      RealtimeService.notifyLeadUpdate(updatedLead, 'assignment', advisorName);
+    }
   }
 
   /**
@@ -160,6 +186,10 @@ export class LeadService {
       }
     }
     markLeadAttendedByAdvisor(phoneNumber, advisorName);
+    const updatedLead = await this.getLeadByPhone(phoneNumber);
+    if (updatedLead) {
+      RealtimeService.notifyLeadUpdate(updatedLead, 'attended', advisorName);
+    }
   }
 
   /**
@@ -174,27 +204,42 @@ export class LeadService {
       }
     }
     unmarkLeadAttendedByAdvisor(phoneNumber);
+    const updatedLead = await this.getLeadByPhone(phoneNumber);
+    if (updatedLead) {
+      RealtimeService.notifyLeadUpdate(updatedLead, 'unattended');
+    }
   }
 
   /**
-   * Guarda notas internas del asesor
+   * Guarda notas internas del asesor con soporte para Concurrencia Optimista
+   * @param {string} phoneNumber 
+   * @param {string} notes 
+   * @param {number|null} expectedVersion Versión que el asesor leyó al abrir el modal
    */
-  static async saveNotes(phoneNumber, notes) {
+  static async saveNotes(phoneNumber, notes, expectedVersion = null) {
     if (NeonService.isAvailable()) {
       try {
-        await NeonService.saveNotes(phoneNumber, notes);
+        const res = await NeonService.saveNotes(phoneNumber, notes, expectedVersion);
+        if (res && res.conflict) {
+          return res;
+        }
       } catch (err) {
         console.warn('Error guardando notas en Neon:', err.message);
       }
     }
     updateLeadNotes(phoneNumber, notes);
+    const updatedLead = await this.getLeadByPhone(phoneNumber);
+    if (updatedLead) {
+      RealtimeService.notifyLeadUpdate(updatedLead, 'notes');
+    }
+    return { success: true, lead: updatedLead };
   }
 
   /**
-   * Actualiza el estado de un lead (ej: al solicitar asesor o cambiar de fase comercial)
-   * Si el estado es 'finalized', se marca automáticamente como atendido (Requisito 8.3)
+   * Actualiza el estado de un lead con soporte para Concurrencia Optimista
+   * Si el estado es 'finalized', se marca automáticamente como atendido
    */
-  static async updateLeadStatus(phoneNumber, status, programInterest = null, name = null, advisorName = null) {
+  static async updateLeadStatus(phoneNumber, status, programInterest = null, name = null, advisorName = null, expectedVersion = null) {
     const nowIso = new Date().toISOString();
     let normalizedStatus = status;
 
@@ -204,7 +249,10 @@ export class LeadService {
 
     if (NeonService.isAvailable()) {
       try {
-        await NeonService.updateLeadStatus(phoneNumber, normalizedStatus, programInterest, name);
+        const res = await NeonService.updateLeadStatus(phoneNumber, normalizedStatus, programInterest, name, advisorName, expectedVersion);
+        if (res && res.conflict) {
+          return res;
+        }
       } catch (err) {
         console.warn('Error actualizando estado en Neon:', err.message);
       }
@@ -214,15 +262,20 @@ export class LeadService {
       let current = db.prepare('SELECT * FROM leads WHERE phone_number = ?').get(phoneNumber);
       if (!current) {
         db.prepare(`
-          INSERT INTO leads (phone_number, name, program_interest, status, created_at, updated_at, last_message, assigned_advisor, segment_profession, interest_temperature, thematic_area, event_interests)
-          VALUES (?, 'Interesado UdeA', 'Por definir', ?, ?, ?, '', 'Sin Asignar', 'Por Definir', 'cold', 'General', '')
+          INSERT INTO leads (phone_number, name, program_interest, status, created_at, updated_at, last_message, assigned_advisor, segment_profession, interest_temperature, thematic_area, event_interests, version)
+          VALUES (?, 'Interesado UdeA', 'Por definir', ?, ?, ?, '', 'Sin Asignar', 'Por Definir', 'cold', 'General', '', 1)
         `).run(phoneNumber, normalizedStatus, nowIso, nowIso);
         current = db.prepare('SELECT * FROM leads WHERE phone_number = ?').get(phoneNumber) || {};
       }
-      const fields = ['updated_at = ?', 'status = ?'];
+
+      if (expectedVersion !== null && expectedVersion !== undefined) {
+        if (current.version !== null && current.version !== undefined && current.version !== expectedVersion) {
+          return { success: false, conflict: true, currentLead: current };
+        }
+      }
+      const fields = ['updated_at = ?', 'status = ?', 'version = COALESCE(version, 1) + 1'];
       const params = [nowIso, normalizedStatus];
 
-      // Requisito 8.3: Si se establece 'finalized', marcar automáticamente el chat como Atendido
       if (normalizedStatus === 'finalized') {
         const attBy = current.attended_by || advisorName || current.assigned_advisor || 'Asesor UdeA';
         const attAt = current.attended_at || nowIso;
@@ -254,6 +307,12 @@ export class LeadService {
     } catch (e) {
       console.warn('Aviso actualizando estado del lead en SQLite:', e.message);
     }
+
+    const updatedLead = await this.getLeadByPhone(phoneNumber);
+    if (updatedLead) {
+      RealtimeService.notifyLeadUpdate(updatedLead, 'status', advisorName);
+    }
+    return { success: true, lead: updatedLead };
   }
 
   /**
@@ -273,10 +332,15 @@ export class LeadService {
     try {
       db.prepare(`
         UPDATE leads 
-        SET ai_enabled = ?, status = ?, updated_at = ?
+        SET ai_enabled = ?, status = ?, updated_at = ?, version = COALESCE(version, 1) + 1
         WHERE phone_number = ?
       `).run(val, newStatus, nowIso, phoneNumber);
     } catch (e) {}
+
+    const updatedLead = await this.getLeadByPhone(phoneNumber);
+    if (updatedLead) {
+      RealtimeService.notifyLeadUpdate(updatedLead, 'ai_toggle');
+    }
   }
 
   /**

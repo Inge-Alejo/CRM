@@ -91,6 +91,13 @@ export function initDatabase() {
       timestamp TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS system_settings (
+      setting_key TEXT PRIMARY KEY,
+      setting_value TEXT NOT NULL,
+      updated_at TEXT,
+      updated_by TEXT
+    );
+
     -- Índices optimizados para alto rendimiento
     CREATE INDEX IF NOT EXISTS idx_conversations_user ON conversations(phone_number, status, window_expires_at);
     CREATE INDEX IF NOT EXISTS idx_conversations_ym ON conversations(year_month);
@@ -167,9 +174,21 @@ function applySchemaMigrations() {
   if (!leadCols.includes('ai_enabled')) {
     db.exec(`ALTER TABLE leads ADD COLUMN ai_enabled INTEGER DEFAULT 1;`);
   }
+  if (!leadCols.includes('version')) {
+    db.exec(`ALTER TABLE leads ADD COLUMN version INTEGER DEFAULT 1;`);
+  }
 
-  // 3. Migración para advisors (password, role_type, is_available)
+  // 3. Migración para advisors (presencia en tiempo real, credenciales y roles)
   const advCols = db.prepare('PRAGMA table_info(advisors)').all().map(c => c.name);
+  if (!advCols.includes('presence_status')) {
+    db.exec(`ALTER TABLE advisors ADD COLUMN presence_status TEXT DEFAULT 'offline';`);
+  }
+  if (!advCols.includes('last_seen')) {
+    db.exec(`ALTER TABLE advisors ADD COLUMN last_seen TEXT;`);
+  }
+  if (!advCols.includes('viewing_lead')) {
+    db.exec(`ALTER TABLE advisors ADD COLUMN viewing_lead TEXT;`);
+  }
   if (!advCols.includes('password')) {
     db.exec(`ALTER TABLE advisors ADD COLUMN password TEXT DEFAULT 'UdeA2026*';`);
   }
@@ -749,7 +768,7 @@ export function updateLeadNotes(phoneNumber, notes) {
   const nowIso = new Date().toISOString();
   const stmt = db.prepare(`
     UPDATE leads
-    SET notes = ?, updated_at = ?
+    SET notes = ?, updated_at = ?, version = COALESCE(version, 1) + 1
     WHERE phone_number = ?
   `);
   return stmt.run(notes, nowIso, phoneNumber);
@@ -994,6 +1013,42 @@ export function recordSecurityAudit(eventType, details) {
   } catch (err) {
     console.error('Error registrando auditoría de seguridad:', err);
   }
+}
+
+export function getSystemSetting(key, defaultValue = null) {
+  try {
+    const row = db.prepare('SELECT setting_value FROM system_settings WHERE setting_key = ?').get(key);
+    return row ? row.setting_value : defaultValue;
+  } catch {
+    return defaultValue;
+  }
+}
+
+export function setSystemSetting(key, value, updatedBy = 'system') {
+  try {
+    const nowIso = new Date().toISOString();
+    db.prepare(`
+      INSERT INTO system_settings (setting_key, setting_value, updated_at, updated_by)
+      VALUES (?, ?, ?, ?)
+      ON CONFLICT(setting_key) DO UPDATE SET
+        setting_value = excluded.setting_value,
+        updated_at = excluded.updated_at,
+        updated_by = excluded.updated_by
+    `).run(key, String(value), nowIso, updatedBy);
+    return true;
+  } catch (err) {
+    console.warn('Error guardando configuración del sistema en SQLite:', err.message);
+    return false;
+  }
+}
+
+export function isGlobalAiEnabledDb() {
+  const val = getSystemSetting('global_ai_enabled', 'true');
+  return val === 'true' || val === '1' || val === true;
+}
+
+export function setGlobalAiStatusDb(enabled, updatedBy = 'system') {
+  return setSystemSetting('global_ai_enabled', enabled ? 'true' : 'false', updatedBy);
 }
 
 export function getDb() {

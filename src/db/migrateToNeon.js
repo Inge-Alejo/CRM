@@ -48,9 +48,14 @@ export async function initPostgresDatabase() {
       interest_temperature TEXT DEFAULT 'cold',
       thematic_area TEXT DEFAULT 'General',
       event_interests TEXT DEFAULT '',
-      notes TEXT DEFAULT ''
+      notes TEXT DEFAULT '',
+      ai_enabled INTEGER DEFAULT 1,
+      version INTEGER DEFAULT 1
     );
   `;
+
+  await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS ai_enabled INTEGER DEFAULT 1;`;
+  await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS version INTEGER DEFAULT 1;`;
 
   await sql`
     CREATE TABLE IF NOT EXISTS messages (
@@ -92,7 +97,26 @@ export async function initPostgresDatabase() {
       password TEXT DEFAULT 'UdeA2026*',
       phone TEXT,
       avatar TEXT,
+      presence_status TEXT DEFAULT 'offline',
+      last_seen TEXT,
+      viewing_lead TEXT,
       is_active INTEGER DEFAULT 1
+    );
+  `;
+
+  await sql`ALTER TABLE advisors ADD COLUMN IF NOT EXISTS presence_status TEXT DEFAULT 'offline';`;
+  await sql`ALTER TABLE advisors ADD COLUMN IF NOT EXISTS last_seen TEXT;`;
+  await sql`ALTER TABLE advisors ADD COLUMN IF NOT EXISTS viewing_lead TEXT;`;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS canned_responses (
+      id TEXT PRIMARY KEY,
+      title TEXT NOT NULL,
+      shortcut TEXT NOT NULL,
+      message TEXT NOT NULL,
+      category TEXT DEFAULT 'general',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
     );
   `;
 
@@ -103,6 +127,20 @@ export async function initPostgresDatabase() {
       details TEXT,
       timestamp TEXT NOT NULL
     );
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS system_settings (
+      setting_key VARCHAR(64) PRIMARY KEY,
+      setting_value TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      updated_by VARCHAR(255) DEFAULT 'system'
+    );
+  `;
+  await sql`
+    INSERT INTO system_settings (setting_key, setting_value, updated_at, updated_by)
+    VALUES ('global_ai_enabled', 'true', ${new Date().toISOString()}, 'system')
+    ON CONFLICT (setting_key) DO NOTHING;
   `;
 
   // Índices

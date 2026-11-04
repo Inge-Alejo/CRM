@@ -3,6 +3,7 @@ import { GeminiService } from '../ai/geminiService.js';
 import { LeadService } from '../domain/leadService.js';
 import { AdvisorNotifier } from '../domain/notifier.js';
 import { SecurityGuardrails } from '../security/guardrails.js';
+import { SystemSettingsService } from '../domain/systemSettingsService.js';
 
 const activeInits = new Map();
 
@@ -104,17 +105,21 @@ export class SimulatorAdapter {
     // 2. Registrar mensaje del usuario en la base de datos
     await LeadService.recordLeadMessage(cleanPhone, cleanMessage, 'user');
 
-    // 3. Evaluar si la IA está desactivada por el asesor para esta conversación (Requisito 5)
+    // 3. Evaluar si la IA está desactivada globalmente o por el asesor para esta conversación
+    const globalAiActive = await SystemSettingsService.isGlobalAiEnabled();
     const currentLead = (await LeadService.getLeadByPhone(cleanPhone)) || {};
-    const isAiDisabled = (currentLead.ai_enabled === 0 || currentLead.status === 'advisor_handling');
+    const isAiDisabled = !globalAiActive || (currentLead.ai_enabled === 0 || currentLead.status === 'advisor_handling');
 
     if (isAiDisabled) {
-      console.log(`🤖 [IA DESACTIVADA EN SIMULADOR]: Conversación con ${cleanPhone} en gestión manual por asesor.`);
+      console.log(`🤖 [IA DESACTIVADA EN SIMULADOR]: Conversación con ${cleanPhone} en gestión manual por asesor. (Global: ${globalAiActive ? 'Activa' : 'Pausada'})`);
       const messages = await LeadService.getLeadConversation(cleanPhone);
       return {
         success: true,
         aiPaused: true,
-        replyText: '⏸️ [IA DESACTIVADA]: La inteligencia artificial está pausada para esta conversación. Esperando respuesta manual del asesor humano.',
+        globalPaused: !globalAiActive,
+        replyText: !globalAiActive
+          ? '⏸️ [IA GLOBALMENTE PAUSADA]: La inteligencia artificial está suspendida en todo el CRM por la administración TIC. Esperando respuesta manual de un asesor humano.'
+          : '⏸️ [IA DESACTIVADA]: La inteligencia artificial está pausada para esta conversación. Esperando respuesta manual del asesor humano.',
         messages,
         leadData: currentLead
       };

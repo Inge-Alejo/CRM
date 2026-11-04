@@ -16,6 +16,7 @@ import { generateAuthToken, verifyAuthToken } from './security/authTokens.js';
 
 import { UnattendedAlertService } from './domain/unattendedAlertService.js';
 import { BusinessHoursService } from './domain/businessHoursService.js';
+import { RealtimeService } from './domain/realtimeService.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -112,6 +113,7 @@ app.post('/webhook', (req, res) => MetaCloudAdapter.handleIncomingMessage(req, r
 import { ScraperService } from './domain/scraperService.js';
 import { SystemStatsService } from './domain/systemStatsService.js';
 import { cannedResponseService } from './domain/cannedResponseService.js';
+import { SystemSettingsService } from './domain/systemSettingsService.js';
 
 // ==========================================
 // RUTAS API PARA EL DASHBOARD CRM
@@ -132,9 +134,11 @@ async function getAuthUser(req) {
   try {
     let decoded = verifyAuthToken(token);
     if (!decoded) {
-      try {
-        decoded = JSON.parse(Buffer.from(token, 'base64').toString('utf8'));
-      } catch (e) {}
+      // Intentar validar criptográficamente como Firebase ID Token contra Google Identity Toolkit
+      const fbUser = await verifyFirebaseIdToken(token);
+      if (fbUser && fbUser.email) {
+        decoded = { email: fbUser.email, role_type: 'advisor' };
+      }
     }
     if (!decoded || !decoded.email) return null;
 
@@ -274,7 +278,7 @@ app.get('/api/telemetry', async (req, res) => {
   });
 });
 
-// Configuración pública para el cliente (Firebase Auth)
+// Configuración pública para el cliente (Firebase Auth y estado del sistema)
 app.get('/api/config/client', (req, res) => {
   res.json({
     firebase: {
@@ -283,7 +287,8 @@ app.get('/api/config/client', (req, res) => {
       projectId: config.firebase.projectId,
       storageBucket: config.firebase.storageBucket,
       appId: config.firebase.appId
-    }
+    },
+    hasGeminiKey: !!config.geminiApiKey
   });
 });
 
@@ -471,8 +476,39 @@ app.get('/api/auth/me', async (req, res) => {
   res.json({ authenticated: true, advisor, permissions });
 });
 
-app.post('/api/auth/logout', (req, res) => {
+app.post('/api/auth/logout', async (req, res) => {
+  const user = await getAuthUser(req);
+  if (user && user.email) {
+    RealtimeService.updatePresence(user.email, 'offline').catch(() => {});
+  }
   res.json({ success: true });
+});
+
+// ==========================================
+// RUTAS DE SINCRONIZACIÓN EN TIEMPO REAL (SSE & PRESENCIA)
+// ==========================================
+app.get('/api/realtime/events', async (req, res) => {
+  const user = await getAuthUser(req);
+  if (!user) {
+    return res.status(401).json({ error: 'No autorizado para canal en tiempo real.' });
+  }
+  RealtimeService.handleSseConnection(req, res, user);
+});
+
+app.post('/api/realtime/presence', async (req, res) => {
+  const user = await getAuthUser(req);
+  if (!user) return res.status(401).json({ error: 'No autorizado.' });
+  const { status, viewingLead } = req.body;
+  if (viewingLead !== undefined) {
+    RealtimeService.setAdvisorViewing(user.email, viewingLead);
+  } else {
+    RealtimeService.updatePresence(user.email, status || 'online');
+  }
+  res.json({ success: true, activeAdvisors: RealtimeService.getActiveAdvisorsList() });
+});
+
+app.get('/api/realtime/active-advisors', async (req, res) => {
+  res.json({ success: true, activeAdvisors: RealtimeService.getActiveAdvisorsList() });
 });
 
 // Lista de asesores oficiales del equipo de extensión
@@ -534,12 +570,23 @@ app.patch('/api/leads/:phone/attend', async (req, res) => {
   }
 });
 
-// Guardar notas internas de un lead
+// Guardar notas internas de un lead con control de concurrencia optimista
 app.patch('/api/leads/:phone/notes', async (req, res) => {
   const phone = req.params.phone;
-  const { notes } = req.body;
-  await LeadService.saveNotes(phone, notes || '');
-  res.json({ success: true });
+  const { notes, version } = req.body;
+  const expectedVer = (version !== undefined && version !== null) ? parseInt(version, 10) : null;
+  const result = await LeadService.saveNotes(phone, notes || '', expectedVer);
+
+  if (result && result.conflict) {
+    return res.status(409).json({
+      success: false,
+      conflict: true,
+      error: 'Conflicto de concurrencia: Otro asesor modificó este prospecto mientras lo editabas.',
+      lead: result.currentLead
+    });
+  }
+
+  res.json({ success: true, lead: result.lead });
 });
 
 // Métricas de segmentación y base de audiencias en tiempo real
@@ -598,6 +645,16 @@ app.get('/api/segmentation/export', requireAdmin, async (req, res) => {
   res.send(csv);
 });
 
+// Obtener detalles de un lead específico
+app.get('/api/leads/:phone', async (req, res) => {
+  const phone = req.params.phone;
+  const leadData = await LeadService.getLeadByPhone(phone);
+  if (!leadData) {
+    return res.status(404).json({ success: false, error: 'Prospecto no encontrado' });
+  }
+  res.json({ success: true, lead: leadData });
+});
+
 // Historial de conversación de un lead
 app.get('/api/leads/:phone/chat', async (req, res) => {
   const phone = req.params.phone;
@@ -653,19 +710,30 @@ app.patch('/api/leads/:phone/toggle-ai', async (req, res) => {
   res.json({ success: true, ai_enabled: enabled ? 1 : 0, status: leadData ? leadData.status : newStatus, lead: leadData });
 });
 
-// Actualizar estado general/comercial del lead (soporte para estados independientes y 'finalized' -> auto-atendido)
+// Actualizar estado general/comercial del lead con control de concurrencia optimista
 app.patch('/api/leads/:phone/status', async (req, res) => {
   try {
     const phone = req.params.phone;
-    const { status, advisorName } = req.body;
+    const { status, advisorName, version } = req.body;
     if (!status) return res.status(400).json({ error: 'Estado es requerido.' });
 
-    const updated = await LeadService.updateLeadStatus(phone, status, null, null, advisorName);
+    const expectedVer = (version !== undefined && version !== null) ? parseInt(version, 10) : null;
+    const result = await LeadService.updateLeadStatus(phone, status, null, null, advisorName, expectedVer);
+
+    if (result && result.conflict) {
+      return res.status(409).json({
+        success: false,
+        conflict: true,
+        error: 'Conflicto de concurrencia: El estado fue cambiado previamente por otro asesor.',
+        lead: result.currentLead
+      });
+    }
+
     if (status === 'finalized') {
       await LeadService.markAttended(phone, advisorName || 'Asesor UdeA');
     }
     const leadData = await LeadService.getLeadByPhone(phone);
-    res.json({ success: true, lead: leadData, updated });
+    res.json({ success: true, lead: leadData, updated: result });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
@@ -806,6 +874,41 @@ app.post('/api/admin/backup-now', requireAdmin, async (req, res) => {
   }
 });
 
+// Consulta de estado de IA Global (accesible por asesores autenticados)
+app.get('/api/admin/global-ai', async (req, res) => {
+  try {
+    const user = await getAuthUser(req);
+    if (!user) return res.status(401).json({ error: 'No autorizado' });
+    const details = await SystemSettingsService.getGlobalAiDetails();
+    res.json({ success: true, ...details });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Control Maestro: Pausar o Reactivar la IA Globalmente (Exclusivo Superadmin TIC)
+app.post('/api/admin/global-ai', requireAdmin, async (req, res) => {
+  try {
+    const { enabled } = req.body;
+    if (enabled === undefined || enabled === null) {
+      return res.status(400).json({ error: 'El parámetro enabled (booleano) es requerido.' });
+    }
+    const adminEmail = req.user.email || 'proyectostic.med@udea.edu.co';
+    const result = await SystemSettingsService.setGlobalAiStatus(!!enabled, adminEmail);
+    res.json({
+      success: true,
+      enabled: result.enabled,
+      updated_by: result.updated_by,
+      message: result.enabled 
+        ? 'Inteligencia Artificial reactivada globalmente para todos los asesores y prospectos.'
+        : 'Inteligencia Artificial pausada globalmente. Respuestas automáticas suspendidas.'
+    });
+  } catch (err) {
+    console.error('Error al modificar estado global de IA:', err);
+    res.status(500).json({ error: 'Error interno al cambiar configuración global de IA.' });
+  }
+});
+
 // Alertas de asesores en tiempo real
 app.get('/api/alerts', (req, res) => {
   const alerts = AdvisorNotifier.getRecentAlerts();
@@ -866,17 +969,6 @@ app.post('/api/settings/gemini-key', requireAdmin, (req, res) => {
   }
 });
 
-// Configuración pública para el cliente (Firebase Auth desde variables de entorno Vercel)
-app.get('/api/config/client', (req, res) => {
-  res.json({
-    firebase: {
-      apiKey: config.firebase.apiKey,
-      authDomain: config.firebase.authDomain,
-      projectId: config.firebase.projectId
-    },
-    hasGeminiKey: !!config.geminiApiKey
-  });
-});
 
 // Middleware Global de Manejo de Errores (sin filtrar trazas sensibles al cliente)
 app.use((err, req, res, next) => {

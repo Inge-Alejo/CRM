@@ -102,21 +102,20 @@ export class NeonService {
   // ==================== PROSPECTOS (LEADS) ====================
   static async getAllLeads(statusFilter = null, advisorFilter = null, tempFilter = null, profFilter = null) {
     const sql = getSql();
-    let rows = await sql`SELECT * FROM leads ORDER BY updated_at DESC;`;
+    if (!sql) return [];
+    const hasStatus = Boolean(statusFilter && statusFilter !== 'all');
+    const hasAdvisor = Boolean(advisorFilter && advisorFilter !== 'all');
+    const hasTemp = Boolean(tempFilter && tempFilter !== 'all');
+    const hasProf = Boolean(profFilter && profFilter !== 'all');
 
-    if (statusFilter && statusFilter !== 'all') {
-      rows = rows.filter(l => l.status === statusFilter);
-    }
-    if (advisorFilter && advisorFilter !== 'all') {
-      rows = rows.filter(l => l.assigned_advisor === advisorFilter);
-    }
-    if (tempFilter && tempFilter !== 'all') {
-      rows = rows.filter(l => l.interest_temperature === tempFilter);
-    }
-    if (profFilter && profFilter !== 'all') {
-      rows = rows.filter(l => l.segment_profession === profFilter);
-    }
-
+    const rows = await sql`
+      SELECT * FROM leads 
+      WHERE (${!hasStatus} OR status = ${statusFilter || ''})
+        AND (${!hasAdvisor} OR assigned_advisor = ${advisorFilter || ''})
+        AND (${!hasTemp} OR interest_temperature = ${tempFilter || ''})
+        AND (${!hasProf} OR segment_profession = ${profFilter || ''})
+      ORDER BY updated_at DESC;
+    `;
     return rows;
   }
 
@@ -143,10 +142,9 @@ export class NeonService {
     const val = aiEnabled ? 1 : 0;
     const nowIso = new Date().toISOString();
     try {
-      await sql`ALTER TABLE leads ADD COLUMN IF NOT EXISTS ai_enabled INTEGER DEFAULT 1;`;
       await sql`
         UPDATE leads 
-        SET ai_enabled = ${val}, updated_at = ${nowIso}
+        SET ai_enabled = ${val}, updated_at = ${nowIso}, version = COALESCE(version, 1) + 1
         WHERE phone_number = ${clean} OR phone_number = ${noPlus} OR phone_number = ${withPlus};
       `;
     } catch (err) {
@@ -236,36 +234,74 @@ export class NeonService {
     }
   }
 
-  static async updateLeadStatus(phoneNumber, status, programInterest = null, name = null, advisorName = null) {
+  static async updateLeadStatus(phoneNumber, status, programInterest = null, name = null, advisorName = null, expectedVersion = null) {
     const sql = getSql();
-    if (!sql) return;
+    if (!sql) return { success: false, error: 'DB unavailable' };
     const nowIso = new Date().toISOString();
     let lead = await this.getLeadByPhone(phoneNumber);
     if (!lead) {
       await this.recordLeadMessage(phoneNumber, '', 'user');
       lead = await this.getLeadByPhone(phoneNumber);
     }
-    if (!lead) return;
+    if (!lead) return { success: false, error: 'Lead not found' };
 
     const newProg = programInterest || lead.program_interest;
     const newName = name || lead.name;
 
+    if (expectedVersion !== null && expectedVersion !== undefined) {
+      if (lead.version !== null && lead.version !== undefined && lead.version !== expectedVersion) {
+        return { success: false, conflict: true, currentLead: lead };
+      }
+    }
+
+    let updatedRows = [];
     if (status === 'finalized') {
       const attBy = lead.attended_by || advisorName || lead.assigned_advisor || 'Asesor UdeA';
       const attAt = lead.attended_at || nowIso;
-      await sql`
-        UPDATE leads 
-        SET status = ${status}, program_interest = ${newProg}, name = ${newName},
-            attended_by = ${attBy}, attended_at = ${attAt}, ai_enabled = 0, updated_at = ${nowIso}
-        WHERE phone_number = ${phoneNumber};
-      `;
+      if (expectedVersion !== null && expectedVersion !== undefined) {
+        updatedRows = await sql`
+          UPDATE leads 
+          SET status = ${status}, program_interest = ${newProg}, name = ${newName},
+              attended_by = ${attBy}, attended_at = ${attAt}, ai_enabled = 0, updated_at = ${nowIso},
+              version = COALESCE(version, 1) + 1
+          WHERE phone_number = ${phoneNumber} AND (version = ${expectedVersion} OR version IS NULL)
+          RETURNING *;
+        `;
+      } else {
+        updatedRows = await sql`
+          UPDATE leads 
+          SET status = ${status}, program_interest = ${newProg}, name = ${newName},
+              attended_by = ${attBy}, attended_at = ${attAt}, ai_enabled = 0, updated_at = ${nowIso},
+              version = COALESCE(version, 1) + 1
+          WHERE phone_number = ${phoneNumber}
+          RETURNING *;
+        `;
+      }
     } else {
-      await sql`
-        UPDATE leads 
-        SET status = ${status}, program_interest = ${newProg}, name = ${newName}, updated_at = ${nowIso}
-        WHERE phone_number = ${phoneNumber};
-      `;
+      if (expectedVersion !== null && expectedVersion !== undefined) {
+        updatedRows = await sql`
+          UPDATE leads 
+          SET status = ${status}, program_interest = ${newProg}, name = ${newName}, updated_at = ${nowIso},
+              version = COALESCE(version, 1) + 1
+          WHERE phone_number = ${phoneNumber} AND (version = ${expectedVersion} OR version IS NULL)
+          RETURNING *;
+        `;
+      } else {
+        updatedRows = await sql`
+          UPDATE leads 
+          SET status = ${status}, program_interest = ${newProg}, name = ${newName}, updated_at = ${nowIso},
+              version = COALESCE(version, 1) + 1
+          WHERE phone_number = ${phoneNumber}
+          RETURNING *;
+        `;
+      }
     }
+
+    if (expectedVersion !== null && expectedVersion !== undefined && updatedRows.length === 0) {
+      const current = await this.getLeadByPhone(phoneNumber);
+      return { success: false, conflict: true, currentLead: current };
+    }
+    return { success: true, lead: updatedRows[0] || (await this.getLeadByPhone(phoneNumber)) };
   }
 
   static async updateLeadSegmentation(phoneNumber, segData = {}) {
@@ -287,10 +323,11 @@ export class NeonService {
     const email = segData.email || current.email || '';
 
     await sql`
-      UPDATE leads
+      UPDATE leads 
       SET name = ${name}, doc_type = ${docType}, doc_number = ${docNumber}, email = ${email},
-          segment_profession = ${profession}, interest_temperature = ${temperature}, 
-          thematic_area = ${area}, event_interests = ${events}, updated_at = ${nowIso}
+          segment_profession = ${profession}, interest_temperature = ${temperature},
+          thematic_area = ${area}, event_interests = ${events}, updated_at = ${nowIso},
+          version = COALESCE(version, 1) + 1
       WHERE phone_number = ${phoneNumber};
     `;
   }
@@ -300,7 +337,7 @@ export class NeonService {
     const nowIso = new Date().toISOString();
     await sql`
       UPDATE leads 
-      SET assigned_advisor = ${advisorName}, updated_at = ${nowIso}
+      SET assigned_advisor = ${advisorName}, updated_at = ${nowIso}, version = COALESCE(version, 1) + 1
       WHERE phone_number = ${phoneNumber};
     `;
     await this.recordSecurityAudit('ADVISOR_ASSIGNED', { phone: phoneNumber, advisor: advisorName });
@@ -316,7 +353,8 @@ export class NeonService {
       : 'attended';
     await sql`
       UPDATE leads 
-      SET status = ${newStatus}, attended_by = ${advisorName}, attended_at = ${nowIso}, updated_at = ${nowIso}
+      SET status = ${newStatus}, attended_by = ${advisorName}, attended_at = ${nowIso}, updated_at = ${nowIso},
+          version = COALESCE(version, 1) + 1
       WHERE phone_number = ${phoneNumber};
     `;
     await this.recordSecurityAudit('LEAD_ATTENDED', { phone: phoneNumber, advisor: advisorName });
@@ -327,19 +365,98 @@ export class NeonService {
     const nowIso = new Date().toISOString();
     await sql`
       UPDATE leads 
-      SET status = 'advisor_handling', attended_by = NULL, attended_at = NULL, updated_at = ${nowIso}
+      SET status = 'advisor_handling', attended_by = NULL, attended_at = NULL, updated_at = ${nowIso},
+          version = COALESCE(version, 1) + 1
       WHERE phone_number = ${phoneNumber};
     `;
     await this.recordSecurityAudit('LEAD_UNATTENDED', { phone: phoneNumber });
   }
 
-  static async saveNotes(phoneNumber, notes) {
+  static async saveNotes(phoneNumber, notes, expectedVersion = null) {
     const sql = getSql();
+    if (!sql) return { success: false, error: 'Database unavailable' };
     const nowIso = new Date().toISOString();
+
+    if (expectedVersion !== null && expectedVersion !== undefined) {
+      const updated = await sql`
+        UPDATE leads 
+        SET notes = ${notes}, updated_at = ${nowIso}, version = COALESCE(version, 1) + 1
+        WHERE phone_number = ${phoneNumber} AND (version = ${expectedVersion} OR version IS NULL)
+        RETURNING *;
+      `;
+      if (updated.length === 0) {
+        const current = await this.getLeadByPhone(phoneNumber);
+        return { success: false, conflict: true, currentLead: current };
+      }
+      return { success: true, lead: updated[0] };
+    }
+
     await sql`
       UPDATE leads 
-      SET notes = ${notes}, updated_at = ${nowIso}
+      SET notes = ${notes}, updated_at = ${nowIso}, version = COALESCE(version, 1) + 1
       WHERE phone_number = ${phoneNumber};
+    `;
+    const lead = await this.getLeadByPhone(phoneNumber);
+    return { success: true, lead };
+  }
+
+  // ==================== RESPUESTAS RÁPIDAS (CANNED RESPONSES) ====================
+  static async getCannedResponses() {
+    const sql = getSql();
+    if (!sql) return [];
+    return await sql`SELECT * FROM canned_responses ORDER BY created_at ASC;`;
+  }
+
+  static async createCannedResponse({ id, title, shortcut, message, category, created_at, updated_at }) {
+    const sql = getSql();
+    if (!sql) return null;
+    const rows = await sql`
+      INSERT INTO canned_responses (id, title, shortcut, message, category, created_at, updated_at)
+      VALUES (${id}, ${title}, ${shortcut}, ${message}, ${category || 'general'}, ${created_at}, ${updated_at})
+      RETURNING *;
+    `;
+    return rows[0];
+  }
+
+  static async updateCannedResponse(id, { title, shortcut, message, category, updated_at }) {
+    const sql = getSql();
+    if (!sql) return null;
+    const rows = await sql`
+      UPDATE canned_responses
+      SET title = ${title}, shortcut = ${shortcut}, message = ${message}, category = ${category}, updated_at = ${updated_at}
+      WHERE id = ${id}
+      RETURNING *;
+    `;
+    return rows.length > 0 ? rows[0] : null;
+  }
+
+  static async deleteCannedResponse(id) {
+    const sql = getSql();
+    if (!sql) return false;
+    await sql`DELETE FROM canned_responses WHERE id = ${id};`;
+    return true;
+  }
+
+  // ==================== PRESENCIA Y DISPONIBILIDAD DE ASESORES ====================
+  static async updateAdvisorPresence(email, status, viewingLead = null) {
+    const sql = getSql();
+    if (!sql) return;
+    const cleanEmail = (email || '').trim().toLowerCase();
+    const nowIso = new Date().toISOString();
+    await sql`
+      UPDATE advisors
+      SET presence_status = ${status}, last_seen = ${nowIso}, viewing_lead = ${viewingLead}
+      WHERE LOWER(email) = ${cleanEmail};
+    `;
+  }
+
+  static async getAdvisorsPresence() {
+    const sql = getSql();
+    if (!sql) return [];
+    return await sql`
+      SELECT id, name, role, email, avatar, role_type, presence_status, last_seen, viewing_lead, is_active
+      FROM advisors
+      ORDER BY id ASC;
     `;
   }
 
@@ -671,5 +788,46 @@ export class NeonService {
         totalAuditLogs: auditCount[0].c
       }
     };
+  }
+
+  // ==================== CONFIGURACIONES MAESTRAS Y KILL-SWITCH IA ====================
+  static async getSystemSetting(key, defaultValue = null) {
+    const sql = getSql();
+    if (!sql) return defaultValue;
+    try {
+      const rows = await sql`SELECT setting_value FROM system_settings WHERE setting_key = ${key} LIMIT 1;`;
+      return rows.length > 0 ? rows[0].setting_value : defaultValue;
+    } catch {
+      return defaultValue;
+    }
+  }
+
+  static async setSystemSetting(key, value, updatedBy = 'system') {
+    const sql = getSql();
+    if (!sql) return false;
+    try {
+      const nowIso = new Date().toISOString();
+      await sql`
+        INSERT INTO system_settings (setting_key, setting_value, updated_at, updated_by)
+        VALUES (${key}, ${String(value)}, ${nowIso}, ${updatedBy})
+        ON CONFLICT (setting_key) DO UPDATE SET
+          setting_value = EXCLUDED.setting_value,
+          updated_at = EXCLUDED.updated_at,
+          updated_by = EXCLUDED.updated_by;
+      `;
+      return true;
+    } catch (err) {
+      console.warn('Error en NeonService.setSystemSetting:', err.message);
+      return false;
+    }
+  }
+
+  static async isGlobalAiEnabled() {
+    const val = await this.getSystemSetting('global_ai_enabled', 'true');
+    return val === 'true' || val === '1' || val === true;
+  }
+
+  static async setGlobalAiStatus(enabled, updatedBy = 'system') {
+    return await this.setSystemSetting('global_ai_enabled', enabled ? 'true' : 'false', updatedBy);
   }
 }
