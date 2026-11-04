@@ -1080,6 +1080,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (status === 'closed') return '<span class="status-pill closed"><span class="status-dot"></span>🔒 Cerrado</span>';
     if (status === 'not_interested') return '<span class="status-pill not_interested" style="background: rgba(239, 68, 68, 0.12); color: #dc2626; border: 1px solid rgba(239, 68, 68, 0.3);"><span class="status-dot" style="background:#dc2626;"></span>🚫 No Interesado</span>';
     if (status === 'finalized') return '<span class="status-pill finalized" style="background: rgba(5, 150, 105, 0.12); color: #059669; border: 1px solid rgba(5, 150, 105, 0.3);"><span class="status-dot" style="background:#059669;"></span>🏁 Finalizado</span>';
+    if (typeof currentGlobalAiState !== 'undefined' && currentGlobalAiState === false && (status === 'ai_handling' || !status)) {
+      return '<span class="status-pill advisor_requested" style="background: rgba(234, 88, 12, 0.12); color: #c2410c; border: 1px solid rgba(234, 88, 12, 0.3);"><span class="status-dot" style="background:#ea580c;"></span>⏸️ IA Desactivada (Global)</span>';
+    }
     return '<span class="status-pill ai_handling"><span class="status-dot"></span>En gestión IA</span>';
   }
 
@@ -2340,6 +2343,58 @@ document.addEventListener('DOMContentLoaded', () => {
         ? `Estado: Activa · Respuestas automáticas habilitadas (${modifier} a las ${timeStr})`
         : `Estado: PAUSADA · Todas las respuestas automáticas están suspendidas (${modifier} a las ${timeStr})`;
     }
+
+    // 3. Sincronizar estado en los chats y bloquear/desbloquear el botón de IA
+    const inboxAiToggleCheck = document.getElementById('inboxAiToggleCheck');
+    const inboxAiToggleLabel = document.getElementById('inboxAiToggleLabel');
+    const inboxActiveStatus = document.getElementById('inboxActiveStatus');
+
+    if (!isEnabled) {
+      // IA Desactivada Globalmente por Superadmin TIC:
+      // Pasar el estado en los chats a desactivada y bloquear el botón para que nadie pueda encenderla
+      if (inboxAiToggleCheck) {
+        inboxAiToggleCheck.checked = false;
+        inboxAiToggleCheck.disabled = true;
+        if (inboxAiToggleCheck.parentElement) {
+          inboxAiToggleCheck.parentElement.style.opacity = '0.55';
+          inboxAiToggleCheck.parentElement.style.cursor = 'not-allowed';
+          inboxAiToggleCheck.parentElement.title = 'La IA está pausada globalmente por la administración TIC. Botón bloqueado.';
+        }
+      }
+      if (inboxAiToggleLabel) {
+        inboxAiToggleLabel.textContent = '⏸️ IA Desactivada (Pausa Global)';
+        inboxAiToggleLabel.style.color = '#ea580c';
+      }
+      if (inboxActiveStatus && (!currentInboxLead || currentInboxLead.status === 'ai_handling')) {
+        inboxActiveStatus.textContent = '⏸️ IA Desactivada (Pausa Global)';
+      }
+    } else {
+      // IA Global Reanudada:
+      // Desbloquear el botón y restaurar el estado específico de la conversación activa
+      if (inboxAiToggleCheck) {
+        inboxAiToggleCheck.disabled = false;
+        if (inboxAiToggleCheck.parentElement) {
+          inboxAiToggleCheck.parentElement.style.opacity = '1';
+          inboxAiToggleCheck.parentElement.style.cursor = 'pointer';
+          inboxAiToggleCheck.parentElement.title = 'Pausar o reanudar el asistente virtual Apolo para este prospecto';
+        }
+      }
+      if (currentInboxLead) {
+        const isLeadAiActive = (currentInboxLead.ai_enabled !== 0 && currentInboxLead.status !== 'advisor_handling');
+        if (inboxAiToggleCheck) inboxAiToggleCheck.checked = isLeadAiActive;
+        if (inboxAiToggleLabel) {
+          inboxAiToggleLabel.textContent = isLeadAiActive ? '🤖 IA Activa' : '⏸️ IA Pausada (Asesor)';
+          inboxAiToggleLabel.style.color = isLeadAiActive ? 'var(--udea-emerald)' : '#ea580c';
+        }
+        if (inboxActiveStatus && currentInboxLead.status === 'ai_handling') {
+          inboxActiveStatus.textContent = '🤖 IA Apolo';
+        }
+      }
+    }
+
+    // Refrescar vistas si ya están inicializadas
+    if (typeof renderInbox === 'function') renderInbox(true);
+    if (typeof renderLeads === 'function') renderLeads();
   }
 
   async function loadGlobalAiStatus() {
@@ -2840,7 +2895,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (lead.status === 'enrolled') {
           inboxActiveStatus.textContent = '🎓 Matriculado Oficialmente';
         } else {
-          inboxActiveStatus.textContent = '🤖 IA Apolo';
+          inboxActiveStatus.textContent = (!currentGlobalAiState) ? '⏸️ IA Desactivada (Pausa Global)' : '🤖 IA Apolo';
         }
       }
 
@@ -2875,12 +2930,36 @@ document.addEventListener('DOMContentLoaded', () => {
         inboxActiveTempBadge.textContent = temp === 'hot' ? 'Prioridad Alta' : (temp === 'warm' ? 'Prioridad Media' : 'Prioridad Estándar');
       }
 
-      // Configurar Toggle de IA
-      const isAiActive = lead.status !== 'advisor_handling';
-      if (inboxAiToggleCheck) inboxAiToggleCheck.checked = isAiActive;
-      if (inboxAiToggleLabel) {
-        inboxAiToggleLabel.textContent = isAiActive ? '🤖 IA Activa' : '⏸️ IA Pausada (Asesor)';
-        inboxAiToggleLabel.style.color = isAiActive ? 'var(--udea-emerald)' : '#ea580c';
+      // Configurar Toggle de IA y Estado
+      if (!currentGlobalAiState) {
+        if (inboxAiToggleCheck) {
+          inboxAiToggleCheck.checked = false;
+          inboxAiToggleCheck.disabled = true;
+          if (inboxAiToggleCheck.parentElement) {
+            inboxAiToggleCheck.parentElement.style.opacity = '0.55';
+            inboxAiToggleCheck.parentElement.style.cursor = 'not-allowed';
+            inboxAiToggleCheck.parentElement.title = 'La IA está pausada globalmente por la administración TIC. Botón bloqueado.';
+          }
+        }
+        if (inboxAiToggleLabel) {
+          inboxAiToggleLabel.textContent = '⏸️ IA Desactivada (Pausa Global)';
+          inboxAiToggleLabel.style.color = '#ea580c';
+        }
+      } else {
+        if (inboxAiToggleCheck) {
+          inboxAiToggleCheck.disabled = false;
+          if (inboxAiToggleCheck.parentElement) {
+            inboxAiToggleCheck.parentElement.style.opacity = '1';
+            inboxAiToggleCheck.parentElement.style.cursor = 'pointer';
+            inboxAiToggleCheck.parentElement.title = 'Pausar o reanudar el asistente virtual Apolo para este prospecto';
+          }
+        }
+        const isAiActive = (lead.ai_enabled !== 0 && lead.status !== 'advisor_handling');
+        if (inboxAiToggleCheck) inboxAiToggleCheck.checked = isAiActive;
+        if (inboxAiToggleLabel) {
+          inboxAiToggleLabel.textContent = isAiActive ? '🤖 IA Activa' : '⏸️ IA Pausada (Asesor)';
+          inboxAiToggleLabel.style.color = isAiActive ? 'var(--udea-emerald)' : '#ea580c';
+        }
       }
 
       // Renderizar Feed de Mensajes estilo WhatsApp
@@ -2966,12 +3045,25 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       // Sincronizar Toggle de IA en la cabecera del chat
-      const isLeadAiActive = (lead.ai_enabled !== 0 && lead.status !== 'advisor_handling');
-      if (inboxAiToggleCheck) {
-        inboxAiToggleCheck.checked = isLeadAiActive;
-      }
-      if (inboxAiToggleLabel) {
-        inboxAiToggleLabel.textContent = isLeadAiActive ? '🤖 IA Activa' : '⏸️ IA Pausada';
+      if (!currentGlobalAiState) {
+        if (inboxAiToggleCheck) {
+          inboxAiToggleCheck.checked = false;
+          inboxAiToggleCheck.disabled = true;
+        }
+        if (inboxAiToggleLabel) {
+          inboxAiToggleLabel.textContent = '⏸️ IA Desactivada (Pausa Global)';
+          inboxAiToggleLabel.style.color = '#ea580c';
+        }
+      } else {
+        const isLeadAiActive = (lead.ai_enabled !== 0 && lead.status !== 'advisor_handling');
+        if (inboxAiToggleCheck) {
+          inboxAiToggleCheck.disabled = false;
+          inboxAiToggleCheck.checked = isLeadAiActive;
+        }
+        if (inboxAiToggleLabel) {
+          inboxAiToggleLabel.textContent = isLeadAiActive ? '🤖 IA Activa' : '⏸️ IA Pausada (Asesor)';
+          inboxAiToggleLabel.style.color = isLeadAiActive ? 'var(--udea-emerald)' : '#ea580c';
+        }
       }
 
       // Select de Temperatura
@@ -3172,26 +3264,52 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Toggle de IA Apolo (Pausar / Reanudar bot por conversación)
+  // Toggle de IA Apolo (Pausar / Reanudar bot por conversación con bloqueo ante Pausa Global TIC)
   if (inboxAiToggleCheck) {
     inboxAiToggleCheck.addEventListener('change', async () => {
       if (!currentInboxPhone) return;
-      const willBeActive = inboxAiToggleCheck.checked;
-      const pauseAi = !willBeActive;
+
+      // Si la IA está pausada globalmente por la administración TIC, bloquear intento de activación
+      if (!currentGlobalAiState) {
+        inboxAiToggleCheck.checked = false;
+        inboxAiToggleCheck.disabled = true;
+        if (inboxAiToggleLabel) {
+          inboxAiToggleLabel.textContent = '⏸️ IA Desactivada (Pausa Global)';
+          inboxAiToggleLabel.style.color = '#ea580c';
+        }
+        alert('⏸️ La Inteligencia Artificial está pausada globalmente por la administración TIC.\n\nNo es posible activarla individualmente mientras continúe la pausa global del sistema.');
+        return;
+      }
+
+      const enabled = inboxAiToggleCheck.checked;
+      if (inboxAiToggleLabel) {
+        inboxAiToggleLabel.textContent = enabled ? '🤖 IA Activa' : '⏸️ IA Pausada (Asesor)';
+        inboxAiToggleLabel.style.color = enabled ? 'var(--udea-emerald)' : '#ea580c';
+      }
 
       try {
         const res = await fetch(`/api/leads/${encodeURIComponent(currentInboxPhone)}/toggle-ai`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ pauseAi })
+          body: JSON.stringify({ aiEnabled: enabled, pauseAi: !enabled })
         });
         const data = await res.json();
-        if (data.success) {
-          if (inboxAiToggleLabel) {
-            inboxAiToggleLabel.textContent = willBeActive ? '🤖 IA Activa' : '⏸️ IA Pausada (Asesor)';
-            inboxAiToggleLabel.style.color = willBeActive ? 'var(--udea-emerald)' : '#ea580c';
+        if (res.ok && data.success) {
+          if (data.lead) {
+            currentInboxLead = data.lead;
+            if (inboxCustStatusSelect) {
+              inboxCustStatusSelect.value = data.lead.status || (enabled ? 'ai_handling' : 'advisor_handling');
+            }
           }
           fetchLeads();
+        } else {
+          // Revertir switch si el servidor rechazó el cambio
+          inboxAiToggleCheck.checked = !enabled;
+          if (inboxAiToggleLabel) {
+            inboxAiToggleLabel.textContent = !enabled ? '🤖 IA Activa' : '⏸️ IA Pausada (Asesor)';
+            inboxAiToggleLabel.style.color = !enabled ? 'var(--udea-emerald)' : '#ea580c';
+          }
+          alert(data.error || 'No fue posible cambiar el estado de la IA.');
         }
       } catch (err) {
         console.error('Error al alternar IA:', err);
@@ -3412,33 +3530,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Control de activación/desactivación de IA en la conversación activa (Requisito 5)
-  if (inboxAiToggleCheck) {
-    inboxAiToggleCheck.addEventListener('change', async () => {
-      if (!currentInboxPhone) return;
-      const enabled = inboxAiToggleCheck.checked;
-      if (inboxAiToggleLabel) {
-        inboxAiToggleLabel.textContent = enabled ? '🤖 IA Activa' : '⏸️ IA Pausada';
-      }
-      try {
-        const res = await fetch(`/api/leads/${encodeURIComponent(currentInboxPhone)}/toggle-ai`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ aiEnabled: enabled, pauseAi: !enabled })
-        });
-        const data = await res.json();
-        if (data.lead) {
-          currentInboxLead = data.lead;
-          if (inboxCustStatusSelect) {
-            inboxCustStatusSelect.value = data.lead.status || (enabled ? 'ai_handling' : 'advisor_handling');
-          }
-        }
-        fetchLeads();
-      } catch (err) {
-        console.error('Error al cambiar estado de IA:', err);
-      }
-    });
-  }
 
   // Copiar link oficial de inscripción y pago del programa de interés con advertencia de computador (Requisito 4)
   if (btnInboxCopyPaymentLink) {

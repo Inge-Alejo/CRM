@@ -172,7 +172,25 @@ async function runGlobalAiTests() {
     assert(simRes.ok, 'Simulador procesa mensaje sin colapsar');
     assert(simData.aiPaused === true, 'El simulador indica aiPaused: true');
     assert(simData.globalPaused === true, 'El simulador reporta globalPaused: true');
-    assert(simData.replyText.includes('PAUSADA') || simData.replyText.includes('suspendida'), 'Mensaje de respuesta indica que la IA está suspendida por TIC');
+    assert(simData.replyText.includes('transfiriendo a un asesor') && simData.replyText.includes('asesor tomará tu caso'), 'Mensaje informa la transferencia a un asesor');
+    const hasEmojis = /[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/u.test(simData.replyText);
+    assert(!hasEmojis, 'El mensaje institucional de transferencia está 100% libre de emojis');
+
+    // -------------------------------------------------------------
+    // PRUEBA 5.1: Bloqueo de reactivación individual en chat mientras IA esté pausada globalmente
+    // -------------------------------------------------------------
+    console.log('\n--- 5.1. Bloqueo de Activación Individual de IA en Chat (403 Forbidden) ---');
+    const toggleAttemptRes = await fetch(`${BASE_URL}/api/leads/573105556677/toggle-ai`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${advisorToken}`
+      },
+      body: JSON.stringify({ aiEnabled: true })
+    });
+    const toggleAttemptData = await toggleAttemptRes.json();
+    assert(toggleAttemptRes.status === 403, 'Intento de reactivar IA en un chat individual es bloqueado con HTTP 403 Forbidden');
+    assert(toggleAttemptData.globalPaused === true, 'Respuesta confirma que la IA está bloqueada por pausa global TIC');
 
     // -------------------------------------------------------------
     // PRUEBA 6: Superadmin reactiva la IA globalmente (200 OK)
@@ -194,6 +212,19 @@ async function runGlobalAiTests() {
     await new Promise(r => setTimeout(r, 300));
     const resumeEvent = sseEvents.find(e => e.event === 'system:global_ai' && e.data?.enabled === true);
     assert(resumeEvent !== undefined, 'Asesores reciben evento SSE de reactivación en tiempo real');
+
+    // -------------------------------------------------------------
+    // PRUEBA 7: Saludo automático oficial en la primera interacción
+    // -------------------------------------------------------------
+    console.log('\n--- 7. Saludo Automático Institucional en Primera Interacción ---');
+    const resetInitRes = await fetch(`${BASE_URL}/api/simulator/init`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phoneNumber: '573109998877', reset: true })
+    });
+    const initData = await resetInitRes.json();
+    assert(resetInitRes.ok, 'Inicialización de primera interacción completada');
+    assert(initData.replyText.includes('¡Hola!') && initData.replyText.includes('bienvenida al Centro de Extensión de la Facultad de Medicina UdeA 🩺. ¿En qué podemos ayudarte?'), 'Primer mensaje responde exactamente con el saludo oficial solicitado');
 
     console.log('\n======================================================================');
     console.log(`🎉 TODAS LAS PRUEBAS DE CONTROL MAESTRO DE IA PASARON: ${passed}/${total}`);

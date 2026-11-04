@@ -742,6 +742,18 @@ app.patch('/api/leads/:phone/toggle-ai', async (req, res) => {
   const phone = req.params.phone;
   const { pauseAi, aiEnabled } = req.body;
   const enabled = typeof aiEnabled === 'boolean' ? aiEnabled : !pauseAi;
+
+  // Si la IA está pausada globalmente por la administración TIC, bloquear activación individual
+  if (enabled) {
+    const globalAiActive = await SystemSettingsService.isGlobalAiEnabled();
+    if (!globalAiActive) {
+      return res.status(403).json({
+        success: false,
+        error: 'La Inteligencia Artificial está pausada globalmente por la administración TIC. Solo el Superadministrador puede reanudarla.',
+        globalPaused: true
+      });
+    }
+  }
   
   // Persistir estado en BD (ai_enabled = 1 | 0)
   await LeadService.setLeadAiStatus(phone, enabled);

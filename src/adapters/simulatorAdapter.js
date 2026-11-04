@@ -111,15 +111,15 @@ export class SimulatorAdapter {
     const isAiDisabled = !globalAiActive || (currentLead.ai_enabled === 0 || currentLead.status === 'advisor_handling');
 
     if (isAiDisabled) {
+      const noticeMessage = 'Te estamos transfiriendo a un asesor, en un momento un asesor tomará tu caso.';
+      await LeadService.recordLeadMessage(cleanPhone, noticeMessage, 'bot');
       console.log(`🤖 [IA DESACTIVADA EN SIMULADOR]: Conversación con ${cleanPhone} en gestión manual por asesor. (Global: ${globalAiActive ? 'Activa' : 'Pausada'})`);
       const messages = await LeadService.getLeadConversation(cleanPhone);
       return {
         success: true,
         aiPaused: true,
         globalPaused: !globalAiActive,
-        replyText: !globalAiActive
-          ? '⏸️ [IA GLOBALMENTE PAUSADA]: La inteligencia artificial está suspendida en todo el CRM por la administración TIC. Esperando respuesta manual de un asesor humano.'
-          : '⏸️ [IA DESACTIVADA]: La inteligencia artificial está pausada para esta conversación. Esperando respuesta manual del asesor humano.',
+        replyText: noticeMessage,
         messages,
         leadData: currentLead
       };

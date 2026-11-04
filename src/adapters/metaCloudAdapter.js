@@ -67,6 +67,10 @@ export class MetaCloudAdapter {
 
       const userText = message.text.body;
 
+      // Identificar si es la primera interacción del contacto antes de registrar el mensaje
+      const priorHistory = await LeadService.getLeadConversation(senderPhone);
+      const isFirstInteraction = (!priorHistory || priorHistory.length === 0);
+
       // 2. Evaluar Kill-Switch y ventana de 24 horas (Control Anti-Cobros)
       const evaluation = await ConversationTracker.evaluateIncomingMessage(senderPhone);
 
@@ -91,6 +95,18 @@ export class MetaCloudAdapter {
         if (!globalAiActive) {
           console.log(`⏸️ [IA GLOBALMENTE PAUSADA POR TIC]: Omitiendo respuesta automática de Gemini para ${senderPhone}.`);
           await LeadService.updateLeadStatus(senderPhone, 'advisor_handling');
+
+          // Aviso institucional de transferencia sin emojis cuando la IA está globalmente suspendida
+          const transferNotice = 'Te estamos transfiriendo a un asesor, en un momento un asesor tomará tu caso.';
+          const recentConv = await LeadService.getLeadConversation(senderPhone);
+          const previousBotMsg = Array.isArray(recentConv)
+            ? [...recentConv].reverse().find(m => m.sender === 'bot')
+            : null;
+
+          if (!previousBotMsg || previousBotMsg.content !== transferNotice) {
+            await LeadService.recordLeadMessage(senderPhone, transferNotice, 'bot');
+            await this.sendWhatsAppMessage(senderPhone, transferNotice);
+          }
         } else {
           console.log(`🤖 [IA DESACTIVADA]: Conversación con ${senderPhone} en atención manual por asesor. Se omite respuesta automática de Gemini.`);
         }
@@ -106,7 +122,22 @@ export class MetaCloudAdapter {
 
       // 4. Obtener historial y generar respuesta con IA
       const history = await LeadService.getLeadConversation(senderPhone);
-      const aiResult = await GeminiService.generateReply(userText, senderPhone, history);
+      let aiResult;
+
+      // Saludo automático prioritario institucional en la primera interacción ante saludos o contacto general
+      const detectedProgram = await GeminiService.detectProgramFromText(userText);
+      const isGreeting = /^(hola|buenos d[ií]as|buenas tardes|buenas noches|saludos|hey|buenas|buen d[ií]a)[\s!.,👋🩺]*$/i.test((userText || '').trim());
+
+      if (isFirstInteraction && (!detectedProgram || isGreeting)) {
+        const welcomeText = await GeminiService.generateInitialGreeting(currentLead || { name: contactName });
+        aiResult = {
+          replyText: welcomeText,
+          detectedProgram: null,
+          requestAdvisor: false
+        };
+      } else {
+        aiResult = await GeminiService.generateReply(userText, senderPhone, history);
+      }
 
       // Si el usuario solicitó asesor y estamos fuera de horario, anexar el aviso institucional
       if (aiResult.requestAdvisor && !BusinessHoursService.isWithinOfficeHours()) {

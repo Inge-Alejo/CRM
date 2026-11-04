@@ -55,7 +55,7 @@ async function runComprehensiveVerification() {
     console.log('   [DEBUG Test 1 Reply]:', JSON.stringify(reply));
     assert(typeof reply === 'string' && reply.length > 0, 'La respuesta debe ser un string con contenido');
     assert(reply.toLowerCase().includes('hola') || reply.toLowerCase().includes('bienvenido'), 'Debe incluir saludo y bienvenida');
-    assert(reply.includes('¿En qué curso estás interesado?') || reply.includes('curso'), 'Debe preguntar amablemente en qué curso está interesado');
+    assert(reply.includes('¿En qué podemos ayudarte?') || reply.includes('¿En qué curso estás interesado?') || reply.includes('ayudarte') || reply.includes('curso'), 'Debe preguntar amablemente en qué podemos ayudarte o en qué curso está interesado');
     
     // No debe volcar listados masivos de cursos
     const countDiplomados = (reply.match(/diplomado/gi) || []).length;

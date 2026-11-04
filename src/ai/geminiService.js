@@ -184,7 +184,7 @@ REGLAS CRÍTICAS DE COMUNICACIÓN Y EFICIENCIA DE TOKENS:
 11. TONO AMENO Y EMOJIS: Sé siempre muy cordial, empático y ameno. Integra emojis contextuales y médicos (🩺, 📚, ✨, 👋, 🏥, 💡, 🎓, 💳, 📅) de manera natural en tus respuestas para que la experiencia en WhatsApp sea cercana, cálida y profesional.
 12. FORMATO WHATSAPP: Usa negritas (*texto*) para títulos o datos clave, y viñetas breves.
 13. SIMPLIFICACIÓN DEL PRIMER MENSAJE ANTE SALUDOS:
-    - Cuando el usuario inicie una conversación con un saludo (como «Hola», «Buenos días», «Buenas tardes» o «Buenas noches»), responde de manera breve, cálida y natural. Por ejemplo: «¡Hola! 👋 Te damos la bienvenida al Centro de Extensión de la Facultad de Medicina UdeA 🩺. ¿En qué curso estás interesado?».
+    - Cuando el usuario inicie una conversación con un saludo (como «Hola», «Buenos días», «Buenas tardes» o «Buenas noches») o sea su primera interacción, responde de manera breve, cálida y natural: «¡Hola! 👋 Te damos la bienvenida al Centro de Extensión de la Facultad de Medicina UdeA 🩺. ¿En qué podemos ayudarte?».
     - ESTÁ ESTRICTAMENTE PROHIBIDO mostrar automáticamente listados de cursos, precios, fechas ni descripciones extensas cuando el usuario únicamente esté saludando.
     - Si el usuario pregunta por un curso específico, responde de inmediato con información pertinente y actualizada.
     - Evita repetir el saludo durante una conversación ya iniciada. Conserva en todo momento el contexto y la continuidad de la conversación.
@@ -620,7 +620,7 @@ ${knowledgeContext}
 
       // Primer mensaje cuando el usuario inicia saludando
       return {
-        replyText: `¡Hola! 👋 Bienvenido al Centro de Extensión de la Facultad de Medicina UdeA 🩺. ¿En qué curso estás interesado?`,
+        replyText: `¡Hola! 👋 Te damos la bienvenida al Centro de Extensión de la Facultad de Medicina UdeA 🩺. ¿En qué podemos ayudarte?`,
         detectedProgram: null,
         requestAdvisor: false
       };
@@ -659,7 +659,7 @@ ${knowledgeContext}
       ? ` ${currentLead.name}` 
       : '';
 
-    return `¡Hola${knownName}! 👋 Te damos la bienvenida al Centro de Extensión de la Facultad de Medicina UdeA 🩺. ¿En qué curso estás interesado?`;
+    return `¡Hola${knownName}! 👋 Te damos la bienvenida al Centro de Extensión de la Facultad de Medicina UdeA 🩺. ¿En qué podemos ayudarte?`;
   }
 
   /**
