@@ -157,6 +157,34 @@ export class LeadService {
   }
 
   /**
+   * Actualiza el programa de interés del prospecto desde la Ficha 360
+   */
+  static async updateLeadProgram(phoneNumber, programInterest) {
+    const nowIso = new Date().toISOString();
+    if (NeonService.isAvailable()) {
+      try {
+        await NeonService.updateLeadProgram(phoneNumber, programInterest);
+      } catch (err) {
+        console.warn('Error actualizando programa en Neon:', err.message);
+      }
+    }
+    try {
+      db.prepare(`
+        UPDATE leads 
+        SET program_interest = ?, updated_at = ?, version = COALESCE(version, 1) + 1
+        WHERE phone_number = ?
+      `).run(programInterest, nowIso, phoneNumber);
+    } catch (e) {
+      console.warn('Error actualizando programa en SQLite:', e.message);
+    }
+    const updatedLead = await this.getLeadByPhone(phoneNumber);
+    if (updatedLead) {
+      RealtimeService.notifyLeadUpdate(updatedLead, 'program_interest');
+    }
+    return { success: true, lead: updatedLead };
+  }
+
+  /**
    * Asigna un asesor específico a un lead
    */
   static async assignAdvisor(phoneNumber, advisorName) {

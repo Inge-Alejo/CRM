@@ -575,6 +575,21 @@ app.patch('/api/leads/:phone/advisor', async (req, res) => {
   res.json({ success: true, advisor });
 });
 
+// Actualizar programa de interés desde la Ficha 360 (Customer 360)
+app.patch('/api/leads/:phone/program', async (req, res) => {
+  try {
+    const phone = req.params.phone;
+    const { programInterest } = req.body;
+    if (!programInterest || typeof programInterest !== 'string') {
+      return res.status(400).json({ error: 'El programa de interés es requerido.' });
+    }
+    const result = await LeadService.updateLeadProgram(phone, programInterest.trim());
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Marcar o desmarcar que un asesor atendió al lead (toggle / acción)
 app.patch('/api/leads/:phone/attend', async (req, res) => {
   try {

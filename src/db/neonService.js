@@ -332,6 +332,23 @@ export class NeonService {
     `;
   }
 
+  static async updateLeadProgram(phoneNumber, programInterest) {
+    const sql = getSql();
+    if (!sql) return { success: false, error: 'DB unavailable' };
+    const nowIso = new Date().toISOString();
+    let lead = await this.getLeadByPhone(phoneNumber);
+    if (!lead) {
+      await this.recordLeadMessage(phoneNumber, '', 'user');
+    }
+    await sql`
+      UPDATE leads 
+      SET program_interest = ${programInterest}, updated_at = ${nowIso}, version = COALESCE(version, 1) + 1
+      WHERE phone_number = ${phoneNumber};
+    `;
+    await this.recordSecurityAudit('LEAD_PROGRAM_UPDATED', { phone: phoneNumber, program: programInterest });
+    return { success: true };
+  }
+
   static async assignAdvisor(phoneNumber, advisorName) {
     const sql = getSql();
     const nowIso = new Date().toISOString();

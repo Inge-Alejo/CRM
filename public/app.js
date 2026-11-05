@@ -273,6 +273,15 @@ document.addEventListener('DOMContentLoaded', () => {
             modalNotesInput.value = updatedLead.notes || '';
           }
         }
+
+        // Si la bandeja de entrada (Agent Workspace) tiene este lead abierto, actualizar en tiempo real
+        const cleanInbox = (currentInboxPhone || '').replace(/\+/g, '').replace(/\s+/g, '');
+        if (cleanInbox && cleanInbox === cleanUpdated) {
+          if (inboxCustProgramSelect && (data.action === 'program_interest' || !data.action)) {
+            populateCustProgramSelect(updatedLead.program_interest || 'Por definir');
+            updateProgramLinks(updatedLead.program_interest || 'Por definir');
+          }
+        }
       } catch (err) {
         console.warn('Error en SSE lead:updated:', err);
       }
@@ -2623,6 +2632,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const inboxCustProfession = document.getElementById('inboxCustProfession');
   const inboxCustArea = document.getElementById('inboxCustArea');
   const inboxCustProgram = document.getElementById('inboxCustProgram');
+  const inboxCustProgramSelect = document.getElementById('inboxCustProgramSelect');
   const btnInboxCopyPaymentLink = document.getElementById('btnInboxCopyPaymentLink');
   const inboxCustPaymentDirectLink = document.getElementById('inboxCustPaymentDirectLink');
   const inboxCustInfoLink = document.getElementById('inboxCustInfoLink');
@@ -2814,6 +2824,70 @@ document.addEventListener('DOMContentLoaded', () => {
     return (parts[0][0] + parts[1][0]).toUpperCase();
   }
 
+  // Actualizar enlaces de pago e información general según el programa seleccionado
+  function updateProgramLinks(programTitle) {
+    const normTitle = (programTitle || '').toLowerCase().trim();
+    const foundCourse = (allPortfolioItems || []).find(p => {
+      if (!p || !p.title) return false;
+      const pTitle = p.title.toLowerCase().trim();
+      return pTitle === normTitle || pTitle.includes(normTitle) || normTitle.includes(pTitle);
+    });
+
+    if (inboxCustPaymentDirectLink) {
+      if (foundCourse && (foundCourse.payment_link || foundCourse.registration_url || foundCourse.registration_link)) {
+        inboxCustPaymentDirectLink.href = foundCourse.payment_link || foundCourse.registration_url || foundCourse.registration_link;
+        inboxCustPaymentDirectLink.style.display = 'inline-flex';
+      } else {
+        inboxCustPaymentDirectLink.href = 'https://extension.medicinaudea.co/oferta-academica/';
+        inboxCustPaymentDirectLink.style.display = 'inline-flex';
+      }
+    }
+
+    if (inboxCustInfoLink) {
+      if (foundCourse && (foundCourse.registration_link || foundCourse.specific_url || foundCourse.registration_url)) {
+        inboxCustInfoLink.href = foundCourse.registration_link || foundCourse.specific_url || foundCourse.registration_url;
+        inboxCustInfoLink.style.display = 'inline-flex';
+      } else {
+        inboxCustInfoLink.href = 'https://extension.medicinaudea.co/oferta-academica/';
+        inboxCustInfoLink.style.display = 'inline-flex';
+      }
+    }
+  }
+
+  // Poblar y sincronizar la lista desplegable de programas de interés en la Ficha 360
+  function populateCustProgramSelect(selectedProgram) {
+    if (!inboxCustProgramSelect) return;
+    const currentVal = (selectedProgram || 'Por definir').trim();
+
+    const baseOptions = [
+      { value: 'Por definir', label: '⏳ Por definir' },
+      { value: 'Oferta Institucional General', label: '🏛️ Oferta Institucional General' }
+    ];
+
+    const catalogOptions = (allPortfolioItems || [])
+      .filter(p => p && p.title && p.category !== 'Información General' && p.is_active !== 0)
+      .map(p => ({
+        value: p.title,
+        label: p.category ? `[${p.category}] ${p.title}` : p.title
+      }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+
+    const allOpts = [...baseOptions, ...catalogOptions];
+
+    const exists = allOpts.some(o => o.value.toLowerCase() === currentVal.toLowerCase());
+    if (currentVal && !exists) {
+      allOpts.splice(2, 0, { value: currentVal, label: `📌 ${currentVal}` });
+    }
+
+    inboxCustProgramSelect.innerHTML = allOpts.map(o => {
+      const isSel = o.value.toLowerCase() === currentVal.toLowerCase();
+      return `<option value="${escapeHtml(o.value)}" ${isSel ? 'selected' : ''}>${escapeHtml(o.label)}</option>`;
+    }).join('');
+
+    inboxCustProgramSelect.value = currentVal;
+    if (inboxCustProgram) inboxCustProgram.textContent = currentVal;
+  }
+
   // 13. Abrir y Cargar Chat de un Prospecto en el Workspace
   window.selectInboxLead = async (phone) => {
     currentInboxPhone = phone;
@@ -3002,33 +3076,10 @@ document.addEventListener('DOMContentLoaded', () => {
       if (inboxCustEmail) inboxCustEmail.textContent = lead.email || 'No registrado';
       if (inboxCustProfession) inboxCustProfession.textContent = lead.segment_profession || 'Por Definir';
       if (inboxCustArea) inboxCustArea.textContent = lead.thematic_area || 'Clínica General';
-      if (inboxCustProgram) inboxCustProgram.textContent = lead.program_interest || 'Oferta Institucional General';
-
-      // Enlaces oficiales: Pago directo (formulario de inscripción) e Info general del programa
-      const foundCourse = allPortfolioItems.find(p => p.title.toLowerCase().includes((lead.program_interest || '').toLowerCase()));
-
-      if (inboxCustPaymentDirectLink) {
-        if (foundCourse && (foundCourse.payment_link || foundCourse.registration_url)) {
-          inboxCustPaymentDirectLink.href = foundCourse.payment_link || foundCourse.registration_url;
-          inboxCustPaymentDirectLink.style.display = 'inline-flex';
-        } else {
-          inboxCustPaymentDirectLink.href = 'https://extension.medicinaudea.co/oferta-academica/';
-          inboxCustPaymentDirectLink.style.display = 'inline-flex';
-        }
-      }
-
-      if (inboxCustInfoLink) {
-        if (foundCourse && (foundCourse.registration_link || foundCourse.specific_url)) {
-          inboxCustInfoLink.href = foundCourse.registration_link || foundCourse.specific_url;
-          inboxCustInfoLink.style.display = 'inline-flex';
-        } else if (foundCourse && foundCourse.registration_url) {
-          inboxCustInfoLink.href = foundCourse.registration_url;
-          inboxCustInfoLink.style.display = 'inline-flex';
-        } else {
-          inboxCustInfoLink.href = 'https://extension.medicinaudea.co/oferta-academica/';
-          inboxCustInfoLink.style.display = 'inline-flex';
-        }
-      }
+      
+      // Sincronizar Lista Desplegable y Enlaces de Programa de Interés
+      populateCustProgramSelect(lead.program_interest || 'Por definir');
+      updateProgramLinks(lead.program_interest || 'Por definir');
 
       // Select de Asesores
       if (inboxCustAdvisorSelect) {
@@ -3476,6 +3527,43 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // Cambiar programa de interés en Customer 360 (Lista desplegable interactiva para asesores)
+  if (inboxCustProgramSelect) {
+    inboxCustProgramSelect.addEventListener('change', async () => {
+      if (!currentInboxPhone) return;
+      const newProgram = inboxCustProgramSelect.value;
+      if (inboxCustProgram) inboxCustProgram.textContent = newProgram;
+
+      // Actualizar enlaces de pago e información inmediatamente
+      updateProgramLinks(newProgram);
+
+      try {
+        const res = await fetch(`/api/leads/${encodeURIComponent(currentInboxPhone)}/program`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ programInterest: newProgram })
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          if (currentInboxLead) {
+            currentInboxLead.program_interest = newProgram;
+          }
+          const cached = allLoadedLeads.find(l => l.phone_number === currentInboxPhone);
+          if (cached) {
+            cached.program_interest = newProgram;
+          }
+          if (typeof renderInbox === 'function') renderInbox(true);
+          if (typeof renderLeads === 'function') renderLeads();
+        } else {
+          alert('Error al actualizar el programa: ' + (data.error || 'Desconocido'));
+        }
+      } catch (err) {
+        console.error('Error al actualizar programa de interés:', err);
+        alert('Error de conexión al actualizar el programa.');
+      }
+    });
+  }
+
   // Asignarme el caso inmediatamente en Customer 360
   if (btnInboxAssignToMe) {
     btnInboxAssignToMe.addEventListener('click', async () => {
@@ -3536,11 +3624,19 @@ document.addEventListener('DOMContentLoaded', () => {
     btnInboxCopyPaymentLink.addEventListener('click', async () => {
       let link = null;
 
-      // 1. Priorizar el enlace directo oficial del formulario de inscripción y pago del curso
+      // 1. Priorizar el enlace directo oficial del formulario de inscripción y pago del curso seleccionado
       const lead = currentInboxLead || allLoadedLeads.find(l => l.phone_number === currentInboxPhone);
-      if (lead && lead.program_interest) {
-        const prog = lead.program_interest.toLowerCase();
-        const found = allPortfolioItems.find(p => p.title && p.title.toLowerCase().includes(prog));
+      const selectedProg = (inboxCustProgramSelect && inboxCustProgramSelect.value && inboxCustProgramSelect.value !== 'Por definir')
+        ? inboxCustProgramSelect.value
+        : (lead ? lead.program_interest : null);
+
+      if (selectedProg && selectedProg !== 'Por definir' && selectedProg !== 'Oferta Institucional General') {
+        const prog = selectedProg.toLowerCase().trim();
+        const found = allPortfolioItems.find(p => p.title && (
+          p.title.toLowerCase().trim() === prog ||
+          p.title.toLowerCase().includes(prog) ||
+          prog.includes(p.title.toLowerCase())
+        ));
         if (found && found.payment_link) {
           link = found.payment_link;
         } else if (found && (found.registration_url || found.registration_link)) {

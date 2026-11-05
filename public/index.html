@@ -558,10 +558,18 @@
 
               <!-- Sección: Programa de Interés & Enlace de Inscripción y Pago UdeA -->
               <div class="cust-card-section highlight-emerald-subtle">
-                <span class="cust-section-title cust-title-emerald">Programa de Interés</span>
-                <div class="cust-program-title" id="inboxCustProgram">
-                  Diplomado en Ciencias Ómicas
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+                  <span class="cust-section-title cust-title-emerald" style="margin-bottom: 0;">🎓 Programa de Interés</span>
+                  <span style="font-size: 0.68rem; color: var(--udea-emerald-dark); font-weight: 600; background: rgba(5,150,105,0.12); padding: 0.1rem 0.4rem; border-radius: 4px;">Modificable</span>
                 </div>
+                <div class="cust-program-select-wrapper" style="margin: 0.35rem 0 0.55rem 0;">
+                  <select id="inboxCustProgramSelect" class="form-select form-select-sm" style="width: 100%; font-weight: 600; color: #064e3b; background-color: #ecfdf5; border: 1.5px solid #a7f3d0; border-radius: 6px; padding: 0.38rem 0.5rem; font-size: 0.8rem; cursor: pointer;" title="Selecciona o cambia el programa de interés del prospecto">
+                    <option value="Por definir">⏳ Por definir</option>
+                    <option value="Oferta Institucional General">🏛️ Oferta Institucional General</option>
+                  </select>
+                </div>
+                <!-- Elemento para compatibilidad hacia atrás -->
+                <div id="inboxCustProgram" style="display: none;"></div>
                 <div class="cust-program-actions">
                   <button class="btn btn-primary btn-xs cust-action-btn" id="btnInboxCopyPaymentLink" title="Copiar enlace oficial directo de inscripción y pago del programa">
                     💳 Copiar Link Pago
