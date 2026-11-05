@@ -459,7 +459,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const activeView = document.querySelector('.view-panel.active');
     if (activeView && !isSuperAdmin) {
       const activeId = activeView.id;
-      if (activeId === 'view-segmentation' || activeId === 'view-simulator' || activeId === 'view-settings' || activeId === 'view-system-admin') {
+      if (activeId === 'view-segmentation' || activeId === 'view-simulator' || activeId === 'view-system-admin') {
         const overviewBtn = document.querySelector('.nav-item[data-view="view-overview"]');
         if (overviewBtn) overviewBtn.click();
       }
@@ -797,16 +797,12 @@ document.addEventListener('DOMContentLoaded', () => {
     'view-system-admin': {
       title: 'Panel de Control TIC · Métricas del Sistema',
       subtitle: 'Administración de bases de datos, tokens de IA, WhatsApp Cloud y consola de auditoría'
-    },
-    'view-settings': {
-      title: 'Configuración & Conexión Meta',
-      subtitle: 'Credenciales de Google Gemini e integración oficial con Meta Cloud API'
     }
   };
 
   window.switchTab = (viewId) => {
     const isSuperAdmin = currentAdvisorUser && (currentAdvisorUser.role_type === 'admin' || (currentAdvisorUser.email && currentAdvisorUser.email.toLowerCase() === 'proyectostic.med@udea.edu.co'));
-    if (!isSuperAdmin && (viewId === 'view-segmentation' || viewId === 'view-simulator' || viewId === 'view-settings' || viewId === 'view-system-admin')) {
+    if (!isSuperAdmin && (viewId === 'view-segmentation' || viewId === 'view-simulator' || viewId === 'view-system-admin')) {
       viewId = 'view-overview';
     }
 
@@ -1968,71 +1964,6 @@ document.addEventListener('DOMContentLoaded', () => {
       } catch (err) {
         alert('Error guardando: ' + err.message);
       }
-    });
-  }
-
-  // Guardar Gemini Key
-  const btnSaveGeminiKey = document.getElementById('btnSaveGeminiKey');
-  const geminiKeyInput = document.getElementById('geminiKeyInput');
-  const geminiKeyStatus = document.getElementById('geminiKeyStatus');
-  if (btnSaveGeminiKey) {
-    btnSaveGeminiKey.addEventListener('click', async () => {
-      const key = geminiKeyInput.value.trim();
-      if (!key) return alert('Por favor ingresa una clave válida');
-
-      try {
-        const res = await fetch('/api/settings/gemini-key', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ apiKey: key })
-        });
-        const data = await res.json();
-        if (data.success) {
-          geminiKeyStatus.textContent = 'Clave activada. Cascada multi-modelo activa (Gemini 3.5 Flash-Lite, 3.1 Flash-Lite, 3.5 Flash y 3.8 Flash).';
-          geminiKeyInput.value = '';
-          loadTelemetry();
-        }
-      } catch (err) {
-        alert('Error: ' + err.message);
-      }
-    });
-  }
-
-  // Guardar y Cargar Configuración de Firebase Auth
-  const firebaseApiKeyInput = document.getElementById('firebaseApiKeyInput');
-  const firebaseAuthDomainInput = document.getElementById('firebaseAuthDomainInput');
-  const firebaseProjectIdInput = document.getElementById('firebaseProjectIdInput');
-  const btnSaveFirebaseConfig = document.getElementById('btnSaveFirebaseConfig');
-  const firebaseConfigStatus = document.getElementById('firebaseConfigStatus');
-
-  const existingFbConfig = JSON.parse(localStorage.getItem('udea_firebase_config') || 'null');
-  if (existingFbConfig) {
-    if (firebaseApiKeyInput && existingFbConfig.apiKey) firebaseApiKeyInput.value = existingFbConfig.apiKey;
-    if (firebaseAuthDomainInput && existingFbConfig.authDomain) firebaseAuthDomainInput.value = existingFbConfig.authDomain;
-    if (firebaseProjectIdInput && existingFbConfig.projectId) firebaseProjectIdInput.value = existingFbConfig.projectId;
-  }
-
-  if (btnSaveFirebaseConfig) {
-    btnSaveFirebaseConfig.addEventListener('click', async () => {
-      const apiKey = firebaseApiKeyInput ? firebaseApiKeyInput.value.trim() : '';
-      const authDomain = firebaseAuthDomainInput ? firebaseAuthDomainInput.value.trim() : '';
-      const projectId = firebaseProjectIdInput ? firebaseProjectIdInput.value.trim() : '';
-
-      if (!apiKey || !projectId) {
-        alert('Por favor ingresa al menos la API Key y el Project ID de Firebase.');
-        return;
-      }
-
-      const config = { apiKey, authDomain, projectId };
-      localStorage.setItem('udea_firebase_config', JSON.stringify(config));
-
-      if (firebaseConfigStatus) {
-        firebaseConfigStatus.textContent = 'Configuración de Firebase guardada. Conectando con Firebase Auth...';
-        firebaseConfigStatus.style.color = '#059669';
-      }
-
-      await initFirebaseClient();
-      alert('¡Configuración de Firebase guardada y activada con éxito!');
     });
   }
 
