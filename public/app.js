@@ -562,7 +562,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const data = await res.json();
       if (!data.success) {
         if (landingAlertBox) {
-          landingAlertBox.innerHTML = `<strong>Acceso denegado:</strong> ${escapeHtml(data.error || 'Credenciales no autorizadas en Firebase.')}`;
+          landingAlertBox.innerHTML = `<strong>Acceso denegado:</strong> ${escapeHtml(data.error || 'Credenciales institucionales no válidas.')}`;
           landingAlertBox.style.display = 'block';
         }
         return false;

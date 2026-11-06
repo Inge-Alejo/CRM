@@ -32,12 +32,12 @@
 
       <div id="landingAlertBox" class="landing-alert" style="display: none;"></div>
 
-      <form id="advisorLoginForm" class="landing-form">
+      <form id="advisorLoginForm" class="landing-form" novalidate>
         <div class="form-group">
           <label for="loginEmailInput" class="landing-label">Correo Institucional</label>
           <div class="input-icon-wrap">
             <svg class="field-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
-            <input type="email" id="loginEmailInput" class="form-input landing-input" required placeholder="correo@udea.edu.co" autocomplete="username">
+            <input type="text" inputmode="email" id="loginEmailInput" class="form-input landing-input" required placeholder="correo@udea.edu.co o admin" autocomplete="username">
           </div>
         </div>
 
@@ -1515,12 +1515,12 @@
           Ingresa el correo institucional registrado en el panel de Firebase. Se enviará un correo con un enlace seguro para restablecer tu clave.
         </p>
 
-        <form id="forgotPasswordForm">
+        <form id="forgotPasswordForm" novalidate>
           <div class="form-group" style="margin-bottom: 1.25rem;">
             <label for="forgotEmailInput" style="display: block; font-size: 0.82rem; font-weight: 700; color: var(--udea-dark); margin-bottom: 0.35rem;">Correo Institucional:</label>
             <div class="input-icon-wrap">
               <svg class="field-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
-              <input type="email" id="forgotEmailInput" class="form-input landing-input" required placeholder="correo@udea.edu.co" autocomplete="email" style="width: 100%; box-sizing: border-box;">
+              <input type="text" inputmode="email" id="forgotEmailInput" class="form-input landing-input" required placeholder="correo@udea.edu.co o admin" autocomplete="email" style="width: 100%; box-sizing: border-box;">
             </div>
           </div>
           <div style="display: flex; justify-content: flex-end; gap: 0.6rem; border-top: 1px solid #f1f5f9; padding-top: 1rem;">
